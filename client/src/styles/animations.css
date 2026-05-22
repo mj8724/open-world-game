@@ -1,0 +1,104 @@
+/* =============================================
+   Animations
+   ============================================= */
+
+/* Fade In */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fadeIn var(--transition-base) ease;
+}
+
+/* Slide In from Right */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.slide-in-right {
+  animation: slideInRight var(--transition-slow) ease;
+}
+
+/* Slide In from Bottom */
+@keyframes slideInBottom {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in-bottom {
+  animation: slideInBottom var(--transition-slow) ease;
+}
+
+/* Pulse for resource changes */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.pulse {
+  animation: pulse 0.3s ease;
+}
+
+/* Glow for selected node */
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(37, 99, 235, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(37, 99, 235, 0.6);
+  }
+}
+
+/* Shake for combat */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+.shake {
+  animation: shake 0.3s ease;
+}
+
+/* Settings overlay fade */
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(2px);
+  }
+}
+
+.settings-overlay {
+  animation: overlayFadeIn var(--transition-base) ease;
+}
+
+/* Resource value change highlight */
+.resource-up {
+  color: var(--color-success) !important;
+  animation: pulse 0.4s ease;
+}
+
+.resource-down {
+  color: var(--color-danger) !important;
+  animation: pulse 0.4s ease;
+}

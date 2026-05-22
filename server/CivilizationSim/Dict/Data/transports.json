@@ -1,0 +1,32 @@
+{
+  "PORTER": {
+    "id": "PORTER",
+    "name": "搬运工",
+    "description": "人力运输，速度慢容量小",
+    "capacity": 20,
+    "speed": 1,
+    "cost_food": 5,
+    "cost_iron": 0,
+    "required_tech": "TRANSIT_ROADS"
+  },
+  "CARRIAGE": {
+    "id": "CARRIAGE",
+    "name": "马车",
+    "description": "畜力运输，中等速度和容量",
+    "capacity": 60,
+    "speed": 2,
+    "cost_food": 10,
+    "cost_iron": 15,
+    "required_tech": "TRANSIT_WAGONS"
+  },
+  "TRAIN": {
+    "id": "TRAIN",
+    "name": "火车",
+    "description": "铁路运输，高速大容量",
+    "capacity": 200,
+    "speed": 4,
+    "cost_food": 20,
+    "cost_iron": 50,
+    "required_tech": "TRANSIT_RAILWAY"
+  }
+}

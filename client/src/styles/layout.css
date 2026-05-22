@@ -1,0 +1,75 @@
+/* =============================================
+   Layout — Grid-based App Structure
+   ============================================= */
+
+#app {
+  display: grid;
+  grid-template-rows: 52px 1fr 140px;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "hud"
+    "main"
+    "log";
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--color-bg-primary);
+}
+
+/* HUD spans full width */
+.hud-bar {
+  grid-area: hud;
+}
+
+/* Main content area (map + panel) */
+.main-content {
+  grid-area: main;
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+}
+
+/* Map takes center-left */
+.map-container {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Info panel on the right */
+.info-panel {
+  overflow: hidden;
+}
+
+/* Battle log at bottom */
+.battle-log {
+  grid-area: log;
+}
+
+/* Settings overlay */
+.settings-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-overlay);
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  #app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 52px 1fr 280px 140px;
+    grid-template-areas:
+      "hud"
+      "map"
+      "panel"
+      "log";
+  }
+}

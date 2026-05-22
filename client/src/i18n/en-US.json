@@ -1,0 +1,120 @@
+{
+  "app": {
+    "title": "Project Evolution · Civilization Simulator",
+    "subtitle": "PROJECT EVOLUTION"
+  },
+  "hud": {
+    "food": "Food",
+    "iron": "Iron",
+    "ammo": "Ammo",
+    "pop": "Pop",
+    "tick": "Tick"
+  },
+  "faction": {
+    "player": "Player",
+    "ai": "AI Rival",
+    "neutral": "Neutral"
+  },
+  "map": {
+    "legend": {
+      "player": "Player",
+      "ai": "AI",
+      "neutral": "Neutral"
+    },
+    "node": {
+      "N01": "Capital",
+      "N02": "Iron Ridge",
+      "N03": "Southern Granary",
+      "N04": "Western Outpost",
+      "N05": "Northern Bastion",
+      "N06": "Eastern Port",
+      "N07": "Central Market",
+      "N08": "Forest Camp",
+      "N09": "Desert Oasis",
+      "N10": "AI Capital",
+      "N11": "AI Iron Mine",
+      "N12": "AI Granary",
+      "N13": "Contested Heights",
+      "N14": "Ancient Ruins",
+      "N15": "Southern Swamp",
+      "N16": "Hidden Valley",
+      "N17": "Border Outpost"
+    }
+  },
+  "panel": {
+    "selectNode": "Select a Node",
+    "placeholder": "Click a node on the map to view details",
+    "population": "Population",
+    "resources": "Resources",
+    "buildings": "Buildings",
+    "actions": "Actions",
+    "build": "Build",
+    "research": "Research",
+    "attack": "Attack",
+    "upgrade": "Upgrade",
+    "building_queued": "Building..."
+  },
+  "building": {
+    "FARM": { "name": "Farm", "desc": "Produces food to sustain population" },
+    "MINE": { "name": "Mine", "desc": "Extracts iron ore, backbone of industry" },
+    "ARSENAL": { "name": "Arsenal", "desc": "Consumes iron to produce ammo" },
+    "WALL": { "name": "Wall", "desc": "Fortification, reduces garrison casualties" },
+    "ORACLE_BEACON": { "name": "Oracle Beacon", "desc": "Heart of empire, accelerates research" }
+  },
+  "tech": {
+    "title": "Research & Technology",
+    "researching": "Researching",
+    "idle": "No active research. Select a technology to begin.",
+    "research_btn": "Research",
+    "researching_badge": "In Progress",
+    "category": {
+      "BUILD": "Construction",
+      "TRANSIT": "Logistics",
+      "FOOD": "Agriculture",
+      "WEAPON": "Weaponry"
+    },
+    "BUILD_MASONRY": { "name": "Masonry", "desc": "Unlock all buildings Lv.2" },
+    "BUILD_ARCHITECTURE": { "name": "Architecture", "desc": "Unlock all buildings Lv.3" },
+    "BUILD_ENGINEERING": { "name": "Engineering", "desc": "Unlock max building level" },
+    "TRANSIT_ROADS": { "name": "Road Building", "desc": "Unlock Porter transport" },
+    "TRANSIT_WAGONS": { "name": "Draft Animals", "desc": "Unlock Carriage transport" },
+    "TRANSIT_RAILWAY": { "name": "Railways", "desc": "Unlock Train transport" },
+    "FOOD_IRRIGATION": { "name": "Irrigation", "desc": "Food +20%" },
+    "FOOD_FERTILIZER": { "name": "Fertilizer", "desc": "Food +40%" },
+    "FOOD_MECHANIZATION": { "name": "Mechanization", "desc": "Food +80%" },
+    "WEAPON_BLADES": { "name": "Blade Forging", "desc": "Unlock Swordsman" },
+    "WEAPON_GUNPOWDER": { "name": "Gunpowder", "desc": "Unlock Musketeer" },
+    "WEAPON_MACHINEGUN": { "name": "Machine Gun", "desc": "Unlock Maxim Gun" }
+  },
+  "logistics": {
+    "title": "Logistics",
+    "create": "Create Route",
+    "cancel": "Cancel Route",
+    "from": "From Node",
+    "to": "To Node",
+    "cargo": "Cargo Type",
+    "no_routes": "No active transport routes"
+  },
+  "event": {
+    "starvation": "Famine at {node}! {deaths} died",
+    "build_complete": "{node} {building} upgraded to Lv.{level}",
+    "tech_complete": "Research complete: {tech}",
+    "logistics_create": "Route created: {from} → {to} ({transport} carrying {cargo}×{amount})",
+    "logistics_deliver": "Delivery: {cargo}×{amount} arrived at {to}"
+  },
+  "log": {
+    "title": "📜 Event Log",
+    "clear": "Clear",
+    "welcome": "System initialized. Welcome to Civilization Simulator.",
+    "connected": "Connected to server",
+    "cleared": "Log cleared"
+  },
+  "settings": {
+    "title": "⚙️ Settings",
+    "language": "Language",
+    "connection": "Connection",
+    "online": "Connected",
+    "offline": "Offline (Demo Mode)",
+    "speed": "Game Speed"
+  }
+}

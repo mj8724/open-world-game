@@ -1,0 +1,26 @@
+{
+  "FOOD": {
+    "id": "FOOD",
+    "name": "粮食",
+    "description": "维持人口和军队的基本资源",
+    "max_stack": 99999,
+    "decay_rate": 0.0,
+    "trade_value": 1.0
+  },
+  "IRON": {
+    "id": "IRON",
+    "name": "铁矿",
+    "description": "建筑和武器生产的核心材料",
+    "max_stack": 99999,
+    "decay_rate": 0.0,
+    "trade_value": 2.0
+  },
+  "AMMO": {
+    "id": "AMMO",
+    "name": "弹药",
+    "description": "远程兵种消耗的弹药",
+    "max_stack": 99999,
+    "decay_rate": 0.0,
+    "trade_value": 3.0
+  }
+}

@@ -1,0 +1,57 @@
+/**
+ * Mock Data — 完整初始游戏状态，用于无后端的演示模式
+ * 已平衡：所有节点有农田，初始资源充足
+ */
+export const MOCK_FULL_STATE = {
+  tick: 0,
+  nodes: {
+    N01: { id:'N01', name:'王城',     factionId:'PLAYER', isCapital:true,  popCount:30, invFood:500, invIron:200, invAmmo:0, farmLevel:2, mineLevel:0, arsenalLevel:0, wallLevel:1, wallHpCurrent:100, beaconLevel:1, garrisonCount:5, loyalty:1.0, tags:['capital'], x:300, y:200 },
+    N02: { id:'N02', name:'铁矿山',   factionId:'PLAYER', isCapital:false, popCount:15, invFood:500, invIron:200, invAmmo:0, farmLevel:1, mineLevel:2, arsenalLevel:0, wallLevel:0, wallHpCurrent:0, beaconLevel:0, garrisonCount:0, loyalty:1.0, tags:['iron_rich'], x:200, y:150 },
+    N03: { id:'N03', name:'南方粮仓', factionId:'PLAYER', isCapital:false, popCount:20, invFood:500, invIron:200, invAmmo:0, farmLevel:2, mineLevel:0, arsenalLevel:0, wallLevel:0, wallHpCurrent:0, beaconLevel:0, garrisonCount:0, loyalty:1.0, tags:['fertile'], x:350, y:350 },
+    N04: { id:'N04', name:'西部前哨', factionId:'PLAYER', isCapital:false, popCount:10, invFood:500, invIron:200, invAmmo:0, farmLevel:1, mineLevel:0, arsenalLevel:0, wallLevel:0, wallHpCurrent:0, beaconLevel:0, garrisonCount:0, loyalty:0.9, tags:[], x:100, y:250 },
+    N05: { id:'N05', name:'北方要塞', factionId:'PLAYER', isCapital:false, popCount:10, invFood:500, invIron:200, invAmmo:0, farmLevel:1, mineLevel:0, arsenalLevel:0, wallLevel:1, wallHpCurrent:100, beaconLevel:0, garrisonCount:3, loyalty:0.85, tags:['fortified'], x:250, y:50 },
+    N06: { id:'N06', name:'东部港口', factionId:'PLAYER', isCapital:false, popCount:15, invFood:500, invIron:200, invAmmo:0, farmLevel:1, mineLevel:1, arsenalLevel:0, wallLevel:0, wallHpCurrent:0, beaconLevel:0, garrisonCount:2, loyalty:0.9, tags:[], x:450, y:200 },
+    N07: { id:'N07', name:'中央集市', factionId:'PLAYER', isCapital:false, popCount:12, invFood:500, invIron:200, invAmmo:0, farmLevel:1, mineLevel:0, arsenalLevel:0, wallLevel:0, wallHpCurrent:0, beaconLevel:0, garrisonCount:0, loyalty:0.95, tags:['trade'], x:300, y:280 },
+    N08: { id:'N08', name:'密林营地', factionId:'PLAYER', isCapital:false, popCount:8,  invFood:500, invIron:200, invAmmo:0, farmLevel:1, mineLevel:0, arsenalLevel:0, wallLevel:0, wallHpCurrent:0, beaconLevel:0, garrisonCount:0, loyalty:0.8, tags:[], x:150, y:350 },
+    N09: { id:'N09', name:'沙漠绿洲', factionId:'NEUTRAL',isCapital:false, popCount:5,  invFood:50,  invIron:30,  invAmmo:0, farmLevel:0, mineLevel:0, arsenalLevel:0, wallLevel:0, wallHpCurrent:0, beaconLevel:0, garrisonCount:0, loyalty:0.5, tags:[], x:500, y:350 },
+    N10: { id:'N10', name:'AI王城',   factionId:'AI',     isCapital:true,  popCount:30, invFood:500, invIron:200, invAmmo:0, farmLevel:2, mineLevel:0, arsenalLevel:0, wallLevel:1, wallHpCurrent:100, beaconLevel:1, garrisonCount:5, loyalty:1.0, tags:['capital'], x:700, y:200 },
+    N11: { id:'N11', name:'AI铁矿',   factionId:'AI',     isCapital:false, popCount:15, invFood:500, invIron:200, invAmmo:0, farmLevel:1, mineLevel:2, arsenalLevel:0, wallLevel:0, wallHpCurrent:0, beaconLevel:0, garrisonCount:0, loyalty:1.0, tags:['iron_rich'], x:800, y:150 },
+    N12: { id:'N12', name:'AI粮仓',   factionId:'AI',     isCapital:false, popCount:20, invFood:500, invIron:200, invAmmo:0, farmLevel:2, mineLevel:0, arsenalLevel:0, wallLevel:0, wallHpCurrent:0, beaconLevel:0, garrisonCount:0, loyalty:1.0, tags:['fertile'], x:650, y:350 },
+    N13: { id:'N13', name:'争夺高地', factionId:'NEUTRAL',isCapital:false, popCount:3,  invFood:30,  invIron:20,  invAmmo:0, farmLevel:0, mineLevel:0, arsenalLevel:0, wallLevel:0, wallHpCurrent:0, beaconLevel:0, garrisonCount:0, loyalty:0.5, tags:['contested'], x:550, y:150 },
+    N14: { id:'N14', name:'古老遗迹', factionId:'NEUTRAL',isCapital:false, popCount:0,  invFood:10,  invIron:50,  invAmmo:0, farmLevel:0, mineLevel:0, arsenalLevel:0, wallLevel:0, wallHpCurrent:0, beaconLevel:0, garrisonCount:0, loyalty:0.5, tags:['relic'], x:500, y:50 },
+    N15: { id:'N15', name:'南部沼泽', factionId:'NEUTRAL',isCapital:false, popCount:2,  invFood:20,  invIron:10,  invAmmo:0, farmLevel:0, mineLevel:0, arsenalLevel:0, wallLevel:0, wallHpCurrent:0, beaconLevel:0, garrisonCount:0, loyalty:0.5, tags:[], x:400, y:450 },
+    N16: { id:'N16', name:'隐秘山谷', factionId:'NEUTRAL',isCapital:false, popCount:0,  invFood:5,   invIron:80,  invAmmo:0, farmLevel:0, mineLevel:0, arsenalLevel:0, wallLevel:0, wallHpCurrent:0, beaconLevel:0, garrisonCount:0, loyalty:0.5, tags:[], x:600, y:50 },
+    N17: { id:'N17', name:'边境哨站', factionId:'NEUTRAL',isCapital:false, popCount:4,  invFood:40,  invIron:25,  invAmmo:0, farmLevel:0, mineLevel:0, arsenalLevel:0, wallLevel:0, wallHpCurrent:0, beaconLevel:0, garrisonCount:0, loyalty:0.5, tags:['contested'], x:550, y:280 },
+  },
+  edges: {
+    E01: { id:'E01', sourceNodeId:'N01', targetNodeId:'N02', edgeType:'ROAD', length:3 },
+    E02: { id:'E02', sourceNodeId:'N01', targetNodeId:'N03', edgeType:'ROAD', length:3 },
+    E03: { id:'E03', sourceNodeId:'N01', targetNodeId:'N04', edgeType:'ROAD', length:4 },
+    E04: { id:'E04', sourceNodeId:'N01', targetNodeId:'N07', edgeType:'ROAD', length:2 },
+    E05: { id:'E05', sourceNodeId:'N02', targetNodeId:'N05', edgeType:'ROAD', length:3 },
+    E06: { id:'E06', sourceNodeId:'N03', targetNodeId:'N07', edgeType:'ROAD', length:2 },
+    E07: { id:'E07', sourceNodeId:'N03', targetNodeId:'N08', edgeType:'ROAD', length:4 },
+    E08: { id:'E08', sourceNodeId:'N04', targetNodeId:'N08', edgeType:'ROAD', length:3 },
+    E09: { id:'E09', sourceNodeId:'N05', targetNodeId:'N14', edgeType:'ROAD', length:5 },
+    E10: { id:'E10', sourceNodeId:'N06', targetNodeId:'N01', edgeType:'ROAD', length:3 },
+    E11: { id:'E11', sourceNodeId:'N06', targetNodeId:'N09', edgeType:'ROAD', length:3 },
+    E12: { id:'E12', sourceNodeId:'N06', targetNodeId:'N13', edgeType:'ROAD', length:3 },
+    E13: { id:'E13', sourceNodeId:'N07', targetNodeId:'N09', edgeType:'ROAD', length:4 },
+    E14: { id:'E14', sourceNodeId:'N09', targetNodeId:'N15', edgeType:'ROAD', length:3 },
+    E15: { id:'E15', sourceNodeId:'N09', targetNodeId:'N17', edgeType:'ROAD', length:2 },
+    E16: { id:'E16', sourceNodeId:'N10', targetNodeId:'N11', edgeType:'ROAD', length:3 },
+    E17: { id:'E17', sourceNodeId:'N10', targetNodeId:'N12', edgeType:'ROAD', length:3 },
+    E18: { id:'E18', sourceNodeId:'N10', targetNodeId:'N13', edgeType:'ROAD', length:4 },
+    E19: { id:'E19', sourceNodeId:'N10', targetNodeId:'N17', edgeType:'ROAD', length:3 },
+    E20: { id:'E20', sourceNodeId:'N13', targetNodeId:'N14', edgeType:'ROAD', length:3 },
+    E21: { id:'E21', sourceNodeId:'N13', targetNodeId:'N16', edgeType:'ROAD', length:3 },
+    E22: { id:'E22', sourceNodeId:'N15', targetNodeId:'N12', edgeType:'ROAD', length:4 },
+  },
+  factions: {
+    PLAYER: { id:'PLAYER', name:'玩家势力', ownedNodeIds:['N01','N02','N03','N04','N05','N06','N07','N08'], unlockedTechs:['SCAVENGING','PORTERS'], researchingTechId:null, researchProgress:0, isPlayer:true, capitalNodeId:'N01' },
+    AI:     { id:'AI',     name:'AI势力',   ownedNodeIds:['N10','N11','N12'], unlockedTechs:['SCAVENGING','PORTERS','BLACKSMITHING'], researchingTechId:null, researchProgress:0, isPlayer:false, capitalNodeId:'N10' },
+  },
+  armies: {},
+  logisticsEntities: {},
+  buildQueue: []
+};

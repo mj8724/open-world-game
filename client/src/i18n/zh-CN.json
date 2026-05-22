@@ -1,0 +1,120 @@
+{
+  "app": {
+    "title": "纪元实验 · 文明模拟器",
+    "subtitle": "PROJECT EVOLUTION"
+  },
+  "hud": {
+    "food": "粮食",
+    "iron": "铁矿",
+    "ammo": "弹药",
+    "pop": "人口",
+    "tick": "回合"
+  },
+  "faction": {
+    "player": "玩家",
+    "ai": "AI势力",
+    "neutral": "中立"
+  },
+  "map": {
+    "legend": {
+      "player": "玩家",
+      "ai": "AI",
+      "neutral": "中立"
+    },
+    "node": {
+      "N01": "王城",
+      "N02": "铁矿山",
+      "N03": "南方粮仓",
+      "N04": "西部前哨",
+      "N05": "北方要塞",
+      "N06": "东部港口",
+      "N07": "中央集市",
+      "N08": "密林营地",
+      "N09": "沙漠绿洲",
+      "N10": "AI王城",
+      "N11": "AI铁矿",
+      "N12": "AI粮仓",
+      "N13": "争夺高地",
+      "N14": "古老遗迹",
+      "N15": "南部沼泽",
+      "N16": "隐秘山谷",
+      "N17": "边境哨站"
+    }
+  },
+  "panel": {
+    "selectNode": "选择一个节点",
+    "placeholder": "点击地图上的节点查看详情",
+    "population": "人口",
+    "resources": "资源",
+    "buildings": "建筑",
+    "actions": "操作",
+    "build": "建造",
+    "research": "研究",
+    "attack": "进攻",
+    "upgrade": "升级",
+    "building_queued": "建造中..."
+  },
+  "building": {
+    "FARM": { "name": "农田", "desc": "生产粮食，维持人口生存" },
+    "MINE": { "name": "矿山", "desc": "开采铁矿，工业基础骨架" },
+    "ARSENAL": { "name": "兵工厂", "desc": "消耗铁矿，转化弹药" },
+    "WALL": { "name": "防御围墙", "desc": "城防工事，减少驻军伤亡" },
+    "ORACLE_BEACON": { "name": "神谕信号塔", "desc": "帝国心脏，加速科技研发" }
+  },
+  "tech": {
+    "title": "科技研发",
+    "researching": "正在研发",
+    "idle": "当前没有正在研发的科技，请选择一项开始研发。",
+    "research_btn": "研发",
+    "researching_badge": "研发中",
+    "category": {
+      "BUILD": "建筑工艺",
+      "TRANSIT": "运输物流",
+      "FOOD": "农业技术",
+      "WEAPON": "武器装备"
+    },
+    "BUILD_MASONRY": { "name": "砖石工艺", "desc": "解锁所有建筑2级" },
+    "BUILD_ARCHITECTURE": { "name": "高等建筑学", "desc": "解锁所有建筑3级" },
+    "BUILD_ENGINEERING": { "name": "工程学", "desc": "解锁所有建筑至最高级" },
+    "TRANSIT_ROADS": { "name": "修筑道路", "desc": "解锁搬运工运输" },
+    "TRANSIT_WAGONS": { "name": "畜力运输", "desc": "解锁马车运输" },
+    "TRANSIT_RAILWAY": { "name": "铁路运输", "desc": "解锁火车运输" },
+    "FOOD_IRRIGATION": { "name": "灌溉技术", "desc": "粮食产量+20%" },
+    "FOOD_FERTILIZER": { "name": "肥料配方", "desc": "粮食产量+40%" },
+    "FOOD_MECHANIZATION": { "name": "农业机械化", "desc": "粮食产量+80%" },
+    "WEAPON_BLADES": { "name": "锻造利刃", "desc": "解锁剑士" },
+    "WEAPON_GUNPOWDER": { "name": "火药技术", "desc": "解锁火枪手" },
+    "WEAPON_MACHINEGUN": { "name": "机关枪", "desc": "解锁马克沁机枪" }
+  },
+  "logistics": {
+    "title": "物流管理",
+    "create": "创建路线",
+    "cancel": "取消路线",
+    "from": "出发节点",
+    "to": "目标节点",
+    "cargo": "货物类型",
+    "no_routes": "当前没有运输路线"
+  },
+  "event": {
+    "starvation": "{node} 发生饥荒，饿死 {deaths} 人",
+    "build_complete": "{node} {building} 升级至 Lv.{level}",
+    "tech_complete": "科技研发完成：{tech}",
+    "logistics_create": "物流路线创建：{from} → {to}（{transport}运输{cargo}×{amount}）",
+    "logistics_deliver": "物流送达：{cargo}×{amount} 到达 {to}"
+  },
+  "log": {
+    "title": "📜 事件日志",
+    "clear": "清空",
+    "welcome": "系统初始化完成，欢迎来到文明模拟器。",
+    "connected": "已连接到服务器",
+    "cleared": "日志已清空"
+  },
+  "settings": {
+    "title": "⚙️ 设置",
+    "language": "语言",
+    "connection": "连接状态",
+    "online": "已连接",
+    "offline": "离线（演示模式）",
+    "speed": "游戏速度"
+  }
+}
