@@ -7,7 +7,10 @@
     "speed": 1,
     "cost_food": 5,
     "cost_iron": 0,
-    "required_tech": "TRANSIT_ROADS"
+    "required_tech": "TRANSIT_ROADS",
+    "build_ticks": 3,
+    "maintenance_food_per_tick": 1,
+    "maintenance_iron_per_tick": 0
   },
   "CARRIAGE": {
     "id": "CARRIAGE",
@@ -17,7 +20,10 @@
     "speed": 2,
     "cost_food": 10,
     "cost_iron": 15,
-    "required_tech": "TRANSIT_WAGONS"
+    "required_tech": "TRANSIT_WAGONS",
+    "build_ticks": 8,
+    "maintenance_food_per_tick": 1,
+    "maintenance_iron_per_tick": 1
   },
   "TRAIN": {
     "id": "TRAIN",
@@ -27,6 +33,9 @@
     "speed": 4,
     "cost_food": 20,
     "cost_iron": 50,
-    "required_tech": "TRANSIT_RAILWAY"
+    "required_tech": "TRANSIT_RAILWAY",
+    "build_ticks": 15,
+    "maintenance_food_per_tick": 2,
+    "maintenance_iron_per_tick": 2
   }
 }

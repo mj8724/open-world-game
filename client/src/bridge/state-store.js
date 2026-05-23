@@ -11,6 +11,9 @@ class StateStore {
     this.factions = {};
     this.armies = {};
     this.logistics = {};
+    this.rallyPoints = {};
+    this.transportStocks = {};
+    this.transportProductionQueue = [];
     this.buildQueue = [];
     this.currentTick = 0;
     this._initialized = false;
@@ -30,6 +33,9 @@ class StateStore {
     this.factions = fullState.factions || {};
     this.armies = fullState.armies || {};
     this.logistics = fullState.logisticsEntities || {};
+    this.rallyPoints = fullState.rallyPoints || {};
+    this.transportStocks = fullState.transportStocks || {};
+    this.transportProductionQueue = fullState.transportProductionQueue || [];
     this.buildQueue = fullState.buildQueue || [];
     this._initialized = true;
     eventBus.emit('state-full-update', this);
@@ -66,6 +72,18 @@ class StateStore {
         this.logistics[id] = { ...this.logistics[id], ...logi };
       }
     }
+    // 合并集结点
+    if (delta.rallyPoints) {
+      for (const [id, rally] of Object.entries(delta.rallyPoints)) {
+        this.rallyPoints[id] = { ...this.rallyPoints[id], ...rally };
+      }
+    }
+    // 合并运输工具库存
+    if (delta.transportStocks) {
+      for (const [id, stock] of Object.entries(delta.transportStocks)) {
+        this.transportStocks[id] = { ...this.transportStocks[id], ...stock };
+      }
+    }
     // 合并势力（研发进度等）
     if (delta.factions) {
       for (const [id, faction] of Object.entries(delta.factions)) {
@@ -79,9 +97,18 @@ class StateStore {
         delete this.logistics[id];
       }
     }
+    // 移除集结点
+    if (delta.removedRallyPointIds) {
+      for (const id of delta.removedRallyPointIds) {
+        delete this.rallyPoints[id];
+      }
+    }
     // 更新建造队列
     if (delta.buildQueue) {
       this.buildQueue = delta.buildQueue;
+    }
+    if (delta.transportProductionQueue) {
+      this.transportProductionQueue = delta.transportProductionQueue;
     }
 
     eventBus.emit('state-tick-update', { tick: this.currentTick, delta });

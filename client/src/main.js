@@ -11,6 +11,7 @@ import './styles/panels.css';
 import './styles/battle-log.css';
 import './styles/animations.css';
 import './styles/tech-panel.css';
+import './styles/logistics-panel.css';
 
 // ─── 模块导入 ───
 import i18n from './i18n/i18n.js';
@@ -19,12 +20,13 @@ import enUS from './i18n/en-US.json';
 import { gameBridge } from './bridge/game-bridge.js';
 import { stateStore } from './bridge/state-store.js';
 import { eventBus } from './ui/event-bus.js';
-import { initMap, loadMapData, refreshLabels } from './ui/map-view.js';
+import { initMap, loadMapData, refreshLabels, refreshLogisticsVisuals } from './ui/map-view.js';
 import { initHUD, updateHUD } from './ui/hud.js';
 import { initInfoPanel, refreshCurrentPanel } from './ui/info-panel.js';
 import { initBattleLog, addEntry } from './ui/battle-log.js';
 import { initSettingsPanel } from './ui/settings-panel.js';
 import { initTechPanel } from './ui/tech-panel.js';
+import { initLogisticsPanel } from './ui/logistics-panel.js';
 
 // ─── 初始化 ───
 async function init() {
@@ -41,6 +43,7 @@ async function init() {
   initBattleLog();
   initSettingsPanel();
   initTechPanel();
+  initLogisticsPanel();
   initMap('cy');
 
   // 3. 连接服务器（或降级到 mock）
@@ -57,6 +60,7 @@ async function init() {
   eventBus.on('state-tick-update', ({ tick }) => {
     updateHUD();
     refreshCurrentPanel();
+    refreshLogisticsVisuals();
   });
 
   eventBus.on('connection-changed', (connected) => {
@@ -76,6 +80,8 @@ async function init() {
   i18n.onChange(() => {
     updateHUD();
     refreshCurrentPanel();
+    refreshLabels();
+    refreshLogisticsVisuals();
   });
 
   console.log('[App] 初始化完成');

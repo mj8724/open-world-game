@@ -52,8 +52,37 @@ export function sendUpgradeEdge(edgeId) {
  * @param {string} targetNodeId
  * @param {string} cargoType - FOOD|IRON|AMMO
  */
-export function sendCreateRoute(fromNodeId, targetNodeId, cargoType = 'FOOD') {
-  gameBridge.sendCommand('CREATE_ROUTE', { fromNodeId, targetNodeId, buildingType: cargoType });
+export function sendCreateRoute(routeOrFromNodeId, targetNodeId, cargoType = 'FOOD') {
+  if (typeof routeOrFromNodeId === 'object') {
+    const {
+      fromNodeId,
+      targetNodeId: target,
+      cargoType: cargo = 'FOOD',
+      transportType = 'PORTER',
+      transportCount = 1,
+      priority = 50,
+      routeMode = 'MANUAL',
+    } = routeOrFromNodeId;
+    gameBridge.sendCommand('CREATE_ROUTE', {
+      fromNodeId,
+      targetNodeId: target,
+      cargoType: cargo,
+      transportType,
+      transportCount,
+      priority,
+      routeMode,
+    });
+    return;
+  }
+  gameBridge.sendCommand('CREATE_ROUTE', {
+    fromNodeId: routeOrFromNodeId,
+    targetNodeId,
+    cargoType,
+    transportType: 'PORTER',
+    transportCount: 1,
+    priority: 50,
+    routeMode: 'MANUAL',
+  });
 }
 
 /**
@@ -61,5 +90,21 @@ export function sendCreateRoute(fromNodeId, targetNodeId, cargoType = 'FOOD') {
  * @param {number} entityId
  */
 export function sendCancelRoute(entityId) {
-  gameBridge.sendCommand('CANCEL_ROUTE', { troopCount: entityId });
+  gameBridge.sendCommand('CANCEL_ROUTE', { routeId: entityId, troopCount: entityId });
+}
+
+export function sendUpdateRoute(routeId, patch = {}) {
+  gameBridge.sendCommand('UPDATE_ROUTE', { routeId, troopCount: routeId, ...patch });
+}
+
+export function sendSetRallyPoint(nodeId, policies) {
+  gameBridge.sendCommand('SET_RALLY_POINT', { nodeId, policies });
+}
+
+export function sendClearRallyPoint(nodeId) {
+  gameBridge.sendCommand('CLEAR_RALLY_POINT', { nodeId });
+}
+
+export function sendProduceTransport(nodeId, transportType, quantity = 1) {
+  gameBridge.sendCommand('PRODUCE_TRANSPORT', { nodeId, transportType, quantity });
 }

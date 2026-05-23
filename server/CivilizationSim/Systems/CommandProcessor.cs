@@ -13,6 +13,10 @@ public enum CommandAction
     RESEARCH,
     CREATE_ROUTE,
     CANCEL_ROUTE,
+    UPDATE_ROUTE,
+    SET_RALLY_POINT,
+    CLEAR_RALLY_POINT,
+    PRODUCE_TRANSPORT,
     ATTACK,
     RETREAT,
     SET_SPEED,
@@ -29,6 +33,15 @@ public class GameCommand
     public string? TechId { get; set; }
     public string? FromNodeId { get; set; }
     public string? TargetNodeId { get; set; }
+    public string? CargoType { get; set; }
+    public string? TransportType { get; set; }
+    public int TransportCount { get; set; } = 1;
+    public string? RouteMode { get; set; }
+    public int Priority { get; set; } = 50;
+    public int Quantity { get; set; } = 1;
+    public int? TargetQuantity { get; set; }
+    public bool Unlimited { get; set; }
+    public Dictionary<string, RallyCargoPolicy>? RallyPolicies { get; set; }
     public int TroopCount { get; set; }
     public int Speed { get; set; } = 1;
     public int Seq { get; set; }
@@ -74,6 +87,18 @@ public class CommandProcessor : IGameSystem
                     break;
                 case CommandAction.CANCEL_ROUTE:
                     ProcessCancelRoute(world, dict, cmd, logger);
+                    break;
+                case CommandAction.UPDATE_ROUTE:
+                    ProcessUpdateRoute(world, dict, cmd, logger);
+                    break;
+                case CommandAction.SET_RALLY_POINT:
+                    ProcessSetRallyPoint(world, cmd, logger);
+                    break;
+                case CommandAction.CLEAR_RALLY_POINT:
+                    ProcessClearRallyPoint(world, cmd, logger);
+                    break;
+                case CommandAction.PRODUCE_TRANSPORT:
+                    ProcessProduceTransport(world, dict, cmd, logger);
                     break;
                 default:
                     logger.Log($"[指令] 未实现的指令类型: {cmd.Action}");
@@ -165,85 +190,70 @@ public class CommandProcessor : IGameSystem
         if (cmd.FromNodeId == null || cmd.TargetNodeId == null) return;
         if (!world.Nodes.TryGetValue(cmd.FromNodeId, out var fromNode)) return;
         if (!world.Nodes.TryGetValue(cmd.TargetNodeId, out var toNode)) return;
-        if (fromNode.FactionId != "PLAYER") return;
+        if (fromNode.FactionId != "PLAYER" || toNode.FactionId != "PLAYER") return;
+        if (!world.Factions.TryGetValue("PLAYER", out var faction)) return;
 
-        // 决定运输类型（根据已解锁科技选择最高级的）
-        var faction = world.Factions.GetValueOrDefault("PLAYER");
-        if (faction == null) return;
+        string cargoType = cmd.CargoType ?? cmd.BuildingType ?? "FOOD";
+        if (!IsCargoType(cargoType)) return;
 
-        string transportType = "PORTER"; // 默认
-        if (faction.UnlockedTechs.Contains("TRANSIT_RAILWAY")) transportType = "TRAIN";
-        else if (faction.UnlockedTechs.Contains("TRANSIT_WAGONS")) transportType = "CARRIAGE";
-        else if (!faction.UnlockedTechs.Contains("TRANSIT_ROADS"))
-        {
-            logger.Log("[物流] 需要先研发「修筑道路」科技！");
-            return;
-        }
-
+        string transportType = cmd.TransportType ?? "PORTER";
+        if (!dict.HasTransport(transportType)) return;
         var transportDef = dict.GetTransport(transportType);
-        if (transportDef == null) return;
 
-        // 查找连接两个节点的边
-        string? edgeId = null;
-        foreach (var (eid, edge) in world.Edges)
+        if (!string.IsNullOrEmpty(transportDef.RequiredTech) && !faction.UnlockedTechs.Contains(transportDef.RequiredTech))
         {
-            if ((edge.SourceNodeId == cmd.FromNodeId && edge.TargetNodeId == cmd.TargetNodeId) ||
-                (edge.SourceNodeId == cmd.TargetNodeId && edge.TargetNodeId == cmd.FromNodeId))
-            {
-                edgeId = eid;
-                break;
-            }
-        }
-
-        if (edgeId == null)
-        {
-            logger.Log($"[物流] {cmd.FromNodeId} 和 {cmd.TargetNodeId} 之间没有直接道路！");
+            logger.Log($"[物流] 需要先研发 {transportDef.RequiredTech} 才能使用 {transportType}");
             return;
         }
 
-        // 确定货物类型（默认 FOOD，可通过 cmd.BuildingType 传递）
-        string cargoType = cmd.BuildingType ?? "FOOD";
-
-        // 从源节点装货
-        int capacity = transportDef.Capacity;
-        int available = cargoType switch
+        int transportCount = Math.Max(1, cmd.TransportCount);
+        var stock = EnsureTransportStock(world, fromNode.Id, fromNode.FactionId);
+        var stockEntry = EnsureTransportEntry(stock, transportType);
+        if (stockEntry.Idle < transportCount)
         {
-            "FOOD" => fromNode.InvFood,
-            "IRON" => fromNode.InvIron,
-            "AMMO" => fromNode.InvAmmo,
-            _ => 0
-        };
-        int loadAmount = Math.Min(capacity, available);
-        if (loadAmount <= 0)
-        {
-            logger.Log($"[物流] {fromNode.Name} 没有足够的 {cargoType} 可运输！");
+            logger.Log($"[物流] {fromNode.Name} 可用 {transportType} 不足，需要 {transportCount}，当前 {stockEntry.Idle}");
             return;
         }
 
-        // 扣除源节点资源
-        switch (cargoType)
+        var pathNodes = FindCompatiblePath(world, transportType, cmd.FromNodeId, cmd.TargetNodeId);
+        if (pathNodes.Count < 2)
         {
-            case "FOOD": fromNode.InvFood -= loadAmount; break;
-            case "IRON": fromNode.InvIron -= loadAmount; break;
-            case "AMMO": fromNode.InvAmmo -= loadAmount; break;
+            logger.Log($"[物流] {cmd.FromNodeId} 到 {cmd.TargetNodeId} 没有适合 {transportType} 的路线");
+            return;
         }
-        world.MarkDirty(fromNode);
 
-        // 创建物流实体
+        var pathEdges = GetPathEdges(world, pathNodes);
+        if (pathEdges.Count != pathNodes.Count - 1) return;
+
+        stockEntry.Idle -= transportCount;
+        stockEntry.Assigned += transportCount;
+        world.MarkDirty(stock);
+
         int entityId = world.EntityManager.CreateEntityId();
         var logistics = new LogisticsComponent
         {
             EntityId = entityId,
             FactionId = "PLAYER",
+            Mode = cmd.RouteMode == "AUTO" ? "AUTO" : "MANUAL",
             TransportType = transportType,
+            AssignedTransportCount = transportCount,
             CargoType = cargoType,
-            CargoAmount = loadAmount,
             FromNodeId = cmd.FromNodeId,
             ToNodeId = cmd.TargetNodeId,
-            CurrentEdgeId = edgeId,
-            EdgeProgress = 0,
-            Returning = false
+            CurrentEdgeId = pathEdges.FirstOrDefault(),
+            PathNodeIds = pathNodes,
+            PathEdgeIds = pathEdges,
+            Priority = Math.Clamp(cmd.Priority, 0, 100),
+            SourceKind = cmd.RouteMode == "AUTO" ? "PRODUCTION" : "MANUAL",
+            DesiredTargetQuantity = cmd.TargetQuantity,
+            UnlimitedTarget = cmd.Unlimited
         };
+
+        for (int i = 0; i < transportCount; i++)
+        {
+            logistics.Trips.Add(new LogisticsTripState { TripId = i + 1 });
+        }
+        UpdateRouteEstimates(world, dict, logistics);
 
         world.Logistics[entityId] = logistics;
         world.MarkDirty(logistics);
@@ -258,34 +268,204 @@ public class CommandProcessor : IGameSystem
                 ["to"] = toNode.Name,
                 ["transport"] = transportType,
                 ["cargo"] = cargoType,
-                ["amount"] = loadAmount
+                ["amount"] = transportDef.Capacity * transportCount
             }
         });
 
-        logger.Log($"[物流] 创建路线 {fromNode.Name} → {toNode.Name}，运输 {cargoType} × {loadAmount}（{transportType}）");
+        logger.Log($"[物流] 创建路线 {fromNode.Name} → {toNode.Name}，{transportType} × {transportCount} 运输 {cargoType}");
     }
 
     private void ProcessCancelRoute(World world, DictRegistry dict, GameCommand cmd, GameLogger logger)
     {
-        // cmd.TroopCount 用于传递 entityId
         int entityId = cmd.TroopCount;
-        if (world.Logistics.TryGetValue(entityId, out var logi))
-        {
-            // 将剩余货物返回源节点
-            if (logi.CargoAmount > 0 && world.Nodes.TryGetValue(logi.FromNodeId, out var srcNode))
-            {
-                switch (logi.CargoType)
-                {
-                    case "FOOD": srcNode.InvFood += logi.CargoAmount; break;
-                    case "IRON": srcNode.InvIron += logi.CargoAmount; break;
-                    case "AMMO": srcNode.InvAmmo += logi.CargoAmount; break;
-                }
-                world.MarkDirty(srcNode);
-            }
+        if (!world.Logistics.TryGetValue(entityId, out var logi)) return;
 
-            world.Logistics.Remove(entityId);
-            world.MarkRemoved(entityId);
-            logger.Log($"[物流] 取消路线 #{entityId}");
+        int returningCargo = logi.CargoAmount + logi.Trips.Sum(t => t.CargoAmount);
+        if (returningCargo > 0 && world.Nodes.TryGetValue(logi.FromNodeId, out var srcNode))
+        {
+            AddCargo(srcNode, logi.CargoType, returningCargo);
+            world.MarkDirty(srcNode);
         }
+
+        if (world.TransportStocks.TryGetValue(logi.FromNodeId, out var stock) &&
+            stock.Stock.TryGetValue(logi.TransportType, out var entry))
+        {
+            entry.Assigned = Math.Max(0, entry.Assigned - logi.AssignedTransportCount);
+            entry.Idle += logi.AssignedTransportCount;
+            world.MarkDirty(stock);
+        }
+
+        world.Logistics.Remove(entityId);
+        world.MarkRemoved(entityId);
+        logger.Log($"[物流] 取消路线 #{entityId}");
+    }
+
+    private void ProcessUpdateRoute(World world, DictRegistry dict, GameCommand cmd, GameLogger logger)
+    {
+        int entityId = cmd.TroopCount;
+        if (!world.Logistics.TryGetValue(entityId, out var logi)) return;
+        logi.Mode = "MANUAL";
+        logi.Priority = Math.Clamp(cmd.Priority, 0, 100);
+        logi.Enabled = cmd.Speed != 0;
+        world.MarkDirty(logi);
+    }
+
+    private void ProcessSetRallyPoint(World world, GameCommand cmd, GameLogger logger)
+    {
+        if (cmd.NodeId == null || !world.Nodes.TryGetValue(cmd.NodeId, out var node)) return;
+        if (node.FactionId != "PLAYER") return;
+
+        var rally = new RallyPointComponent
+        {
+            NodeId = node.Id,
+            FactionId = node.FactionId,
+            Enabled = true,
+            CargoPolicies = cmd.RallyPolicies ?? new Dictionary<string, RallyCargoPolicy>()
+        };
+
+        foreach (var policy in rally.CargoPolicies.Values)
+        {
+            policy.Priority = Math.Clamp(policy.Priority, 0, 100);
+            policy.Enabled = policy.Enabled && IsCargoType(policy.CargoType);
+        }
+
+        world.RallyPoints[node.Id] = rally;
+        world.MarkDirty(rally);
+        logger.Log($"[物流] 设置集结点 {node.Name}");
+    }
+
+    private void ProcessClearRallyPoint(World world, GameCommand cmd, GameLogger logger)
+    {
+        if (cmd.NodeId == null) return;
+        if (world.RallyPoints.Remove(cmd.NodeId))
+        {
+            world.MarkRemovedRallyPoint(cmd.NodeId);
+            logger.Log($"[物流] 清除集结点 {cmd.NodeId}");
+        }
+    }
+
+    private void ProcessProduceTransport(World world, DictRegistry dict, GameCommand cmd, GameLogger logger)
+    {
+        if (cmd.NodeId == null || cmd.TransportType == null) return;
+        if (!world.Nodes.TryGetValue(cmd.NodeId, out var node) || node.FactionId != "PLAYER") return;
+        if (!world.Factions.TryGetValue("PLAYER", out var faction)) return;
+
+        if (!dict.HasTransport(cmd.TransportType)) return;
+        var transport = dict.GetTransport(cmd.TransportType);
+        if (!string.IsNullOrEmpty(transport.RequiredTech) && !faction.UnlockedTechs.Contains(transport.RequiredTech)) return;
+
+        int quantity = Math.Max(1, cmd.Quantity);
+        int foodCost = transport.CostFood * quantity;
+        int ironCost = transport.CostIron * quantity;
+        if (node.InvFood < foodCost || node.InvIron < ironCost) return;
+
+        node.InvFood -= foodCost;
+        node.InvIron -= ironCost;
+        world.MarkDirty(node);
+        world.TransportProductionQueue.Add(new TransportProductionQueueItem
+        {
+            NodeId = node.Id,
+            TransportType = transport.Id,
+            Quantity = quantity,
+            RemainingTicks = transport.BuildTicks * quantity,
+            TotalTicks = transport.BuildTicks * quantity,
+            FactionId = node.FactionId
+        });
+        logger.Log($"[物流] {node.Name} 开始生产 {transport.Id} × {quantity}");
+    }
+
+    private static bool IsCargoType(string cargoType) => cargoType is "FOOD" or "IRON" or "AMMO";
+
+    private static int GetCargo(NodeComponent node, string cargoType) => cargoType switch
+    {
+        "FOOD" => node.InvFood,
+        "IRON" => node.InvIron,
+        "AMMO" => node.InvAmmo,
+        _ => 0
+    };
+
+    private static void AddCargo(NodeComponent node, string cargoType, int amount)
+    {
+        switch (cargoType)
+        {
+            case "FOOD": node.InvFood += amount; break;
+            case "IRON": node.InvIron += amount; break;
+            case "AMMO": node.InvAmmo += amount; break;
+        }
+    }
+
+    private static void RemoveCargo(NodeComponent node, string cargoType, int amount)
+    {
+        switch (cargoType)
+        {
+            case "FOOD": node.InvFood -= amount; break;
+            case "IRON": node.InvIron -= amount; break;
+            case "AMMO": node.InvAmmo -= amount; break;
+        }
+    }
+
+    private static TransportStockComponent EnsureTransportStock(World world, string nodeId, string factionId)
+    {
+        if (!world.TransportStocks.TryGetValue(nodeId, out var stock))
+        {
+            stock = new TransportStockComponent { NodeId = nodeId, FactionId = factionId };
+            world.TransportStocks[nodeId] = stock;
+        }
+        return stock;
+    }
+
+    private static TransportStockEntry EnsureTransportEntry(TransportStockComponent stock, string transportType)
+    {
+        if (!stock.Stock.TryGetValue(transportType, out var entry))
+        {
+            entry = new TransportStockEntry { TransportType = transportType };
+            stock.Stock[transportType] = entry;
+        }
+        return entry;
+    }
+
+    private static List<string> FindCompatiblePath(World world, string transportType, string from, string to)
+    {
+        var edges = world.Edges.Values
+            .Where(e => IsEdgeCompatible(transportType, e.EdgeType))
+            .Select(e => (e.SourceNodeId, e.TargetNodeId, e.Length));
+        return Pathfinding.FindShortestPath(edges, from, to);
+    }
+
+    private static bool IsEdgeCompatible(string transportType, string edgeType) => transportType switch
+    {
+        "TRAIN" => edgeType == "RAILWAY",
+        "CARRIAGE" => edgeType is "ROAD" or "RAILWAY",
+        _ => edgeType is "TRAIL" or "ROAD" or "RAILWAY"
+    };
+
+    private static List<string> GetPathEdges(World world, List<string> pathNodes)
+    {
+        var edges = new List<string>();
+        for (int i = 0; i < pathNodes.Count - 1; i++)
+        {
+            var from = pathNodes[i];
+            var to = pathNodes[i + 1];
+            var edge = world.Edges.Values.FirstOrDefault(e =>
+                (e.SourceNodeId == from && e.TargetNodeId == to) ||
+                (e.SourceNodeId == to && e.TargetNodeId == from));
+            if (edge == null) return new List<string>();
+            edges.Add(edge.Id);
+        }
+        return edges;
+    }
+
+    private static void UpdateRouteEstimates(World world, DictRegistry dict, LogisticsComponent logistics)
+    {
+        var transport = dict.GetTransport(logistics.TransportType);
+        float oneWay = logistics.PathEdgeIds
+            .Select(id => world.Edges.TryGetValue(id, out var edge) ? edge.Length / Math.Max(1, transport.Speed) : 0)
+            .Sum();
+        logistics.EstimatedRoundTripTicks = oneWay * 2;
+        logistics.EstimatedThroughputPerTick = logistics.EstimatedRoundTripTicks > 0
+            ? logistics.AssignedTransportCount * transport.Capacity / logistics.EstimatedRoundTripTicks
+            : 0;
+        int target = logistics.DesiredTargetQuantity ?? transport.Capacity * logistics.AssignedTransportCount;
+        logistics.EstimatedRequiredTransportCount = Math.Max(1, (int)Math.Ceiling(target / (float)Math.Max(1, transport.Capacity)));
     }
 }

@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CivilizationSim.Ecs;
+using CivilizationSim.Ecs.Components;
 using CivilizationSim.Systems;
 
 namespace CivilizationSim.Net;
@@ -128,10 +129,20 @@ public class WebSocketHandler
                         cmd.TechId = GetString(p, "techId");
                         cmd.FromNodeId = GetString(p, "fromNodeId");
                         cmd.TargetNodeId = GetString(p, "targetNodeId");
+                        cmd.CargoType = GetString(p, "cargoType");
+                        cmd.TransportType = GetString(p, "transportType");
+                        cmd.RouteMode = GetString(p, "routeMode");
 
                         if (p.TryGetProperty("targetLevel", out var tl)) cmd.TargetLevel = tl.GetInt32();
                         if (p.TryGetProperty("troopCount", out var tc)) cmd.TroopCount = tc.GetInt32();
+                        if (p.TryGetProperty("routeId", out var rid)) cmd.TroopCount = rid.GetInt32();
+                        if (p.TryGetProperty("transportCount", out var tcnt)) cmd.TransportCount = tcnt.GetInt32();
+                        if (p.TryGetProperty("priority", out var pr)) cmd.Priority = pr.GetInt32();
+                        if (p.TryGetProperty("quantity", out var qty)) cmd.Quantity = qty.GetInt32();
+                        if (p.TryGetProperty("targetQuantity", out var tq) && tq.ValueKind != JsonValueKind.Null) cmd.TargetQuantity = tq.GetInt32();
+                        if (p.TryGetProperty("unlimited", out var un)) cmd.Unlimited = un.GetBoolean();
                         if (p.TryGetProperty("speed", out var sp)) cmd.Speed = sp.GetInt32();
+                        if (p.TryGetProperty("policies", out var policies)) cmd.RallyPolicies = ParseRallyPolicies(policies);
                     }
 
                     // 速度指令直接处理
@@ -190,6 +201,28 @@ public class WebSocketHandler
     private static string? GetString(JsonElement el, string prop)
     {
         return el.TryGetProperty(prop, out var v) ? v.GetString() : null;
+    }
+
+    private static Dictionary<string, RallyCargoPolicy> ParseRallyPolicies(JsonElement policies)
+    {
+        var result = new Dictionary<string, RallyCargoPolicy>();
+        if (policies.ValueKind != JsonValueKind.Object) return result;
+
+        foreach (var prop in policies.EnumerateObject())
+        {
+            var value = prop.Value;
+            if (value.ValueKind != JsonValueKind.Object) continue;
+
+            var policy = new RallyCargoPolicy { CargoType = prop.Name };
+            if (value.TryGetProperty("enabled", out var enabled)) policy.Enabled = enabled.GetBoolean();
+            if (value.TryGetProperty("unlimited", out var unlimited)) policy.Unlimited = unlimited.GetBoolean();
+            if (value.TryGetProperty("targetQuantity", out var target) && target.ValueKind != JsonValueKind.Null)
+                policy.TargetQuantity = target.GetInt32();
+            if (value.TryGetProperty("priority", out var priority)) policy.Priority = priority.GetInt32();
+            result[prop.Name] = policy;
+        }
+
+        return result;
     }
 
     public int ClientCount

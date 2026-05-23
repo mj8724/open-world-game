@@ -48,10 +48,17 @@ export const MOCK_FULL_STATE = {
     E22: { id:'E22', sourceNodeId:'N15', targetNodeId:'N12', edgeType:'ROAD', length:4 },
   },
   factions: {
-    PLAYER: { id:'PLAYER', name:'玩家势力', ownedNodeIds:['N01','N02','N03','N04','N05','N06','N07','N08'], unlockedTechs:['SCAVENGING','PORTERS'], researchingTechId:null, researchProgress:0, isPlayer:true, capitalNodeId:'N01' },
-    AI:     { id:'AI',     name:'AI势力',   ownedNodeIds:['N10','N11','N12'], unlockedTechs:['SCAVENGING','PORTERS','BLACKSMITHING'], researchingTechId:null, researchProgress:0, isPlayer:false, capitalNodeId:'N10' },
+    PLAYER: { id:'PLAYER', name:'玩家势力', ownedNodeIds:['N01','N02','N03','N04','N05','N06','N07','N08'], unlockedTechs:['SCAVENGING','TRANSIT_ROADS'], researchingTechId:null, researchProgress:0, isPlayer:true, capitalNodeId:'N01' },
+    AI:     { id:'AI',     name:'AI势力',   ownedNodeIds:['N10','N11','N12'], unlockedTechs:['SCAVENGING','TRANSIT_ROADS','WEAPON_BLADES'], researchingTechId:null, researchProgress:0, isPlayer:false, capitalNodeId:'N10' },
   },
   armies: {},
   logisticsEntities: {},
+  rallyPoints: {},
+  transportStocks: {
+    N01: { nodeId:'N01', factionId:'PLAYER', stock:{ PORTER:{ transportType:'PORTER', total:6, idle:6, assigned:0, maintenanceBlocked:0 }, CARRIAGE:{ transportType:'CARRIAGE', total:0, idle:0, assigned:0, maintenanceBlocked:0 }, TRAIN:{ transportType:'TRAIN', total:0, idle:0, assigned:0, maintenanceBlocked:0 } } },
+    N02: { nodeId:'N02', factionId:'PLAYER', stock:{ PORTER:{ transportType:'PORTER', total:2, idle:2, assigned:0, maintenanceBlocked:0 }, CARRIAGE:{ transportType:'CARRIAGE', total:0, idle:0, assigned:0, maintenanceBlocked:0 }, TRAIN:{ transportType:'TRAIN', total:0, idle:0, assigned:0, maintenanceBlocked:0 } } },
+    N03: { nodeId:'N03', factionId:'PLAYER', stock:{ PORTER:{ transportType:'PORTER', total:2, idle:2, assigned:0, maintenanceBlocked:0 }, CARRIAGE:{ transportType:'CARRIAGE', total:0, idle:0, assigned:0, maintenanceBlocked:0 }, TRAIN:{ transportType:'TRAIN', total:0, idle:0, assigned:0, maintenanceBlocked:0 } } },
+  },
+  transportProductionQueue: [],
   buildQueue: []
 };

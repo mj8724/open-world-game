@@ -3,7 +3,7 @@
  * 连接后端，收发消息，断连自动降级到 mock 模式
  */
 import { stateStore } from './state-store.js';
-import { MOCK_FULL_STATE } from './mock-data.js';
+import { createMockRuntime } from './mock-runtime.js';
 import { eventBus } from '../ui/event-bus.js';
 
 class GameBridge {
@@ -16,6 +16,7 @@ class GameBridge {
     this._reconnectDelay = 1000;
     this._maxReconnectDelay = 10000;
     this._shouldReconnect = true;
+    this._mockRuntime = null;
   }
 
   /** 尝试连接服务器，失败则使用 mock 数据 */
@@ -25,6 +26,7 @@ class GameBridge {
 
       this._ws.onopen = () => {
         this._connected = true;
+        this._mockRuntime = null;
         this._reconnectDelay = 1000;
         console.log('[Bridge] 已连接到服务器');
         eventBus.emit('connection-changed', true);
@@ -56,7 +58,7 @@ class GameBridge {
 
     // 超时降级：2秒内未连接则使用 mock
     setTimeout(() => {
-      if (!this._connected && !stateStore.initialized) {
+      if (!this._connected && !this._mockRuntime) {
         console.log('[Bridge] 连接超时，切换到演示模式');
         this._useMockData();
       }
@@ -75,11 +77,13 @@ class GameBridge {
   }
 
   _useMockData() {
-    stateStore.applyFullState(MOCK_FULL_STATE);
+    if (this._mockInterval) clearInterval(this._mockInterval);
+    this._shouldReconnect = false;
+    this._mockRuntime = createMockRuntime();
+    stateStore.applyFullState(this._mockRuntime.getFullState());
     // 模拟 Tick 推进
     this._mockInterval = setInterval(() => {
-      stateStore.currentTick++;
-      eventBus.emit('state-tick-update', { tick: stateStore.currentTick, delta: {} });
+      stateStore.applyDelta(this._mockRuntime.tick());
     }, 1000);
   }
 
@@ -102,6 +106,8 @@ class GameBridge {
 
     if (this._connected && this._ws?.readyState === WebSocket.OPEN) {
       this._ws.send(JSON.stringify(msg));
+    } else if (this._mockRuntime) {
+      stateStore.applyDelta(this._mockRuntime.executeCommand(action, payload));
     } else {
       console.warn('[Bridge] 离线模式，指令未发送:', action);
     }
@@ -114,6 +120,7 @@ class GameBridge {
     this._shouldReconnect = false;
     this._ws?.close();
     if (this._mockInterval) clearInterval(this._mockInterval);
+    this._mockRuntime = null;
   }
 }
 

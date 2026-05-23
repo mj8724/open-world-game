@@ -16,8 +16,11 @@ public class World
     public Dictionary<string, EdgeComponent> Edges { get; } = new();
     public Dictionary<int, ArmyComponent> Armies { get; } = new();
     public Dictionary<int, LogisticsComponent> Logistics { get; } = new();
+    public Dictionary<string, RallyPointComponent> RallyPoints { get; } = new();
+    public Dictionary<string, TransportStockComponent> TransportStocks { get; } = new();
     public Dictionary<string, FactionComponent> Factions { get; } = new();
     public List<BuildQueueItem> BuildQueue { get; } = new();
+    public List<TransportProductionQueueItem> TransportProductionQueue { get; } = new();
 
     public EntityManager EntityManager { get; } = new();
 
@@ -26,8 +29,11 @@ public class World
     private readonly HashSet<string> _dirtyEdges = new();
     private readonly HashSet<int> _dirtyArmies = new();
     private readonly HashSet<int> _dirtyLogistics = new();
+    private readonly HashSet<string> _dirtyRallyPoints = new();
+    private readonly HashSet<string> _dirtyTransportStocks = new();
     private readonly HashSet<string> _dirtyFactions = new();
     private readonly List<int> _removedEntities = new();
+    private readonly List<string> _removedRallyPoints = new();
     private readonly List<GameEvent> _events = new();
 
     /// <summary>标记节点已变化</summary>
@@ -38,10 +44,16 @@ public class World
     public void MarkDirty(ArmyComponent army) => _dirtyArmies.Add(army.EntityId);
     /// <summary>标记物流已变化</summary>
     public void MarkDirty(LogisticsComponent logi) => _dirtyLogistics.Add(logi.EntityId);
+    /// <summary>标记集结点已变化</summary>
+    public void MarkDirty(RallyPointComponent rally) => _dirtyRallyPoints.Add(rally.NodeId);
+    /// <summary>标记运输工具库存已变化</summary>
+    public void MarkDirty(TransportStockComponent stock) => _dirtyTransportStocks.Add(stock.NodeId);
     /// <summary>标记势力已变化</summary>
     public void MarkDirty(FactionComponent faction) => _dirtyFactions.Add(faction.Id);
     /// <summary>记录实体已移除</summary>
     public void MarkRemoved(int entityId) => _removedEntities.Add(entityId);
+    /// <summary>记录集结点已移除</summary>
+    public void MarkRemovedRallyPoint(string nodeId) => _removedRallyPoints.Add(nodeId);
     /// <summary>添加游戏事件</summary>
     public void AddEvent(GameEvent evt) => _events.Add(evt);
 
@@ -52,8 +64,11 @@ public class World
         _dirtyEdges.Clear();
         _dirtyArmies.Clear();
         _dirtyLogistics.Clear();
+        _dirtyRallyPoints.Clear();
+        _dirtyTransportStocks.Clear();
         _dirtyFactions.Clear();
         _removedEntities.Clear();
+        _removedRallyPoints.Clear();
         _events.Clear();
     }
 
@@ -67,10 +82,14 @@ public class World
             Edges = new Dictionary<string, EdgeComponent>(),
             Armies = new Dictionary<int, ArmyComponent>(),
             LogisticsEntities = new Dictionary<int, LogisticsComponent>(),
+            RallyPoints = new Dictionary<string, RallyPointComponent>(),
+            TransportStocks = new Dictionary<string, TransportStockComponent>(),
             Factions = new Dictionary<string, FactionComponent>(),
             RemovedEntityIds = new List<int>(_removedEntities),
+            RemovedRallyPointIds = new List<string>(_removedRallyPoints),
             Events = new List<GameEvent>(_events),
-            BuildQueue = new List<BuildQueueItem>(BuildQueue)
+            BuildQueue = new List<BuildQueueItem>(BuildQueue),
+            TransportProductionQueue = new List<TransportProductionQueueItem>(TransportProductionQueue)
         };
 
         foreach (var id in _dirtyNodes)
@@ -88,6 +107,14 @@ public class World
         foreach (var id in _dirtyLogistics)
             if (Logistics.TryGetValue(id, out var logi))
                 delta.LogisticsEntities[id] = logi;
+
+        foreach (var id in _dirtyRallyPoints)
+            if (RallyPoints.TryGetValue(id, out var rally))
+                delta.RallyPoints[id] = rally;
+
+        foreach (var id in _dirtyTransportStocks)
+            if (TransportStocks.TryGetValue(id, out var stock))
+                delta.TransportStocks[id] = stock;
 
         foreach (var id in _dirtyFactions)
             if (Factions.TryGetValue(id, out var faction))
@@ -139,7 +166,7 @@ public class World
                 CapitalNodeId = factionStart.CapitalNode,
                 OwnedNodeIds = new List<string>(factionStart.OwnedNodes),
                 IsPlayer = factionStart.FactionId == "PLAYER",
-                UnlockedTechs = new List<string> { "SCAVENGING", "PORTERS" }
+                UnlockedTechs = new List<string> { "SCAVENGING", "TRANSIT_ROADS" }
             };
             Factions[faction.Id] = faction;
 
@@ -194,6 +221,23 @@ public class World
                     node.InvFood = 500;
                     node.InvIron = 200;
                     node.InvAmmo = 0;
+
+                    TransportStocks[nodeId] = new TransportStockComponent
+                    {
+                        NodeId = nodeId,
+                        FactionId = factionStart.FactionId,
+                        Stock = new Dictionary<string, TransportStockEntry>
+                        {
+                            ["PORTER"] = new TransportStockEntry
+                            {
+                                TransportType = "PORTER",
+                                Total = nodeId == factionStart.CapitalNode ? 6 : 2,
+                                Idle = nodeId == factionStart.CapitalNode ? 6 : 2
+                            },
+                            ["CARRIAGE"] = new TransportStockEntry { TransportType = "CARRIAGE" },
+                            ["TRAIN"] = new TransportStockEntry { TransportType = "TRAIN" }
+                        }
+                    };
                 }
             }
         }
@@ -208,10 +252,14 @@ public class TickDelta
     public Dictionary<string, EdgeComponent> Edges { get; set; } = new();
     public Dictionary<int, ArmyComponent> Armies { get; set; } = new();
     public Dictionary<int, LogisticsComponent> LogisticsEntities { get; set; } = new();
+    public Dictionary<string, RallyPointComponent> RallyPoints { get; set; } = new();
+    public Dictionary<string, TransportStockComponent> TransportStocks { get; set; } = new();
     public Dictionary<string, FactionComponent> Factions { get; set; } = new();
     public List<int> RemovedEntityIds { get; set; } = new();
+    public List<string> RemovedRallyPointIds { get; set; } = new();
     public List<GameEvent> Events { get; set; } = new();
     public List<BuildQueueItem> BuildQueue { get; set; } = new();
+    public List<TransportProductionQueueItem> TransportProductionQueue { get; set; } = new();
 }
 
 /// <summary>游戏事件</summary>

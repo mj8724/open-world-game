@@ -21,6 +21,10 @@ export function initInfoPanel() {
     eventBus.emit('open-tech-panel');
   });
 
+  document.getElementById('btn-logistics')?.addEventListener('click', () => {
+    eventBus.emit('open-logistics-panel', currentNodeId);
+  });
+
   eventBus.on('node-selected', (nodeId) => showNodeDetails(nodeId));
   eventBus.on('node-deselected', () => showPlaceholder());
 }

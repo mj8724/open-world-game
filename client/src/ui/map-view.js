@@ -73,16 +73,34 @@ export function initMap(containerId) {
         }
       },
       {
+        selector: 'node[rallyEnabled]',
+        style: {
+          'border-width': 5,
+          'border-style': 'double',
+          'background-color': '#fef3c7',
+        }
+      },
+      {
+        selector: 'edge[routeCount > 0]',
+        style: {
+          'width': 4,
+          'line-color': '#16A34A',
+          'line-style': 'solid',
+          'opacity': 1,
+        }
+      },
+      {
+        selector: 'edge[manualRouteCount > 0]',
+        style: {
+          'line-color': '#2563EB',
+        }
+      },
+      {
         selector: 'node:selected',
         style: {
           'border-width': 4,
           'border-color': '#1d4ed8',
           'background-color': '#eff6ff',
-          'shadow-blur': 12,
-          'shadow-color': 'rgba(37, 99, 235, 0.3)',
-          'shadow-offset-x': 0,
-          'shadow-offset-y': 0,
-          'shadow-opacity': 1,
         }
       },
       {
@@ -131,8 +149,11 @@ export function initMap(containerId) {
     }
   });
 
-  cy.on('mouseover', 'node', (e) => {
-    e.target.style('cursor', 'pointer');
+  container.addEventListener('mouseenter', () => {
+    container.style.cursor = 'pointer';
+  });
+  container.addEventListener('mouseleave', () => {
+    container.style.cursor = 'default';
   });
 
   return cy;
@@ -158,6 +179,7 @@ export function loadMapData() {
         factionId: node.factionId,
         isCapital: node.isCapital || false,
         popCount: node.popCount,
+        rallyEnabled: !!stateStore.rallyPoints[id]?.enabled,
       },
       position: { x: node.x, y: node.y },
     });
@@ -172,12 +194,16 @@ export function loadMapData() {
         source: edge.sourceNodeId,
         target: edge.targetNodeId,
         edgeType: edge.edgeType,
+        routeCount: 0,
+        manualRouteCount: 0,
+        autoRouteCount: 0,
       },
     });
   }
 
   cy.elements().remove();
   cy.add(elements);
+  refreshLogisticsVisuals();
   cy.fit(undefined, 40);
 }
 
@@ -230,6 +256,27 @@ export function refreshLabels() {
       : (node?.name || id);
     n.data('label', label);
   });
+}
+
+export function refreshLogisticsVisuals() {
+  if (!cy) return;
+  cy.nodes().forEach(node => {
+    node.data('rallyEnabled', !!stateStore.rallyPoints[node.id()]?.enabled);
+  });
+  cy.edges().forEach(edge => {
+    edge.data('routeCount', 0);
+    edge.data('manualRouteCount', 0);
+    edge.data('autoRouteCount', 0);
+  });
+  for (const route of Object.values(stateStore.logistics || {})) {
+    for (const edgeId of route.pathEdgeIds || (route.currentEdgeId ? [route.currentEdgeId] : [])) {
+      const edge = cy.getElementById(edgeId);
+      if (!edge.length) continue;
+      edge.data('routeCount', (edge.data('routeCount') || 0) + 1);
+      const key = route.mode === 'AUTO' ? 'autoRouteCount' : 'manualRouteCount';
+      edge.data(key, (edge.data(key) || 0) + 1);
+    }
+  }
 }
 
 export function getSelectedNodeId() { return selectedNodeId; }

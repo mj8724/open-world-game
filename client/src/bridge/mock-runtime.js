@@ -1,0 +1,334 @@
+import { MOCK_FULL_STATE } from './mock-data.js';
+
+const TRANSPORTS = {
+  PORTER: { capacity: 20, speed: 1, buildTicks: 3, costFood: 5, costIron: 0 },
+  CARRIAGE: { capacity: 60, speed: 2, buildTicks: 8, costFood: 10, costIron: 15 },
+  TRAIN: { capacity: 200, speed: 4, buildTicks: 15, costFood: 20, costIron: 50 },
+};
+
+export function createMockRuntime() {
+  return new MockRuntime(MOCK_FULL_STATE);
+}
+
+class MockRuntime {
+  constructor(initialState) {
+    this.state = structuredClone(initialState);
+    this.nextRouteId = 1;
+  }
+
+  getFullState() {
+    return structuredClone(this.state);
+  }
+
+  tick() {
+    this.state.tick++;
+    const delta = this.createDelta();
+    this.processProduction(delta);
+    this.planLogistics(delta);
+    this.processLogistics(delta);
+    return delta;
+  }
+
+  executeCommand(action, payload = {}) {
+    const delta = this.createDelta();
+    switch (action) {
+      case 'CREATE_ROUTE':
+        this.createRoute(payload, delta);
+        break;
+      case 'CANCEL_ROUTE':
+        this.cancelRoute(payload.routeId ?? payload.troopCount, delta);
+        break;
+      case 'UPDATE_ROUTE':
+        this.updateRoute(payload.routeId ?? payload.troopCount, payload, delta);
+        break;
+      case 'SET_RALLY_POINT':
+        this.setRallyPoint(payload.nodeId, payload.policies, delta);
+        this.planLogistics(delta);
+        break;
+      case 'CLEAR_RALLY_POINT':
+        this.clearRallyPoint(payload.nodeId, delta);
+        break;
+      case 'PRODUCE_TRANSPORT':
+        this.produceTransport(payload, delta);
+        break;
+    }
+    return delta;
+  }
+
+  createDelta() {
+    return {
+      tick: this.state.tick,
+      nodes: {},
+      logisticsEntities: {},
+      rallyPoints: {},
+      transportStocks: {},
+      removedEntityIds: [],
+      removedRallyPointIds: [],
+      transportProductionQueue: this.state.transportProductionQueue,
+      events: [],
+    };
+  }
+
+  createRoute(payload, delta) {
+    const from = this.state.nodes[payload.fromNodeId];
+    const to = this.state.nodes[payload.targetNodeId];
+    if (!from || !to || from.factionId !== 'PLAYER' || to.factionId !== 'PLAYER') return;
+
+    const transportType = payload.transportType || 'PORTER';
+    const transport = TRANSPORTS[transportType];
+    const count = Math.max(1, Number(payload.transportCount || 1));
+    const stock = this.ensureStock(from.id);
+    const entry = this.ensureStockEntry(stock, transportType);
+    if (!transport || entry.idle < count) return;
+
+    const path = this.findPath(from.id, to.id);
+    if (path.edgeIds.length === 0) return;
+
+    entry.idle -= count;
+    entry.assigned += count;
+    delta.transportStocks[from.id] = structuredClone(stock);
+
+    const id = this.nextRouteId++;
+    const route = {
+      entityId: id,
+      factionId: 'PLAYER',
+      mode: payload.routeMode || 'MANUAL',
+      enabled: true,
+      transportType,
+      assignedTransportCount: count,
+      cargoType: payload.cargoType || 'FOOD',
+      cargoAmount: 0,
+      fromNodeId: from.id,
+      toNodeId: to.id,
+      currentEdgeId: path.edgeIds[0],
+      edgeProgress: 0,
+      returning: false,
+      pathNodeIds: path.nodeIds,
+      pathEdgeIds: path.edgeIds,
+      priority: Math.max(0, Math.min(100, Number(payload.priority || 50))),
+      trips: Array.from({ length: count }, (_, i) => ({ tripId: i + 1, returning: false, cargoAmount: 0, currentPathIndex: 0, edgeProgress: 0 })),
+      estimatedRoundTripTicks: this.estimateRoundTrip(path.edgeIds, transportType),
+      estimatedThroughputPerTick: 0,
+      estimatedRequiredTransportCount: count,
+      deliveredLastTick: 0,
+      deliveredTotal: 0,
+    };
+    route.estimatedThroughputPerTick = route.estimatedRoundTripTicks > 0
+      ? (count * transport.capacity) / route.estimatedRoundTripTicks
+      : 0;
+
+    this.state.logisticsEntities[id] = route;
+    delta.logisticsEntities[id] = structuredClone(route);
+  }
+
+  cancelRoute(routeId, delta) {
+    const route = this.state.logisticsEntities[routeId];
+    if (!route) return;
+    const stock = this.state.transportStocks[route.fromNodeId];
+    const entry = stock?.stock?.[route.transportType];
+    if (entry) {
+      entry.assigned = Math.max(0, entry.assigned - route.assignedTransportCount);
+      entry.idle += route.assignedTransportCount;
+      delta.transportStocks[route.fromNodeId] = structuredClone(stock);
+    }
+    delete this.state.logisticsEntities[routeId];
+    delta.removedEntityIds.push(Number(routeId));
+  }
+
+  updateRoute(routeId, payload, delta) {
+    const route = this.state.logisticsEntities[routeId];
+    if (!route) return;
+    route.mode = 'MANUAL';
+    route.priority = Math.max(0, Math.min(100, Number(payload.priority ?? route.priority)));
+    delta.logisticsEntities[routeId] = structuredClone(route);
+  }
+
+  setRallyPoint(nodeId, policies, delta) {
+    const node = this.state.nodes[nodeId];
+    if (!node || node.factionId !== 'PLAYER') return;
+    const rally = { nodeId, factionId: 'PLAYER', enabled: true, cargoPolicies: policies || {} };
+    this.state.rallyPoints[nodeId] = rally;
+    delta.rallyPoints[nodeId] = structuredClone(rally);
+  }
+
+  clearRallyPoint(nodeId, delta) {
+    if (!this.state.rallyPoints[nodeId]) return;
+    delete this.state.rallyPoints[nodeId];
+    delta.removedRallyPointIds.push(nodeId);
+  }
+
+  produceTransport(payload, delta) {
+    const node = this.state.nodes[payload.nodeId];
+    const def = TRANSPORTS[payload.transportType];
+    if (!node || node.factionId !== 'PLAYER' || !def) return;
+    const quantity = Math.max(1, Number(payload.quantity || 1));
+    const foodCost = def.costFood * quantity;
+    const ironCost = def.costIron * quantity;
+    if (node.invFood < foodCost || node.invIron < ironCost) return;
+    node.invFood -= foodCost;
+    node.invIron -= ironCost;
+    delta.nodes[node.id] = structuredClone(node);
+    this.state.transportProductionQueue.push({
+      nodeId: node.id,
+      transportType: payload.transportType,
+      quantity,
+      remainingTicks: def.buildTicks * quantity,
+      totalTicks: def.buildTicks * quantity,
+      factionId: 'PLAYER',
+    });
+    delta.transportProductionQueue = structuredClone(this.state.transportProductionQueue);
+  }
+
+  processProduction(delta) {
+    for (let i = this.state.transportProductionQueue.length - 1; i >= 0; i--) {
+      const item = this.state.transportProductionQueue[i];
+      item.remainingTicks--;
+      if (item.remainingTicks > 0) continue;
+      const stock = this.ensureStock(item.nodeId);
+      const entry = this.ensureStockEntry(stock, item.transportType);
+      entry.total += item.quantity;
+      entry.idle += item.quantity;
+      delta.transportStocks[item.nodeId] = structuredClone(stock);
+      this.state.transportProductionQueue.splice(i, 1);
+    }
+    delta.transportProductionQueue = structuredClone(this.state.transportProductionQueue);
+  }
+
+  planLogistics(delta) {
+    for (const rally of Object.values(this.state.rallyPoints)) {
+      if (!rally.enabled || rally.factionId !== 'PLAYER') continue;
+      for (const [cargoType, policy] of Object.entries(rally.cargoPolicies || {})) {
+        if (!policy.enabled) continue;
+        const destination = this.state.nodes[rally.nodeId];
+        if (!destination) continue;
+        const cargo = policy.cargoType || cargoType;
+        const current = this.getCargo(destination, cargo);
+        if (!policy.unlimited && current >= (policy.targetQuantity || 0)) continue;
+        const existing = Object.values(this.state.logisticsEntities).find(route =>
+          route.mode === 'AUTO' && route.enabled && route.toNodeId === rally.nodeId && route.cargoType === cargo);
+        if (existing) continue;
+
+        const source = Object.values(this.state.nodes)
+          .filter(node => node.factionId === 'PLAYER' && node.id !== rally.nodeId && this.isProductionSource(node, cargo))
+          .filter(node => this.getCargo(node, cargo) > 120)
+          .sort((a, b) => this.getCargo(b, cargo) - this.getCargo(a, cargo))[0];
+        if (!source) continue;
+        const stock = this.ensureStock(source.id);
+        const entry = this.ensureStockEntry(stock, 'PORTER');
+        if (entry.idle <= 0) continue;
+        this.createRoute({
+          fromNodeId: source.id,
+          targetNodeId: rally.nodeId,
+          cargoType: cargo,
+          transportType: 'PORTER',
+          transportCount: 1,
+          priority: policy.priority || 50,
+          routeMode: 'AUTO',
+          targetQuantity: policy.targetQuantity,
+          unlimited: policy.unlimited,
+        }, delta);
+      }
+    }
+  }
+
+  processLogistics(delta) {
+    for (const route of Object.values(this.state.logisticsEntities)) {
+      if (!route.enabled || !route.pathEdgeIds?.length) continue;
+      const def = TRANSPORTS[route.transportType];
+      let delivered = 0;
+      for (const trip of route.trips) {
+        if (!trip.returning && trip.cargoAmount === 0) {
+          const from = this.state.nodes[route.fromNodeId];
+          const load = Math.min(def.capacity, Math.max(0, this.getCargo(from, route.cargoType) - 50));
+          if (load <= 0) continue;
+          this.addCargo(from, route.cargoType, -load);
+          trip.cargoAmount = load;
+          delta.nodes[from.id] = structuredClone(from);
+        }
+
+        const edgeId = route.pathEdgeIds[trip.currentPathIndex];
+        const edge = this.state.edges[edgeId];
+        trip.edgeProgress += def.speed / Math.max(1, edge.length);
+        route.currentEdgeId = edgeId;
+        route.edgeProgress = trip.edgeProgress;
+        route.returning = trip.returning;
+        if (trip.edgeProgress < 1) continue;
+        trip.edgeProgress = 0;
+
+        if (!trip.returning && trip.currentPathIndex < route.pathEdgeIds.length - 1) {
+          trip.currentPathIndex++;
+        } else if (!trip.returning) {
+          const to = this.state.nodes[route.toNodeId];
+          this.addCargo(to, route.cargoType, trip.cargoAmount);
+          delivered += trip.cargoAmount;
+          trip.cargoAmount = 0;
+          trip.returning = true;
+          delta.nodes[to.id] = structuredClone(to);
+        } else if (trip.currentPathIndex > 0) {
+          trip.currentPathIndex--;
+        } else {
+          trip.returning = false;
+        }
+      }
+      route.cargoAmount = route.trips.reduce((sum, trip) => sum + trip.cargoAmount, 0);
+      route.deliveredLastTick = delivered;
+      route.deliveredTotal += delivered;
+      delta.logisticsEntities[route.entityId] = structuredClone(route);
+    }
+  }
+
+  findPath(from, to) {
+    const queue = [{ id: from, nodeIds: [from], edgeIds: [] }];
+    const seen = new Set([from]);
+    while (queue.length) {
+      const current = queue.shift();
+      if (current.id === to) return current;
+      for (const edge of Object.values(this.state.edges)) {
+        const next = edge.sourceNodeId === current.id ? edge.targetNodeId : edge.targetNodeId === current.id ? edge.sourceNodeId : null;
+        if (!next || seen.has(next)) continue;
+        seen.add(next);
+        queue.push({ id: next, nodeIds: [...current.nodeIds, next], edgeIds: [...current.edgeIds, edge.id] });
+      }
+    }
+    return { nodeIds: [], edgeIds: [] };
+  }
+
+  estimateRoundTrip(edgeIds, transportType) {
+    const def = TRANSPORTS[transportType];
+    const oneWay = edgeIds.reduce((sum, id) => sum + this.state.edges[id].length / Math.max(1, def.speed), 0);
+    return oneWay * 2;
+  }
+
+  ensureStock(nodeId) {
+    if (!this.state.transportStocks[nodeId]) {
+      this.state.transportStocks[nodeId] = { nodeId, factionId: 'PLAYER', stock: {} };
+    }
+    return this.state.transportStocks[nodeId];
+  }
+
+  ensureStockEntry(stock, transportType) {
+    if (!stock.stock[transportType]) {
+      stock.stock[transportType] = { transportType, total: 0, idle: 0, assigned: 0, maintenanceBlocked: 0 };
+    }
+    return stock.stock[transportType];
+  }
+
+  isProductionSource(node, cargoType) {
+    if (cargoType === 'FOOD') return (node.farmLevel || 0) > 0;
+    if (cargoType === 'IRON') return (node.mineLevel || 0) > 0;
+    if (cargoType === 'AMMO') return (node.arsenalLevel || 0) > 0;
+    return false;
+  }
+
+  getCargo(node, cargoType) {
+    if (cargoType === 'IRON') return node.invIron;
+    if (cargoType === 'AMMO') return node.invAmmo;
+    return node.invFood;
+  }
+
+  addCargo(node, cargoType, amount) {
+    if (cargoType === 'IRON') node.invIron += amount;
+    else if (cargoType === 'AMMO') node.invAmmo += amount;
+    else node.invFood += amount;
+  }
+}

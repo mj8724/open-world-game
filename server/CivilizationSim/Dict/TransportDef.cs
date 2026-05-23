@@ -30,4 +30,13 @@ public record TransportDef
 
     [JsonPropertyName("required_tech")]
     public string? RequiredTech { get; init; }
+
+    [JsonPropertyName("build_ticks")]
+    public int BuildTicks { get; init; } = 5;
+
+    [JsonPropertyName("maintenance_food_per_tick")]
+    public int MaintenanceFoodPerTick { get; init; }
+
+    [JsonPropertyName("maintenance_iron_per_tick")]
+    public int MaintenanceIronPerTick { get; init; }
 }

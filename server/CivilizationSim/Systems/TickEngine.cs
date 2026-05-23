@@ -1,5 +1,6 @@
 using CivilizationSim.Dict;
 using CivilizationSim.Ecs;
+using CivilizationSim.Ecs.Components;
 using CivilizationSim.Utils;
 
 namespace CivilizationSim.Systems;
@@ -36,12 +37,15 @@ public class TickEngine
         // 注册所有 System，按 Order 排序
         _systems = new List<IGameSystem>
         {
-            CommandProcessor,        // Order 10
-            new BuildSystem(),       // Order 20
-            new ResourceSystem(),    // Order 30
-            new PopulationSystem(),  // Order 40
-            new TechSystem(),        // Order 50
-            new LogisticsSystem(),   // Order 60
+            CommandProcessor,              // Order 10
+            new BuildSystem(),             // Order 20
+            new TransportProductionSystem(), // Order 25
+            new ResourceSystem(),          // Order 30
+            new PopulationSystem(),        // Order 40
+            new TechSystem(),              // Order 50
+            new LogisticsPlanningSystem(), // Order 55
+            new TransportMaintenanceSystem(), // Order 58
+            new LogisticsSystem(),         // Order 60
             new CombatSystem(),      // Order 70
             new MoraleSystem(),      // Order 80
             new AISystem(),          // Order 90
@@ -85,12 +89,15 @@ public class TickEngine
         return new FullStateSnapshot
         {
             Tick = _currentTick,
-            Nodes = new Dictionary<string, Ecs.Components.NodeComponent>(_world.Nodes),
-            Edges = new Dictionary<string, Ecs.Components.EdgeComponent>(_world.Edges),
-            Armies = new Dictionary<int, Ecs.Components.ArmyComponent>(_world.Armies),
-            LogisticsEntities = new Dictionary<int, Ecs.Components.LogisticsComponent>(_world.Logistics),
-            Factions = new Dictionary<string, Ecs.Components.FactionComponent>(_world.Factions),
-            BuildQueue = new List<Ecs.Components.BuildQueueItem>(_world.BuildQueue)
+            Nodes = new Dictionary<string, NodeComponent>(_world.Nodes),
+            Edges = new Dictionary<string, EdgeComponent>(_world.Edges),
+            Armies = new Dictionary<int, ArmyComponent>(_world.Armies),
+            LogisticsEntities = new Dictionary<int, LogisticsComponent>(_world.Logistics),
+            RallyPoints = new Dictionary<string, RallyPointComponent>(_world.RallyPoints),
+            TransportStocks = new Dictionary<string, TransportStockComponent>(_world.TransportStocks),
+            Factions = new Dictionary<string, FactionComponent>(_world.Factions),
+            BuildQueue = new List<BuildQueueItem>(_world.BuildQueue),
+            TransportProductionQueue = new List<TransportProductionQueueItem>(_world.TransportProductionQueue)
         };
     }
 }
@@ -99,10 +106,13 @@ public class TickEngine
 public class FullStateSnapshot
 {
     public int Tick { get; set; }
-    public Dictionary<string, Ecs.Components.NodeComponent> Nodes { get; set; } = new();
-    public Dictionary<string, Ecs.Components.EdgeComponent> Edges { get; set; } = new();
-    public Dictionary<int, Ecs.Components.ArmyComponent> Armies { get; set; } = new();
-    public Dictionary<int, Ecs.Components.LogisticsComponent> LogisticsEntities { get; set; } = new();
-    public Dictionary<string, Ecs.Components.FactionComponent> Factions { get; set; } = new();
-    public List<Ecs.Components.BuildQueueItem> BuildQueue { get; set; } = new();
+    public Dictionary<string, NodeComponent> Nodes { get; set; } = new();
+    public Dictionary<string, EdgeComponent> Edges { get; set; } = new();
+    public Dictionary<int, ArmyComponent> Armies { get; set; } = new();
+    public Dictionary<int, LogisticsComponent> LogisticsEntities { get; set; } = new();
+    public Dictionary<string, RallyPointComponent> RallyPoints { get; set; } = new();
+    public Dictionary<string, TransportStockComponent> TransportStocks { get; set; } = new();
+    public Dictionary<string, FactionComponent> Factions { get; set; } = new();
+    public List<BuildQueueItem> BuildQueue { get; set; } = new();
+    public List<TransportProductionQueueItem> TransportProductionQueue { get; set; } = new();
 }
