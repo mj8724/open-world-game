@@ -370,7 +370,8 @@
   background: var(--color-text-tertiary);
 }
 
-.attack-controls {
+.attack-controls,
+.army-controls {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -381,7 +382,8 @@
   border-radius: var(--radius-md);
 }
 
-.attack-controls h4 {
+.attack-controls h4,
+.army-controls h4 {
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   color: var(--color-text-primary);
@@ -407,4 +409,22 @@
 .attack-empty {
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
+}
+
+.army-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+  padding: var(--space-2);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+}
+
+.army-row .btn-retreat {
+  grid-row: span 2;
+  min-width: 64px;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
 }

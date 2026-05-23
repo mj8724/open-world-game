@@ -104,6 +104,9 @@ public class CommandProcessor : IGameSystem
                 case CommandAction.ATTACK:
                     ProcessAttack(world, cmd, logger);
                     break;
+                case CommandAction.RETREAT:
+                    ProcessRetreat(world, cmd, logger);
+                    break;
                 default:
                     logger.Log($"[指令] 未实现的指令类型: {cmd.Action}");
                     break;
@@ -423,6 +426,27 @@ public class CommandProcessor : IGameSystem
             Params = new() { ["from"] = fromNode.Name, ["to"] = targetNode.Name, ["troops"] = troopCount }
         });
         logger.Log($"[战斗] {fromNode.Name} 派出 {troopCount} 人攻击 {targetNode.Name}");
+    }
+
+    private void ProcessRetreat(World world, GameCommand cmd, GameLogger logger)
+    {
+        int entityId = cmd.TroopCount;
+        if (!world.Armies.TryGetValue(entityId, out var army)) return;
+        if (army.FactionId != "PLAYER" || army.State != "MOVING") return;
+        if (army.CurrentNodeId == null || !world.Nodes.TryGetValue(army.CurrentNodeId, out var homeNode)) return;
+        if (homeNode.FactionId != "PLAYER") return;
+
+        homeNode.GarrisonCount += army.TroopCount;
+        world.MarkDirty(homeNode);
+        world.Armies.Remove(entityId);
+        world.MarkRemoved(entityId);
+        world.AddEvent(new GameEvent
+        {
+            Type = "COMBAT_RETREAT",
+            TextKey = "event.combat_retreat",
+            Params = new() { ["node"] = homeNode.Name, ["troops"] = army.TroopCount }
+        });
+        logger.Log($"[战斗] {army.TroopCount} 人撤回 {homeNode.Name}");
     }
 
     private static bool IsCargoType(string cargoType) => cargoType is "FOOD" or "IRON" or "AMMO";

@@ -4,7 +4,7 @@
  */
 import i18n from '../i18n/i18n.js';
 import { stateStore } from '../bridge/state-store.js';
-import { sendAttack, sendBuild } from '../bridge/command-sender.js';
+import { sendAttack, sendBuild, sendRetreat } from '../bridge/command-sender.js';
 import { eventBus } from './event-bus.js';
 import { getAllBuildings } from '../dict/client-dict.js';
 
@@ -87,6 +87,7 @@ export function showNodeDetails(nodeId) {
   // 建筑列表
   renderBuildings(node);
   renderAttackControls(node);
+  renderArmyControls(node);
 }
 
 
@@ -122,6 +123,39 @@ function renderAttackControls(node) {
     if (!targetNodeId || count > garrison) return;
     sendAttack(node.id, targetNodeId, count);
     refreshCurrentPanel();
+  });
+}
+
+function renderArmyControls(node) {
+  const anchor = document.getElementById('attack-controls') || document.getElementById('detail-buildings');
+  if (!anchor) return;
+  const existing = document.getElementById('army-controls');
+  if (existing) existing.remove();
+  if (node.factionId !== 'PLAYER') return;
+
+  const armies = Object.values(stateStore.armies || {})
+    .filter(army => army.factionId === 'PLAYER' && army.currentNodeId === node.id && army.state === 'MOVING')
+    .sort((a, b) => Number(a.entityId) - Number(b.entityId));
+  if (!armies.length) return;
+
+  anchor.insertAdjacentHTML('afterend', `
+    <div class="army-controls" id="army-controls">
+      <h4>${i18n.t('panel.activeArmies')}</h4>
+      ${armies.map(army => `
+        <div class="army-row">
+          <span>${i18n.t('panel.armyTarget')}: ${nodeName(army.targetNodeId)}</span>
+          <span>${i18n.t('panel.troopCount')}: ${army.troopCount}</span>
+          <button class="action-btn action-btn-danger btn-retreat" data-army-id="${army.entityId}">${i18n.t('panel.retreat')}</button>
+        </div>
+      `).join('')}
+    </div>
+  `);
+
+  document.querySelectorAll('.btn-retreat').forEach(btn => {
+    btn.addEventListener('click', () => {
+      sendRetreat(Number(btn.dataset.armyId));
+      btn.disabled = true;
+    });
   });
 }
 

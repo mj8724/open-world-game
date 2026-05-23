@@ -55,6 +55,9 @@
     "building_queued": "建造中...",
     "attackTarget": "攻击目标",
     "troopCount": "出兵数量",
+    "activeArmies": "行军部队",
+    "armyTarget": "目标",
+    "retreat": "撤退",
     "noAttackTargets": "没有相邻的可攻击目标",
     "noGarrison": "没有可派出的驻军"
   },
@@ -185,7 +188,8 @@
     "logistics_deliver": "物流送达：{cargo}×{amount} 到达 {to}",
     "combat_attack": "战斗发起：{from} 派出 {troops} 人进攻 {to}",
     "combat_capture": "占领成功：{node} 已被占领，剩余 {troops} 人驻守",
-    "combat_defeat": "进攻失败：攻击 {node} 的部队全灭，损失 {losses} 人"
+    "combat_defeat": "进攻失败：攻击 {node} 的部队全灭，损失 {losses} 人",
+    "combat_retreat": "部队撤退：{troops} 人撤回 {node}"
   },
   "log": {
     "title": "📜 事件日志",

@@ -30,6 +30,10 @@ export function sendAttack(fromNodeId, targetNodeId, troopCount) {
   gameBridge.sendCommand('ATTACK', { fromNodeId, targetNodeId, troopCount });
 }
 
+export function sendRetreat(armyId) {
+  gameBridge.sendCommand('RETREAT', { armyId, troopCount: armyId });
+}
+
 /**
  * 设置游戏速度
  * @param {number} speed - 0=暂停, 1=正常, 2=二倍速, 5=五倍速

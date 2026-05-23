@@ -61,6 +61,9 @@ class MockRuntime {
       case 'ATTACK':
         this.createAttack(payload, delta);
         break;
+      case 'RETREAT':
+        this.retreatArmy(payload.armyId ?? payload.troopCount, delta);
+        break;
     }
     return delta;
   }
@@ -209,6 +212,22 @@ class MockRuntime {
     if (!from || !target || from.factionId !== 'PLAYER' || target.factionId === 'PLAYER') return;
     if (troopCount <= 0 || (from.garrisonCount || 0) < troopCount) return;
     this.launchAttack(from, target, troopCount, delta);
+  }
+
+  retreatArmy(armyId, delta) {
+    const army = this.state.armies?.[armyId];
+    if (!army || army.factionId !== 'PLAYER' || army.state !== 'MOVING') return;
+    const homeNode = this.state.nodes[army.currentNodeId];
+    if (!homeNode || homeNode.factionId !== 'PLAYER') return;
+
+    homeNode.garrisonCount = (homeNode.garrisonCount || 0) + (army.troopCount || 0);
+    delta.nodes[homeNode.id] = structuredClone(homeNode);
+    this.removeArmy(army, delta);
+    delta.events.push({
+      type: 'COMBAT_RETREAT',
+      textKey: 'event.combat_retreat',
+      params: { node: homeNode.name, troops: army.troopCount || 0 },
+    });
   }
 
   launchAttack(from, target, troopCount, delta) {

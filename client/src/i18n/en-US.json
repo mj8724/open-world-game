@@ -55,6 +55,9 @@
     "building_queued": "Building...",
     "attackTarget": "Attack Target",
     "troopCount": "Troops",
+    "activeArmies": "Active Armies",
+    "armyTarget": "Target",
+    "retreat": "Retreat",
     "noAttackTargets": "No adjacent attack targets",
     "noGarrison": "No garrison available"
   },
@@ -185,7 +188,8 @@
     "logistics_deliver": "Delivery: {cargo}×{amount} arrived at {to}",
     "combat_attack": "Attack launched: {from} sends {troops} troops toward {to}",
     "combat_capture": "Captured: {node} is occupied with {troops} troops remaining",
-    "combat_defeat": "Attack failed: forces attacking {node} were destroyed, {losses} lost"
+    "combat_defeat": "Attack failed: forces attacking {node} were destroyed, {losses} lost",
+    "combat_retreat": "Retreat: {troops} troops returned to {node}"
   },
   "log": {
     "title": "📜 Event Log",

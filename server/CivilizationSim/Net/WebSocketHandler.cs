@@ -135,6 +135,7 @@ public class WebSocketHandler
 
                         if (p.TryGetProperty("targetLevel", out var tl)) cmd.TargetLevel = tl.GetInt32();
                         if (p.TryGetProperty("troopCount", out var tc)) cmd.TroopCount = tc.GetInt32();
+                        if (p.TryGetProperty("armyId", out var aid)) cmd.TroopCount = aid.GetInt32();
                         if (p.TryGetProperty("routeId", out var rid)) cmd.TroopCount = rid.GetInt32();
                         if (p.TryGetProperty("transportCount", out var tcnt)) cmd.TransportCount = tcnt.GetInt32();
                         if (p.TryGetProperty("priority", out var pr)) cmd.Priority = pr.GetInt32();
