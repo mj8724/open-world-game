@@ -96,6 +96,25 @@ export function initMap(containerId) {
         }
       },
       {
+        selector: 'node[logisticsMarker]',
+        style: {
+          'width': 'data(markerSize)',
+          'height': 'data(markerSize)',
+          'background-color': 'data(markerColor)',
+          'border-width': 2,
+          'border-color': '#FFFFFF',
+          'label': 'data(label)',
+          'font-size': '8px',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'color': '#FFFFFF',
+          'text-outline-width': 0,
+          'events': 'no',
+          'opacity': 'data(markerOpacity)',
+          'z-index': 20,
+        }
+      },
+      {
         selector: 'node:selected',
         style: {
           'border-width': 4,
@@ -268,6 +287,7 @@ export function refreshLogisticsVisuals() {
     edge.data('manualRouteCount', 0);
     edge.data('autoRouteCount', 0);
   });
+  const activeMarkerIds = new Set();
   for (const route of Object.values(stateStore.logistics || {})) {
     for (const edgeId of route.pathEdgeIds || (route.currentEdgeId ? [route.currentEdgeId] : [])) {
       const edge = cy.getElementById(edgeId);
@@ -275,6 +295,48 @@ export function refreshLogisticsVisuals() {
       edge.data('routeCount', (edge.data('routeCount') || 0) + 1);
       const key = route.mode === 'AUTO' ? 'autoRouteCount' : 'manualRouteCount';
       edge.data(key, (edge.data(key) || 0) + 1);
+    }
+    updateLogisticsMarkers(route, activeMarkerIds);
+  }
+  cy.nodes('[logisticsMarker]').forEach(marker => {
+    if (!activeMarkerIds.has(marker.id())) marker.remove();
+  });
+}
+
+function updateLogisticsMarkers(route, activeMarkerIds) {
+  for (const trip of route.trips || []) {
+    const edgeId = route.pathEdgeIds?.[trip.currentPathIndex] || route.currentEdgeId;
+    if (!edgeId) continue;
+    const edge = stateStore.edges[edgeId];
+    const sourceNode = edge && stateStore.nodes[edge.sourceNodeId];
+    const targetNode = edge && stateStore.nodes[edge.targetNodeId];
+    if (!sourceNode || !targetNode) continue;
+
+    const markerId = `logi-${route.entityId}-${trip.tripId}`;
+    activeMarkerIds.add(markerId);
+    const progress = Math.max(0, Math.min(1, trip.edgeProgress || 0));
+    const forward = !trip.returning;
+    const start = forward ? sourceNode : targetNode;
+    const end = forward ? targetNode : sourceNode;
+    const position = {
+      x: start.x + (end.x - start.x) * progress,
+      y: start.y + (end.y - start.y) * progress,
+    };
+    const color = route.mode === 'AUTO' ? '#16A34A' : '#2563EB';
+    const markerData = {
+      id: markerId,
+      label: trip.cargoAmount > 0 ? String(trip.cargoAmount) : '',
+      logisticsMarker: true,
+      markerColor: color,
+      markerOpacity: trip.returning ? 0.55 : 0.9,
+      markerSize: route.enabled ? 14 : 10,
+    };
+    const existing = cy.getElementById(markerId);
+    if (existing.length) {
+      existing.data(markerData);
+      existing.position(position);
+    } else {
+      cy.add({ group: 'nodes', data: markerData, position });
     }
   }
 }

@@ -1,9 +1,9 @@
 import { MOCK_FULL_STATE } from './mock-data.js';
 
 const TRANSPORTS = {
-  PORTER: { capacity: 20, speed: 1, buildTicks: 3, costFood: 5, costIron: 0 },
-  CARRIAGE: { capacity: 60, speed: 2, buildTicks: 8, costFood: 10, costIron: 15 },
-  TRAIN: { capacity: 200, speed: 4, buildTicks: 15, costFood: 20, costIron: 50 },
+  PORTER: { capacity: 20, speed: 1, buildTicks: 3, costFood: 5, costIron: 0, maintenanceFood: 1, maintenanceIron: 0 },
+  CARRIAGE: { capacity: 60, speed: 2, buildTicks: 8, costFood: 10, costIron: 15, maintenanceFood: 1, maintenanceIron: 1 },
+  TRAIN: { capacity: 200, speed: 4, buildTicks: 15, costFood: 20, costIron: 50, maintenanceFood: 2, maintenanceIron: 2 },
 };
 
 export function createMockRuntime() {
@@ -24,6 +24,7 @@ class MockRuntime {
     this.state.tick++;
     const delta = this.createDelta();
     this.processProduction(delta);
+    this.processMaintenance(delta);
     this.planLogistics(delta);
     this.processLogistics(delta);
     return delta;
@@ -81,7 +82,7 @@ class MockRuntime {
     const entry = this.ensureStockEntry(stock, transportType);
     if (!transport || entry.idle < count) return;
 
-    const path = this.findPath(from.id, to.id);
+    const path = this.findPath(from.id, to.id, transportType);
     if (path.edgeIds.length === 0) return;
 
     entry.idle -= count;
@@ -106,6 +107,9 @@ class MockRuntime {
       pathNodeIds: path.nodeIds,
       pathEdgeIds: path.edgeIds,
       priority: Math.max(0, Math.min(100, Number(payload.priority || 50))),
+      desiredTargetQuantity: payload.targetQuantity,
+      unlimitedTarget: !!payload.unlimited,
+      retireWhenIdle: false,
       trips: Array.from({ length: count }, (_, i) => ({ tripId: i + 1, returning: false, cargoAmount: 0, currentPathIndex: 0, edgeProgress: 0 })),
       estimatedRoundTripTicks: this.estimateRoundTrip(path.edgeIds, transportType),
       estimatedThroughputPerTick: 0,
@@ -124,6 +128,12 @@ class MockRuntime {
   cancelRoute(routeId, delta) {
     const route = this.state.logisticsEntities[routeId];
     if (!route) return;
+    const cargo = route.trips.reduce((sum, trip) => sum + trip.cargoAmount, 0);
+    if (cargo > 0) {
+      const from = this.state.nodes[route.fromNodeId];
+      this.addCargo(from, route.cargoType, cargo);
+      delta.nodes[from.id] = structuredClone(from);
+    }
     const stock = this.state.transportStocks[route.fromNodeId];
     const entry = stock?.stock?.[route.transportType];
     if (entry) {
@@ -140,6 +150,7 @@ class MockRuntime {
     if (!route) return;
     route.mode = 'MANUAL';
     route.priority = Math.max(0, Math.min(100, Number(payload.priority ?? route.priority)));
+    if (payload.enabled !== undefined) route.enabled = !!payload.enabled;
     delta.logisticsEntities[routeId] = structuredClone(route);
   }
 
@@ -194,7 +205,34 @@ class MockRuntime {
     delta.transportProductionQueue = structuredClone(this.state.transportProductionQueue);
   }
 
+  processMaintenance(delta) {
+    for (const stock of Object.values(this.state.transportStocks)) {
+      const node = this.state.nodes[stock.nodeId];
+      if (!node) continue;
+      let changed = false;
+      for (const entry of Object.values(stock.stock || {})) {
+        const def = TRANSPORTS[entry.transportType];
+        if (!def) continue;
+        const active = Math.max(0, (entry.total || 0) - (entry.maintenanceBlocked || 0));
+        const foodCost = active * def.maintenanceFood;
+        const ironCost = active * def.maintenanceIron;
+        if (foodCost === 0 && ironCost === 0) continue;
+        if (node.invFood >= foodCost && node.invIron >= ironCost) {
+          node.invFood -= foodCost;
+          node.invIron -= ironCost;
+          entry.maintenanceBlocked = 0;
+          delta.nodes[node.id] = structuredClone(node);
+        } else {
+          entry.maintenanceBlocked = entry.total || 0;
+        }
+        changed = true;
+      }
+      if (changed) delta.transportStocks[stock.nodeId] = structuredClone(stock);
+    }
+  }
+
   planLogistics(delta) {
+    this.processAutoRouteLifecycle(delta);
     for (const rally of Object.values(this.state.rallyPoints)) {
       if (!rally.enabled || rally.factionId !== 'PLAYER') continue;
       for (const [cargoType, policy] of Object.entries(rally.cargoPolicies || {})) {
@@ -205,7 +243,7 @@ class MockRuntime {
         const current = this.getCargo(destination, cargo);
         if (!policy.unlimited && current >= (policy.targetQuantity || 0)) continue;
         const existing = Object.values(this.state.logisticsEntities).find(route =>
-          route.mode === 'AUTO' && route.enabled && route.toNodeId === rally.nodeId && route.cargoType === cargo);
+          route.mode === 'AUTO' && route.enabled && !route.retireWhenIdle && route.toNodeId === rally.nodeId && route.cargoType === cargo);
         if (existing) continue;
 
         const source = Object.values(this.state.nodes)
@@ -213,14 +251,13 @@ class MockRuntime {
           .filter(node => this.getCargo(node, cargo) > 120)
           .sort((a, b) => this.getCargo(b, cargo) - this.getCargo(a, cargo))[0];
         if (!source) continue;
-        const stock = this.ensureStock(source.id);
-        const entry = this.ensureStockEntry(stock, 'PORTER');
-        if (entry.idle <= 0) continue;
+        const transportType = this.chooseAvailableTransport(source.id);
+        if (!transportType) continue;
         this.createRoute({
           fromNodeId: source.id,
           targetNodeId: rally.nodeId,
           cargoType: cargo,
-          transportType: 'PORTER',
+          transportType,
           transportCount: 1,
           priority: policy.priority || 50,
           routeMode: 'AUTO',
@@ -232,12 +269,17 @@ class MockRuntime {
   }
 
   processLogistics(delta) {
+    const budgets = this.buildRouteBudgets();
     for (const route of Object.values(this.state.logisticsEntities)) {
       if (!route.enabled || !route.pathEdgeIds?.length) continue;
       const def = TRANSPORTS[route.transportType];
       let delivered = 0;
+      const budgetKey = `${route.fromNodeId}:${route.transportType}`;
+      let remainingBudget = budgets.get(budgetKey) || 0;
       for (const trip of route.trips) {
-        if (!trip.returning && trip.cargoAmount === 0) {
+        if (remainingBudget <= 0) continue;
+        remainingBudget--;
+        if (!trip.returning && trip.cargoAmount === 0 && !route.retireWhenIdle) {
           const from = this.state.nodes[route.fromNodeId];
           const load = Math.min(def.capacity, Math.max(0, this.getCargo(from, route.cargoType) - 50));
           if (load <= 0) continue;
@@ -268,8 +310,15 @@ class MockRuntime {
           trip.currentPathIndex--;
         } else {
           trip.returning = false;
+          if (route.retireWhenIdle && this.isRouteIdleAtSource(route)) {
+            this.releaseRouteTransport(route, delta);
+            delete this.state.logisticsEntities[route.entityId];
+            delta.removedEntityIds.push(Number(route.entityId));
+            break;
+          }
         }
       }
+      budgets.set(budgetKey, remainingBudget);
       route.cargoAmount = route.trips.reduce((sum, trip) => sum + trip.cargoAmount, 0);
       route.deliveredLastTick = delivered;
       route.deliveredTotal += delivered;
@@ -277,13 +326,57 @@ class MockRuntime {
     }
   }
 
-  findPath(from, to) {
+  processAutoRouteLifecycle(delta) {
+    for (const route of Object.values(this.state.logisticsEntities)) {
+      if (route.mode !== 'AUTO' || route.unlimitedTarget) continue;
+      const target = route.desiredTargetQuantity;
+      if (target == null) continue;
+      const destination = this.state.nodes[route.toNodeId];
+      if (!destination) continue;
+      if (this.getCargo(destination, route.cargoType) >= target) {
+        route.retireWhenIdle = true;
+        delta.logisticsEntities[route.entityId] = structuredClone(route);
+      }
+      if (route.retireWhenIdle && this.isRouteIdleAtSource(route)) {
+        this.releaseRouteTransport(route, delta);
+        delete this.state.logisticsEntities[route.entityId];
+        delta.removedEntityIds.push(Number(route.entityId));
+      }
+    }
+  }
+
+  buildRouteBudgets() {
+    const budgets = new Map();
+    for (const stock of Object.values(this.state.transportStocks)) {
+      for (const entry of Object.values(stock.stock || {})) {
+        const blockedAssigned = Math.max(0, (entry.maintenanceBlocked || 0) - (entry.idle || 0));
+        budgets.set(`${stock.nodeId}:${entry.transportType}`, Math.max(0, (entry.assigned || 0) - blockedAssigned));
+      }
+    }
+    return budgets;
+  }
+
+  isRouteIdleAtSource(route) {
+    return route.trips.every(trip => !trip.returning && trip.cargoAmount === 0 && trip.currentPathIndex === 0 && trip.edgeProgress === 0);
+  }
+
+  releaseRouteTransport(route, delta) {
+    const stock = this.state.transportStocks[route.fromNodeId];
+    const entry = stock?.stock?.[route.transportType];
+    if (!entry) return;
+    entry.assigned = Math.max(0, entry.assigned - route.assignedTransportCount);
+    entry.idle += route.assignedTransportCount;
+    delta.transportStocks[route.fromNodeId] = structuredClone(stock);
+  }
+
+  findPath(from, to, transportType = 'PORTER') {
     const queue = [{ id: from, nodeIds: [from], edgeIds: [] }];
     const seen = new Set([from]);
     while (queue.length) {
       const current = queue.shift();
       if (current.id === to) return current;
       for (const edge of Object.values(this.state.edges)) {
+        if (!this.isEdgeCompatible(transportType, edge.edgeType)) continue;
         const next = edge.sourceNodeId === current.id ? edge.targetNodeId : edge.targetNodeId === current.id ? edge.sourceNodeId : null;
         if (!next || seen.has(next)) continue;
         seen.add(next);
@@ -318,6 +411,17 @@ class MockRuntime {
     if (cargoType === 'IRON') return (node.mineLevel || 0) > 0;
     if (cargoType === 'AMMO') return (node.arsenalLevel || 0) > 0;
     return false;
+  }
+
+  chooseAvailableTransport(nodeId) {
+    const stock = this.ensureStock(nodeId);
+    return ['TRAIN', 'CARRIAGE', 'PORTER'].find(type => (stock.stock[type]?.idle || 0) > 0) || '';
+  }
+
+  isEdgeCompatible(transportType, edgeType) {
+    if (transportType === 'TRAIN') return edgeType === 'RAILWAY';
+    if (transportType === 'CARRIAGE') return edgeType === 'ROAD' || edgeType === 'RAILWAY';
+    return edgeType === 'TRAIL' || edgeType === 'ROAD' || edgeType === 'RAILWAY';
   }
 
   getCargo(node, cargoType) {

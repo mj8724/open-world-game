@@ -75,6 +75,7 @@ public class LogisticsComponent
     public bool UnlimitedTarget { get; set; }
     public string SourceKind { get; set; } = "MANUAL";
     public string? AutoManagedKey { get; set; }
+    public bool RetireWhenIdle { get; set; }
     public List<LogisticsTripState> Trips { get; set; } = new();
     public int EstimatedRequiredTransportCount { get; set; }
     public float EstimatedRoundTripTicks { get; set; }

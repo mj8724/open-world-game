@@ -42,6 +42,7 @@ public class GameCommand
     public int? TargetQuantity { get; set; }
     public bool Unlimited { get; set; }
     public Dictionary<string, RallyCargoPolicy>? RallyPolicies { get; set; }
+    public bool? Enabled { get; set; }
     public int TroopCount { get; set; }
     public int Speed { get; set; } = 1;
     public int Seq { get; set; }
@@ -280,7 +281,7 @@ public class CommandProcessor : IGameSystem
         int entityId = cmd.TroopCount;
         if (!world.Logistics.TryGetValue(entityId, out var logi)) return;
 
-        int returningCargo = logi.CargoAmount + logi.Trips.Sum(t => t.CargoAmount);
+        int returningCargo = logi.Trips.Sum(t => t.CargoAmount);
         if (returningCargo > 0 && world.Nodes.TryGetValue(logi.FromNodeId, out var srcNode))
         {
             AddCargo(srcNode, logi.CargoType, returningCargo);
@@ -306,7 +307,7 @@ public class CommandProcessor : IGameSystem
         if (!world.Logistics.TryGetValue(entityId, out var logi)) return;
         logi.Mode = "MANUAL";
         logi.Priority = Math.Clamp(cmd.Priority, 0, 100);
-        logi.Enabled = cmd.Speed != 0;
+        if (cmd.Enabled.HasValue) logi.Enabled = cmd.Enabled.Value;
         world.MarkDirty(logi);
     }
 

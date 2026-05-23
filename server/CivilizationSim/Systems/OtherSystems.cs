@@ -83,6 +83,7 @@ public class LogisticsPlanningSystem : IGameSystem
 
     public void Execute(World world, DictRegistry dict, GameLogger logger)
     {
+        ProcessAutoRouteLifecycle(world, logger);
         _ticks++;
         if (_ticks % 5 != 0) return;
         if (!world.Factions.TryGetValue("PLAYER", out var faction)) return;
@@ -147,7 +148,43 @@ public class LogisticsPlanningSystem : IGameSystem
     }
 
     private static bool HasAutoRoute(World world, string toNodeId, string cargoType) => world.Logistics.Values.Any(r =>
-        r.Mode == "AUTO" && r.Enabled && r.ToNodeId == toNodeId && r.CargoType == cargoType);
+        r.Mode == "AUTO" && r.Enabled && !r.RetireWhenIdle && r.ToNodeId == toNodeId && r.CargoType == cargoType);
+
+    private static void ProcessAutoRouteLifecycle(World world, GameLogger logger)
+    {
+        var routeIds = world.Logistics.Keys.ToList();
+        foreach (var routeId in routeIds)
+        {
+            if (!world.Logistics.TryGetValue(routeId, out var route) || route.Mode != "AUTO" || route.UnlimitedTarget) continue;
+            if (!route.DesiredTargetQuantity.HasValue || !world.Nodes.TryGetValue(route.ToNodeId, out var destination)) continue;
+
+            if (GetCargo(destination, route.CargoType) >= route.DesiredTargetQuantity.Value)
+            {
+                route.RetireWhenIdle = true;
+                world.MarkDirty(route);
+            }
+
+            if (route.RetireWhenIdle && IsRouteIdleAtSource(route))
+            {
+                ReleaseRouteTransport(world, route);
+                world.Logistics.Remove(route.EntityId);
+                world.MarkRemoved(route.EntityId);
+                logger.Log($"[物流] 自动路线 #{route.EntityId} 已达成目标并退休");
+            }
+        }
+    }
+
+    private static bool IsRouteIdleAtSource(LogisticsComponent route) => route.Trips.All(t =>
+        !t.Returning && t.CargoAmount == 0 && t.CurrentPathIndex == 0 && t.EdgeProgress == 0);
+
+    private static void ReleaseRouteTransport(World world, LogisticsComponent route)
+    {
+        if (!world.TransportStocks.TryGetValue(route.FromNodeId, out var stock)) return;
+        if (!stock.Stock.TryGetValue(route.TransportType, out var entry)) return;
+        entry.Assigned = Math.Max(0, entry.Assigned - route.AssignedTransportCount);
+        entry.Idle += route.AssignedTransportCount;
+        world.MarkDirty(stock);
+    }
 
     private static NodeComponent? FindBestSource(World world, string targetNodeId, string cargoType, int destPriority)
     {
@@ -284,15 +321,20 @@ public class LogisticsSystem : IGameSystem
 
     public void Execute(World world, DictRegistry dict, GameLogger logger)
     {
-        foreach (var (_, logi) in world.Logistics)
+        var routeBudgets = BuildRouteBudgets(world);
+        foreach (var (_, logi) in world.Logistics.ToList())
         {
             if (!logi.Enabled || logi.PathEdgeIds.Count == 0) continue;
             var transportDef = dict.GetTransport(logi.TransportType);
             int deliveredThisTick = 0;
+            var budgetKey = (logi.FromNodeId, logi.TransportType);
+            routeBudgets.TryGetValue(budgetKey, out var remainingBudget);
 
             foreach (var trip in logi.Trips)
             {
-                if (trip.CargoAmount == 0 && !trip.Returning)
+                if (remainingBudget <= 0) continue;
+                remainingBudget--;
+                if (trip.CargoAmount == 0 && !trip.Returning && !logi.RetireWhenIdle)
                 {
                     if (!world.Nodes.TryGetValue(logi.FromNodeId, out var srcNode)) continue;
                     int available = GetCargo(srcNode, logi.CargoType);
@@ -342,10 +384,20 @@ public class LogisticsSystem : IGameSystem
                     else
                     {
                         trip.Returning = false;
+                        if (logi.RetireWhenIdle && IsRouteIdleAtSource(logi))
+                        {
+                            ReleaseRouteTransport(world, logi);
+                            world.Logistics.Remove(logi.EntityId);
+                            world.MarkRemoved(logi.EntityId);
+                            logger.Log($"[物流] 自动路线 #{logi.EntityId} 已返回并退休");
+                            break;
+                        }
                     }
                 }
             }
 
+            routeBudgets[budgetKey] = remainingBudget;
+            logi.CargoAmount = logi.Trips.Sum(t => t.CargoAmount);
             logi.DeliveredLastTick = deliveredThisTick;
             logi.DeliveredTotal += deliveredThisTick;
             if (deliveredThisTick > 0)
@@ -359,6 +411,32 @@ public class LogisticsSystem : IGameSystem
             }
             world.MarkDirty(logi);
         }
+    }
+
+    private static Dictionary<(string NodeId, string TransportType), int> BuildRouteBudgets(World world)
+    {
+        var budgets = new Dictionary<(string, string), int>();
+        foreach (var stock in world.TransportStocks.Values)
+        {
+            foreach (var entry in stock.Stock.Values)
+            {
+                var blockedAssigned = Math.Max(0, entry.MaintenanceBlocked - entry.Idle);
+                budgets[(stock.NodeId, entry.TransportType)] = Math.Max(0, entry.Assigned - blockedAssigned);
+            }
+        }
+        return budgets;
+    }
+
+    private static bool IsRouteIdleAtSource(LogisticsComponent route) => route.Trips.All(t =>
+        !t.Returning && t.CargoAmount == 0 && t.CurrentPathIndex == 0 && t.EdgeProgress == 0);
+
+    private static void ReleaseRouteTransport(World world, LogisticsComponent route)
+    {
+        if (!world.TransportStocks.TryGetValue(route.FromNodeId, out var stock)) return;
+        if (!stock.Stock.TryGetValue(route.TransportType, out var entry)) return;
+        entry.Assigned = Math.Max(0, entry.Assigned - route.AssignedTransportCount);
+        entry.Idle += route.AssignedTransportCount;
+        world.MarkDirty(stock);
     }
 
     private static int GetCargo(NodeComponent node, string cargoType) => cargoType switch

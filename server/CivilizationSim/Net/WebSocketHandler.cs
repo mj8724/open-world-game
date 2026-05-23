@@ -142,6 +142,7 @@ public class WebSocketHandler
                         if (p.TryGetProperty("targetQuantity", out var tq) && tq.ValueKind != JsonValueKind.Null) cmd.TargetQuantity = tq.GetInt32();
                         if (p.TryGetProperty("unlimited", out var un)) cmd.Unlimited = un.GetBoolean();
                         if (p.TryGetProperty("speed", out var sp)) cmd.Speed = sp.GetInt32();
+                        if (p.TryGetProperty("enabled", out var en)) cmd.Enabled = en.GetBoolean();
                         if (p.TryGetProperty("policies", out var policies)) cmd.RallyPolicies = ParseRallyPolicies(policies);
                     }
 
