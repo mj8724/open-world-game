@@ -265,7 +265,10 @@ function handleLogisticsClick(event) {
 
   const toggle = event.target.closest('.btn-toggle-route');
   if (toggle) {
-    sendUpdateRoute(Number(toggle.dataset.id), { enabled: toggle.dataset.enabled === 'true' });
+    const routeId = Number(toggle.dataset.id);
+    const enabled = toggle.dataset.enabled === 'true';
+    sendUpdateRoute(routeId, { enabled });
+    if (stateStore.logistics[routeId]) stateStore.logistics[routeId].enabled = enabled;
     renderLogisticsPanel();
     return;
   }
