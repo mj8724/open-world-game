@@ -576,11 +576,92 @@ public class MoraleSystem : IGameSystem
     public void Execute(World world, DictRegistry dict, GameLogger logger) { /* Phase 4 实现 */ }
 }
 
-/// <summary>AI决策系统 — Phase 1 桩实现</summary>
+/// <summary>AI决策系统 — Phase 4B 基础进攻</summary>
 public class AISystem : IGameSystem
 {
+    private const int AttackIntervalTicks = 12;
+    private const int MinGarrisonToKeep = 2;
+    private const int MinGarrisonToAttack = 4;
+    private int _ticks;
+
     public int Order => 90;
-    public void Execute(World world, DictRegistry dict, GameLogger logger) { /* Phase 4 实现 */ }
+
+    public void Execute(World world, DictRegistry dict, GameLogger logger)
+    {
+        _ticks++;
+        if (_ticks % AttackIntervalTicks != 0) return;
+
+        var source = world.Nodes.Values
+            .Where(node => node.FactionId == "AI" && node.GarrisonCount >= MinGarrisonToAttack)
+            .OrderByDescending(node => node.GarrisonCount)
+            .ThenBy(node => node.Id)
+            .FirstOrDefault(node => FindAdjacentTargets(world, node).Any());
+        if (source == null) return;
+
+        var target = FindAdjacentTargets(world, source)
+            .OrderByDescending(node => node.FactionId == "NEUTRAL")
+            .ThenBy(EstimateDefenderPower)
+            .ThenBy(node => node.Id)
+            .FirstOrDefault();
+        if (target == null) return;
+
+        var edge = FindAdjacentEdge(world, source.Id, target.Id);
+        if (edge == null) return;
+
+        var troopCount = Math.Min(source.GarrisonCount - MinGarrisonToKeep, 3);
+        if (troopCount <= 0) return;
+
+        LaunchAttack(world, source, target, edge, troopCount, logger);
+    }
+
+    private static IEnumerable<NodeComponent> FindAdjacentTargets(World world, NodeComponent source)
+    {
+        foreach (var edge in world.Edges.Values)
+        {
+            var targetId = edge.SourceNodeId == source.Id
+                ? edge.TargetNodeId
+                : edge.TargetNodeId == source.Id ? edge.SourceNodeId : null;
+            if (targetId == null || !world.Nodes.TryGetValue(targetId, out var target) || target.FactionId == source.FactionId) continue;
+            yield return target;
+        }
+    }
+
+    private static EdgeComponent? FindAdjacentEdge(World world, string from, string to) => world.Edges.Values.FirstOrDefault(edge =>
+        (edge.SourceNodeId == from && edge.TargetNodeId == to) ||
+        (edge.SourceNodeId == to && edge.TargetNodeId == from));
+
+    private static float EstimateDefenderPower(NodeComponent node) => node.GarrisonCount * 2f + node.WallHpCurrent + node.WallLevel * 25f;
+
+    private static void LaunchAttack(World world, NodeComponent source, NodeComponent target, EdgeComponent edge, int troopCount, GameLogger logger)
+    {
+        source.GarrisonCount -= troopCount;
+        world.MarkDirty(source);
+
+        var entityId = world.EntityManager.CreateEntityId();
+        var army = new ArmyComponent
+        {
+            EntityId = entityId,
+            FactionId = source.FactionId,
+            TroopCount = troopCount,
+            MeleeTroops = troopCount,
+            Morale = 1.0f,
+            CurrentNodeId = source.Id,
+            CurrentEdgeId = edge.Id,
+            TargetNodeId = target.Id,
+            EdgeProgress = 0,
+            State = "MOVING"
+        };
+
+        world.Armies[entityId] = army;
+        world.MarkDirty(army);
+        world.AddEvent(new GameEvent
+        {
+            Type = "COMBAT_ATTACK",
+            TextKey = "event.combat_attack",
+            Params = new() { ["from"] = source.Name, ["to"] = target.Name, ["troops"] = troopCount }
+        });
+        logger.Log($"[AI] {source.Name} 派出 {troopCount} 人攻击 {target.Name}");
+    }
 }
 
 /// <summary>事件系统 — Phase 1 桩实现</summary>

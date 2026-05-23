@@ -1,5 +1,9 @@
 import { MOCK_FULL_STATE } from './mock-data.js';
 
+const AI_ATTACK_INTERVAL_TICKS = 12;
+const AI_MIN_GARRISON_TO_KEEP = 2;
+const AI_MIN_GARRISON_TO_ATTACK = 4;
+
 const TRANSPORTS = {
   PORTER: { capacity: 20, speed: 1, buildTicks: 3, costFood: 5, costIron: 0, maintenanceFood: 1, maintenanceIron: 0 },
   CARRIAGE: { capacity: 60, speed: 2, buildTicks: 8, costFood: 10, costIron: 15, maintenanceFood: 1, maintenanceIron: 1 },
@@ -28,6 +32,7 @@ class MockRuntime {
     this.planLogistics(delta);
     this.processLogistics(delta);
     this.processArmies(delta);
+    this.planAIAttacks(delta);
     return delta;
   }
 
@@ -203,8 +208,12 @@ class MockRuntime {
     const troopCount = Math.max(0, Number(payload.troopCount || 0));
     if (!from || !target || from.factionId !== 'PLAYER' || target.factionId === 'PLAYER') return;
     if (troopCount <= 0 || (from.garrisonCount || 0) < troopCount) return;
+    this.launchAttack(from, target, troopCount, delta);
+  }
+
+  launchAttack(from, target, troopCount, delta) {
     const edge = this.findAdjacentEdge(from.id, target.id);
-    if (!edge) return;
+    if (!edge) return false;
 
     this.state.armies ||= {};
     from.garrisonCount -= troopCount;
@@ -212,7 +221,7 @@ class MockRuntime {
     const id = this.nextEntityId++;
     const army = {
       entityId: id,
-      factionId: 'PLAYER',
+      factionId: from.factionId,
       troopCount,
       meleeTroops: troopCount,
       rangedTroops: 0,
@@ -227,8 +236,42 @@ class MockRuntime {
     };
     this.state.armies[id] = army;
     delta.armies[id] = structuredClone(army);
+    delta.events.push({
+      type: 'COMBAT_ATTACK',
+      textKey: 'event.combat_attack',
+      params: { from: from.name, to: target.name, troops: troopCount },
+    });
+    return true;
   }
 
+  planAIAttacks(delta) {
+    if (this.state.tick % AI_ATTACK_INTERVAL_TICKS !== 0) return;
+    const source = Object.values(this.state.nodes)
+      .filter(node => node.factionId === 'AI' && (node.garrisonCount || 0) >= AI_MIN_GARRISON_TO_ATTACK)
+      .sort((a, b) => (b.garrisonCount || 0) - (a.garrisonCount || 0) || a.id.localeCompare(b.id))
+      .find(node => this.findAdjacentTargets(node).length > 0);
+    if (!source) return;
+
+    const target = this.findAdjacentTargets(source)
+      .sort((a, b) => Number(b.factionId === 'NEUTRAL') - Number(a.factionId === 'NEUTRAL') || this.estimateDefenderPower(a) - this.estimateDefenderPower(b) || a.id.localeCompare(b.id))[0];
+    if (!target) return;
+
+    const troopCount = Math.min((source.garrisonCount || 0) - AI_MIN_GARRISON_TO_KEEP, 3);
+    if (troopCount <= 0) return;
+    this.launchAttack(source, target, troopCount, delta);
+  }
+
+  findAdjacentTargets(source) {
+    return Object.values(this.state.edges)
+      .map(edge => edge.sourceNodeId === source.id ? edge.targetNodeId : edge.targetNodeId === source.id ? edge.sourceNodeId : null)
+      .filter(Boolean)
+      .map(id => this.state.nodes[id])
+      .filter(node => node && node.factionId !== source.factionId);
+  }
+
+  estimateDefenderPower(node) {
+    return (node.garrisonCount || 0) * 2 + (node.wallHpCurrent || 0) + (node.wallLevel || 0) * 25;
+  }
   processArmies(delta) {
     for (const army of Object.values({ ...(this.state.armies || {}) })) {
       if (army.state !== 'MOVING' || !army.currentEdgeId || !army.targetNodeId) continue;
@@ -265,6 +308,11 @@ class MockRuntime {
       this.ensureCapturedStock(target.id, army.factionId, delta);
       delta.nodes[target.id] = structuredClone(target);
       this.removeArmy(army, delta);
+      delta.events.push({
+        type: 'COMBAT_CAPTURE',
+        textKey: 'event.combat_capture',
+        params: { node: target.name, troops: survivors },
+      });
       return;
     }
 
@@ -275,6 +323,11 @@ class MockRuntime {
     target.garrisonCount = Math.max(0, (target.garrisonCount || 0) - damage);
     delta.nodes[target.id] = structuredClone(target);
     this.removeArmy(army, delta);
+    delta.events.push({
+      type: 'COMBAT_DEFEAT',
+      textKey: 'event.combat_defeat',
+      params: { node: target.name, losses: army.troopCount },
+    });
   }
 
   ensureCapturedStock(nodeId, factionId, delta) {
