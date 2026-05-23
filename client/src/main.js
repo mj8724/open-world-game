@@ -20,7 +20,7 @@ import enUS from './i18n/en-US.json';
 import { gameBridge } from './bridge/game-bridge.js';
 import { stateStore } from './bridge/state-store.js';
 import { eventBus } from './ui/event-bus.js';
-import { initMap, loadMapData, refreshLabels, refreshLogisticsVisuals } from './ui/map-view.js';
+import { initMap, loadMapData, refreshArmyVisuals, refreshLabels, refreshLogisticsVisuals, updateNodeVisual } from './ui/map-view.js';
 import { initHUD, updateHUD } from './ui/hud.js';
 import { initInfoPanel, refreshCurrentPanel } from './ui/info-panel.js';
 import { initBattleLog, addEntry } from './ui/battle-log.js';
@@ -57,10 +57,12 @@ async function init() {
     addEntry(i18n.t('log.connected'), 'success');
   });
 
-  eventBus.on('state-tick-update', ({ tick }) => {
+  eventBus.on('state-tick-update', ({ delta }) => {
     updateHUD();
+    Object.keys(delta?.nodes || {}).forEach(updateNodeVisual);
     refreshCurrentPanel();
     refreshLogisticsVisuals();
+    refreshArmyVisuals();
   });
 
   eventBus.on('connection-changed', (connected) => {
@@ -82,6 +84,7 @@ async function init() {
     refreshCurrentPanel();
     refreshLabels();
     refreshLogisticsVisuals();
+    refreshArmyVisuals();
   });
 
   console.log('[App] 初始化完成');

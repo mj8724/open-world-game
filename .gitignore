@@ -5,3 +5,4 @@ obj/
 
 .playwright-mcp/
 client/dist/
+.claude/build-check/

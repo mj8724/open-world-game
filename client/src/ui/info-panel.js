@@ -4,7 +4,7 @@
  */
 import i18n from '../i18n/i18n.js';
 import { stateStore } from '../bridge/state-store.js';
-import { sendBuild } from '../bridge/command-sender.js';
+import { sendAttack, sendBuild } from '../bridge/command-sender.js';
 import { eventBus } from './event-bus.js';
 import { getAllBuildings } from '../dict/client-dict.js';
 
@@ -86,6 +86,57 @@ export function showNodeDetails(nodeId) {
 
   // 建筑列表
   renderBuildings(node);
+  renderAttackControls(node);
+}
+
+
+function renderAttackControls(node) {
+  const container = document.getElementById('detail-buildings');
+  if (!container) return;
+  const existing = document.getElementById('attack-controls');
+  if (existing) existing.remove();
+  if (node.factionId !== 'PLAYER') return;
+
+  const targets = getAdjacentAttackTargets(node.id);
+  const garrison = node.garrisonCount || 0;
+  const disabled = garrison <= 0 || targets.length === 0;
+  const targetOptions = targets.map(target => `<option value="${target.id}">${nodeName(target.id)}</option>`).join('');
+  const message = garrison <= 0
+    ? i18n.t('panel.noGarrison')
+    : targets.length === 0 ? i18n.t('panel.noAttackTargets') : '';
+
+  container.insertAdjacentHTML('afterend', `
+    <div class="attack-controls" id="attack-controls">
+      <h4>${i18n.t('panel.attack')}</h4>
+      ${message ? `<div class="attack-empty">${message}</div>` : `
+        <label>${i18n.t('panel.attackTarget')}<select id="attack-target">${targetOptions}</select></label>
+        <label>${i18n.t('panel.troopCount')}<input id="attack-count" type="number" min="1" max="${garrison}" value="${Math.min(1, garrison)}"></label>
+      `}
+      <button class="action-btn" id="btn-send-attack" ${disabled ? 'disabled' : ''}>${i18n.t('panel.attack')}</button>
+    </div>
+  `);
+
+  document.getElementById('btn-send-attack')?.addEventListener('click', () => {
+    const targetNodeId = document.getElementById('attack-target')?.value;
+    const count = Math.max(1, Math.min(garrison, Number(document.getElementById('attack-count')?.value || 1)));
+    if (!targetNodeId || count > garrison) return;
+    sendAttack(node.id, targetNodeId, count);
+    refreshCurrentPanel();
+  });
+}
+
+function getAdjacentAttackTargets(nodeId) {
+  const ids = new Set();
+  Object.values(stateStore.edges || {}).forEach(edge => {
+    if (edge.sourceNodeId === nodeId) ids.add(edge.targetNodeId);
+    if (edge.targetNodeId === nodeId) ids.add(edge.sourceNodeId);
+  });
+  return [...ids].map(id => stateStore.nodes[id]).filter(node => node && node.factionId !== 'PLAYER');
+}
+
+function nodeName(id) {
+  const node = stateStore.nodes[id];
+  return i18n.t(`map.node.${id}`, {}) !== `map.node.${id}` ? i18n.t(`map.node.${id}`) : (node?.name || id);
 }
 
 /** 渲染建筑列表和升级按钮 */

@@ -52,14 +52,33 @@
     "research": "研究",
     "attack": "进攻",
     "upgrade": "升级",
-    "building_queued": "建造中..."
+    "building_queued": "建造中...",
+    "attackTarget": "攻击目标",
+    "troopCount": "出兵数量",
+    "noAttackTargets": "没有相邻的可攻击目标",
+    "noGarrison": "没有可派出的驻军"
   },
   "building": {
-    "FARM": { "name": "农田", "desc": "生产粮食，维持人口生存" },
-    "MINE": { "name": "矿山", "desc": "开采铁矿，工业基础骨架" },
-    "ARSENAL": { "name": "兵工厂", "desc": "消耗铁矿，转化弹药" },
-    "WALL": { "name": "防御围墙", "desc": "城防工事，减少驻军伤亡" },
-    "ORACLE_BEACON": { "name": "神谕信号塔", "desc": "帝国心脏，加速科技研发" }
+    "FARM": {
+      "name": "农田",
+      "desc": "生产粮食，维持人口生存"
+    },
+    "MINE": {
+      "name": "矿山",
+      "desc": "开采铁矿，工业基础骨架"
+    },
+    "ARSENAL": {
+      "name": "兵工厂",
+      "desc": "消耗铁矿，转化弹药"
+    },
+    "WALL": {
+      "name": "防御围墙",
+      "desc": "城防工事，减少驻军伤亡"
+    },
+    "ORACLE_BEACON": {
+      "name": "神谕信号塔",
+      "desc": "帝国心脏，加速科技研发"
+    }
   },
   "tech": {
     "title": "科技研发",
@@ -73,18 +92,54 @@
       "FOOD": "农业技术",
       "WEAPON": "武器装备"
     },
-    "BUILD_MASONRY": { "name": "砖石工艺", "desc": "解锁所有建筑2级" },
-    "BUILD_ARCHITECTURE": { "name": "高等建筑学", "desc": "解锁所有建筑3级" },
-    "BUILD_ENGINEERING": { "name": "工程学", "desc": "解锁所有建筑至最高级" },
-    "TRANSIT_ROADS": { "name": "修筑道路", "desc": "解锁搬运工运输" },
-    "TRANSIT_WAGONS": { "name": "畜力运输", "desc": "解锁马车运输" },
-    "TRANSIT_RAILWAY": { "name": "铁路运输", "desc": "解锁火车运输" },
-    "FOOD_IRRIGATION": { "name": "灌溉技术", "desc": "粮食产量+20%" },
-    "FOOD_FERTILIZER": { "name": "肥料配方", "desc": "粮食产量+40%" },
-    "FOOD_MECHANIZATION": { "name": "农业机械化", "desc": "粮食产量+80%" },
-    "WEAPON_BLADES": { "name": "锻造利刃", "desc": "解锁剑士" },
-    "WEAPON_GUNPOWDER": { "name": "火药技术", "desc": "解锁火枪手" },
-    "WEAPON_MACHINEGUN": { "name": "机关枪", "desc": "解锁马克沁机枪" }
+    "BUILD_MASONRY": {
+      "name": "砖石工艺",
+      "desc": "解锁所有建筑2级"
+    },
+    "BUILD_ARCHITECTURE": {
+      "name": "高等建筑学",
+      "desc": "解锁所有建筑3级"
+    },
+    "BUILD_ENGINEERING": {
+      "name": "工程学",
+      "desc": "解锁所有建筑至最高级"
+    },
+    "TRANSIT_ROADS": {
+      "name": "修筑道路",
+      "desc": "解锁搬运工运输"
+    },
+    "TRANSIT_WAGONS": {
+      "name": "畜力运输",
+      "desc": "解锁马车运输"
+    },
+    "TRANSIT_RAILWAY": {
+      "name": "铁路运输",
+      "desc": "解锁火车运输"
+    },
+    "FOOD_IRRIGATION": {
+      "name": "灌溉技术",
+      "desc": "粮食产量+20%"
+    },
+    "FOOD_FERTILIZER": {
+      "name": "肥料配方",
+      "desc": "粮食产量+40%"
+    },
+    "FOOD_MECHANIZATION": {
+      "name": "农业机械化",
+      "desc": "粮食产量+80%"
+    },
+    "WEAPON_BLADES": {
+      "name": "锻造利刃",
+      "desc": "解锁剑士"
+    },
+    "WEAPON_GUNPOWDER": {
+      "name": "火药技术",
+      "desc": "解锁火枪手"
+    },
+    "WEAPON_MACHINEGUN": {
+      "name": "机关枪",
+      "desc": "解锁马克沁机枪"
+    }
   },
   "logistics": {
     "title": "物流管理",
@@ -127,7 +182,10 @@
     "build_complete": "{node} {building} 升级至 Lv.{level}",
     "tech_complete": "科技研发完成：{tech}",
     "logistics_create": "物流路线创建：{from} → {to}（{transport}运输{cargo}×{amount}）",
-    "logistics_deliver": "物流送达：{cargo}×{amount} 到达 {to}"
+    "logistics_deliver": "物流送达：{cargo}×{amount} 到达 {to}",
+    "combat_attack": "战斗发起：{from} 派出 {troops} 人进攻 {to}",
+    "combat_capture": "占领成功：{node} 已被占领，剩余 {troops} 人驻守",
+    "combat_defeat": "进攻失败：攻击 {node} 的部队全灭，损失 {losses} 人"
   },
   "log": {
     "title": "📜 事件日志",

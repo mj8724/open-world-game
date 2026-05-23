@@ -13,7 +13,7 @@ export function createMockRuntime() {
 class MockRuntime {
   constructor(initialState) {
     this.state = structuredClone(initialState);
-    this.nextRouteId = 1;
+    this.nextEntityId = 1;
   }
 
   getFullState() {
@@ -27,6 +27,7 @@ class MockRuntime {
     this.processMaintenance(delta);
     this.planLogistics(delta);
     this.processLogistics(delta);
+    this.processArmies(delta);
     return delta;
   }
 
@@ -52,6 +53,9 @@ class MockRuntime {
       case 'PRODUCE_TRANSPORT':
         this.produceTransport(payload, delta);
         break;
+      case 'ATTACK':
+        this.createAttack(payload, delta);
+        break;
     }
     return delta;
   }
@@ -61,8 +65,10 @@ class MockRuntime {
       tick: this.state.tick,
       nodes: {},
       logisticsEntities: {},
+      armies: {},
       rallyPoints: {},
       transportStocks: {},
+      factions: {},
       removedEntityIds: [],
       removedRallyPointIds: [],
       transportProductionQueue: this.state.transportProductionQueue,
@@ -89,7 +95,7 @@ class MockRuntime {
     entry.assigned += count;
     delta.transportStocks[from.id] = structuredClone(stock);
 
-    const id = this.nextRouteId++;
+    const id = this.nextEntityId++;
     const route = {
       entityId: id,
       factionId: 'PLAYER',
@@ -188,6 +194,117 @@ class MockRuntime {
       factionId: 'PLAYER',
     });
     delta.transportProductionQueue = structuredClone(this.state.transportProductionQueue);
+  }
+
+
+  createAttack(payload, delta) {
+    const from = this.state.nodes[payload.fromNodeId];
+    const target = this.state.nodes[payload.targetNodeId];
+    const troopCount = Math.max(0, Number(payload.troopCount || 0));
+    if (!from || !target || from.factionId !== 'PLAYER' || target.factionId === 'PLAYER') return;
+    if (troopCount <= 0 || (from.garrisonCount || 0) < troopCount) return;
+    const edge = this.findAdjacentEdge(from.id, target.id);
+    if (!edge) return;
+
+    this.state.armies ||= {};
+    from.garrisonCount -= troopCount;
+    delta.nodes[from.id] = structuredClone(from);
+    const id = this.nextEntityId++;
+    const army = {
+      entityId: id,
+      factionId: 'PLAYER',
+      troopCount,
+      meleeTroops: troopCount,
+      rangedTroops: 0,
+      morale: 1,
+      carryFood: 0,
+      carryAmmo: 0,
+      currentNodeId: from.id,
+      currentEdgeId: edge.id,
+      edgeProgress: 0,
+      targetNodeId: target.id,
+      state: 'MOVING',
+    };
+    this.state.armies[id] = army;
+    delta.armies[id] = structuredClone(army);
+  }
+
+  processArmies(delta) {
+    for (const army of Object.values({ ...(this.state.armies || {}) })) {
+      if (army.state !== 'MOVING' || !army.currentEdgeId || !army.targetNodeId) continue;
+      const edge = this.state.edges[army.currentEdgeId];
+      const target = this.state.nodes[army.targetNodeId];
+      if (!edge || !target) {
+        this.removeArmy(army, delta);
+        continue;
+      }
+      army.edgeProgress += 10 / Math.max(1, edge.length || 1);
+      if (army.edgeProgress < 1) {
+        delta.armies[army.entityId] = structuredClone(army);
+        continue;
+      }
+      army.edgeProgress = 1;
+      army.currentNodeId = target.id;
+      army.currentEdgeId = null;
+      army.state = 'FIGHTING';
+      this.resolveCombat(army, target, delta);
+    }
+  }
+
+  resolveCombat(army, target, delta) {
+    const oldFactionId = target.factionId;
+    const attackerPower = army.troopCount * 3 * Math.max(0.1, army.morale || 1);
+    const defenderPower = (target.garrisonCount || 0) * 2 + (target.wallHpCurrent || 0) + (target.wallLevel || 0) * 25;
+    if (attackerPower > defenderPower) {
+      const survivors = Math.max(1, Math.min(army.troopCount, Math.ceil((attackerPower - defenderPower) / 3)));
+      target.factionId = army.factionId;
+      target.garrisonCount = survivors;
+      target.loyalty = 0.6;
+      target.wallHpCurrent = Math.max(0, (target.wallHpCurrent || 0) - army.troopCount * 5);
+      this.updateFactionOwnership(oldFactionId, army.factionId, target.id, delta);
+      this.ensureCapturedStock(target.id, army.factionId, delta);
+      delta.nodes[target.id] = structuredClone(target);
+      this.removeArmy(army, delta);
+      return;
+    }
+
+    let damage = Math.floor(attackerPower / 2);
+    const wallDamage = Math.min(target.wallHpCurrent || 0, damage);
+    target.wallHpCurrent = (target.wallHpCurrent || 0) - wallDamage;
+    damage -= wallDamage;
+    target.garrisonCount = Math.max(0, (target.garrisonCount || 0) - damage);
+    delta.nodes[target.id] = structuredClone(target);
+    this.removeArmy(army, delta);
+  }
+
+  ensureCapturedStock(nodeId, factionId, delta) {
+    if (this.state.transportStocks[nodeId]) return;
+    this.state.transportStocks[nodeId] = { nodeId, factionId, stock: {} };
+    delta.transportStocks[nodeId] = structuredClone(this.state.transportStocks[nodeId]);
+  }
+
+  updateFactionOwnership(oldFactionId, newFactionId, nodeId, delta) {
+    const oldFaction = this.state.factions?.[oldFactionId];
+    if (oldFaction) {
+      oldFaction.ownedNodeIds = (oldFaction.ownedNodeIds || []).filter(id => id !== nodeId);
+      delta.factions[oldFactionId] = structuredClone(oldFaction);
+    }
+    const newFaction = this.state.factions?.[newFactionId];
+    if (newFaction && !(newFaction.ownedNodeIds || []).includes(nodeId)) {
+      newFaction.ownedNodeIds.push(nodeId);
+      delta.factions[newFactionId] = structuredClone(newFaction);
+    }
+  }
+
+  removeArmy(army, delta) {
+    delete this.state.armies?.[army.entityId];
+    delta.removedEntityIds.push(Number(army.entityId));
+  }
+
+  findAdjacentEdge(from, to) {
+    return Object.values(this.state.edges).find(edge =>
+      (edge.sourceNodeId === from && edge.targetNodeId === to) ||
+      (edge.sourceNodeId === to && edge.targetNodeId === from));
   }
 
   processProduction(delta) {

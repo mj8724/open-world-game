@@ -101,6 +101,9 @@ public class CommandProcessor : IGameSystem
                 case CommandAction.PRODUCE_TRANSPORT:
                     ProcessProduceTransport(world, dict, cmd, logger);
                     break;
+                case CommandAction.ATTACK:
+                    ProcessAttack(world, cmd, logger);
+                    break;
                 default:
                     logger.Log($"[指令] 未实现的指令类型: {cmd.Action}");
                     break;
@@ -375,6 +378,53 @@ public class CommandProcessor : IGameSystem
         logger.Log($"[物流] {node.Name} 开始生产 {transport.Id} × {quantity}");
     }
 
+
+    private void ProcessAttack(World world, GameCommand cmd, GameLogger logger)
+    {
+        if (cmd.FromNodeId == null || cmd.TargetNodeId == null) return;
+        if (!world.Nodes.TryGetValue(cmd.FromNodeId, out var fromNode)) return;
+        if (!world.Nodes.TryGetValue(cmd.TargetNodeId, out var targetNode)) return;
+        if (fromNode.FactionId != "PLAYER" || targetNode.FactionId == "PLAYER") return;
+
+        int troopCount = Math.Max(0, cmd.TroopCount);
+        if (troopCount <= 0 || fromNode.GarrisonCount < troopCount) return;
+
+        var edge = FindAdjacentEdge(world, fromNode.Id, targetNode.Id);
+        if (edge == null)
+        {
+            logger.Log($"[战斗] {fromNode.Name} 无法攻击非相邻节点 {targetNode.Name}");
+            return;
+        }
+
+        fromNode.GarrisonCount -= troopCount;
+        world.MarkDirty(fromNode);
+
+        int entityId = world.EntityManager.CreateEntityId();
+        var army = new ArmyComponent
+        {
+            EntityId = entityId,
+            FactionId = "PLAYER",
+            TroopCount = troopCount,
+            MeleeTroops = troopCount,
+            Morale = 1.0f,
+            CurrentNodeId = fromNode.Id,
+            CurrentEdgeId = edge.Id,
+            TargetNodeId = targetNode.Id,
+            EdgeProgress = 0,
+            State = "MOVING"
+        };
+
+        world.Armies[entityId] = army;
+        world.MarkDirty(army);
+        world.AddEvent(new GameEvent
+        {
+            Type = "COMBAT_ATTACK",
+            TextKey = "event.combat_attack",
+            Params = new() { ["from"] = fromNode.Name, ["to"] = targetNode.Name, ["troops"] = troopCount }
+        });
+        logger.Log($"[战斗] {fromNode.Name} 派出 {troopCount} 人攻击 {targetNode.Name}");
+    }
+
     private static bool IsCargoType(string cargoType) => cargoType is "FOOD" or "IRON" or "AMMO";
 
     private static int GetCargo(NodeComponent node, string cargoType) => cargoType switch
@@ -424,6 +474,10 @@ public class CommandProcessor : IGameSystem
         }
         return entry;
     }
+
+    private static EdgeComponent? FindAdjacentEdge(World world, string from, string to) => world.Edges.Values.FirstOrDefault(e =>
+        (e.SourceNodeId == from && e.TargetNodeId == to) ||
+        (e.SourceNodeId == to && e.TargetNodeId == from));
 
     private static List<string> FindCompatiblePath(World world, string transportType, string from, string to)
     {

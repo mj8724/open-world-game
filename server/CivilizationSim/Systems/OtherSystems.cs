@@ -468,11 +468,105 @@ public class LogisticsSystem : IGameSystem
     }
 }
 
-/// <summary>战斗系统 — Phase 1 桩实现</summary>
+/// <summary>战斗系统 — Phase 4A 相邻节点攻击</summary>
 public class CombatSystem : IGameSystem
 {
     public int Order => 70;
-    public void Execute(World world, DictRegistry dict, GameLogger logger) { /* Phase 4 实现 */ }
+
+    public void Execute(World world, DictRegistry dict, GameLogger logger)
+    {
+        foreach (var army in world.Armies.Values.ToList())
+        {
+            if (army.State != "MOVING" || army.CurrentEdgeId == null || army.TargetNodeId == null) continue;
+            if (!world.Edges.TryGetValue(army.CurrentEdgeId, out var edge) || !world.Nodes.TryGetValue(army.TargetNodeId, out var target))
+            {
+                RemoveArmy(world, army);
+                continue;
+            }
+
+            army.EdgeProgress += 10f / Math.Max(1f, edge.Length);
+            if (army.EdgeProgress < 1f)
+            {
+                world.MarkDirty(army);
+                continue;
+            }
+
+            army.EdgeProgress = 1f;
+            army.CurrentNodeId = target.Id;
+            army.CurrentEdgeId = null;
+            army.State = "FIGHTING";
+            ResolveCombat(world, army, target, logger);
+        }
+    }
+
+    private static void ResolveCombat(World world, ArmyComponent army, NodeComponent target, GameLogger logger)
+    {
+        var oldFactionId = target.FactionId;
+        var attackerPower = army.TroopCount * 3f * Math.Max(0.1f, army.Morale);
+        var defenderPower = target.GarrisonCount * 2f + target.WallHpCurrent + target.WallLevel * 25f;
+
+        if (attackerPower > defenderPower)
+        {
+            var survivors = Math.Clamp((int)Math.Ceiling((attackerPower - defenderPower) / 3f), 1, army.TroopCount);
+            CaptureNode(world, target, oldFactionId, army.FactionId, survivors);
+            target.WallHpCurrent = Math.Max(0, target.WallHpCurrent - army.TroopCount * 5);
+            world.MarkDirty(target);
+            RemoveArmy(world, army);
+            world.AddEvent(new GameEvent
+            {
+                Type = "COMBAT_CAPTURE",
+                TextKey = "event.combat_capture",
+                Params = new() { ["node"] = target.Name, ["troops"] = survivors }
+            });
+            logger.Log($"[战斗] {target.Name} 被 {army.FactionId} 占领，剩余 {survivors} 人驻守");
+            return;
+        }
+
+        var damage = (int)Math.Floor(attackerPower / 2f);
+        var wallDamage = Math.Min(target.WallHpCurrent, damage);
+        target.WallHpCurrent -= wallDamage;
+        damage -= wallDamage;
+        target.GarrisonCount = Math.Max(0, target.GarrisonCount - damage);
+        world.MarkDirty(target);
+        RemoveArmy(world, army);
+        world.AddEvent(new GameEvent
+        {
+            Type = "COMBAT_DEFEAT",
+            TextKey = "event.combat_defeat",
+            Params = new() { ["node"] = target.Name, ["losses"] = army.TroopCount }
+        });
+        logger.Log($"[战斗] 攻击 {target.Name} 失败，守军剩余 {target.GarrisonCount}");
+    }
+
+    private static void CaptureNode(World world, NodeComponent node, string oldFactionId, string newFactionId, int garrison)
+    {
+        if (world.Factions.TryGetValue(oldFactionId, out var oldFaction))
+        {
+            oldFaction.OwnedNodeIds.Remove(node.Id);
+            world.MarkDirty(oldFaction);
+        }
+        if (world.Factions.TryGetValue(newFactionId, out var newFaction) && !newFaction.OwnedNodeIds.Contains(node.Id))
+        {
+            newFaction.OwnedNodeIds.Add(node.Id);
+            world.MarkDirty(newFaction);
+        }
+
+        node.FactionId = newFactionId;
+        node.GarrisonCount = garrison;
+        node.Loyalty = 0.6f;
+        if (!world.TransportStocks.ContainsKey(node.Id))
+        {
+            var stock = new TransportStockComponent { NodeId = node.Id, FactionId = newFactionId };
+            world.TransportStocks[node.Id] = stock;
+            world.MarkDirty(stock);
+        }
+    }
+
+    private static void RemoveArmy(World world, ArmyComponent army)
+    {
+        world.Armies.Remove(army.EntityId);
+        world.MarkRemoved(army.EntityId);
+    }
 }
 
 /// <summary>士气系统 — Phase 1 桩实现</summary>

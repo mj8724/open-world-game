@@ -115,6 +115,25 @@ export function initMap(containerId) {
         }
       },
       {
+        selector: 'node[armyMarker]',
+        style: {
+          'width': 'data(markerSize)',
+          'height': 'data(markerSize)',
+          'background-color': 'data(markerColor)',
+          'border-width': 2,
+          'border-color': '#FFFFFF',
+          'label': 'data(label)',
+          'font-size': '8px',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'color': '#FFFFFF',
+          'text-outline-width': 0,
+          'events': 'no',
+          'opacity': 0.95,
+          'z-index': 30,
+        }
+      },
+      {
         selector: 'node:selected',
         style: {
           'border-width': 4,
@@ -339,6 +358,54 @@ function updateLogisticsMarkers(route, activeMarkerIds) {
       cy.add({ group: 'nodes', data: markerData, position });
     }
   }
+}
+
+
+export function refreshArmyVisuals() {
+  if (!cy) return;
+  const activeMarkerIds = new Set();
+  for (const army of Object.values(stateStore.armies || {})) {
+    const markerId = `army-${army.entityId}`;
+    const position = armyPosition(army);
+    if (!position) continue;
+    activeMarkerIds.add(markerId);
+    const markerData = {
+      id: markerId,
+      label: String(army.troopCount || ''),
+      armyMarker: true,
+      markerColor: army.factionId === 'PLAYER' ? '#2563EB' : army.factionId === 'AI' ? '#DC2626' : '#6B7280',
+      markerSize: 18,
+    };
+    const existing = cy.getElementById(markerId);
+    if (existing.length) {
+      existing.data(markerData);
+      existing.position(position);
+    } else {
+      cy.add({ group: 'nodes', data: markerData, position });
+    }
+  }
+  cy.nodes('[armyMarker]').forEach(marker => {
+    if (!activeMarkerIds.has(marker.id())) marker.remove();
+  });
+}
+
+function armyPosition(army) {
+  if (army.currentEdgeId) {
+    const edge = stateStore.edges[army.currentEdgeId];
+    const sourceNode = edge && stateStore.nodes[edge.sourceNodeId];
+    const targetNode = edge && stateStore.nodes[edge.targetNodeId];
+    if (!sourceNode || !targetNode) return null;
+    const targetId = army.targetNodeId;
+    const start = edge.targetNodeId === targetId ? sourceNode : targetNode;
+    const end = edge.targetNodeId === targetId ? targetNode : sourceNode;
+    const progress = Math.max(0, Math.min(1, army.edgeProgress || 0));
+    return {
+      x: start.x + (end.x - start.x) * progress,
+      y: start.y + (end.y - start.y) * progress,
+    };
+  }
+  const node = army.currentNodeId && stateStore.nodes[army.currentNodeId];
+  return node ? { x: node.x + 12, y: node.y - 12 } : null;
 }
 
 export function getSelectedNodeId() { return selectedNodeId; }

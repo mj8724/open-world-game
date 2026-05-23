@@ -14,7 +14,7 @@ export function initBattleLog() {
   eventBus.on('game-event', (evt) => {
     if (evt.type === 'LOG' && evt.textKey) {
       addEntry(evt.textKey, 'info');
-    } else if (evt.type === 'COMBAT_LOG') {
+    } else if (evt.type === 'COMBAT_LOG' || evt.type?.startsWith('COMBAT_')) {
       addEntry(i18n.t(evt.textKey, evt.params), 'combat');
     } else if (evt.type === 'BUILD_COMPLETE') {
       const text = i18n.t(evt.textKey, evt.params);

@@ -52,14 +52,33 @@
     "research": "Research",
     "attack": "Attack",
     "upgrade": "Upgrade",
-    "building_queued": "Building..."
+    "building_queued": "Building...",
+    "attackTarget": "Attack Target",
+    "troopCount": "Troops",
+    "noAttackTargets": "No adjacent attack targets",
+    "noGarrison": "No garrison available"
   },
   "building": {
-    "FARM": { "name": "Farm", "desc": "Produces food to sustain population" },
-    "MINE": { "name": "Mine", "desc": "Extracts iron ore, backbone of industry" },
-    "ARSENAL": { "name": "Arsenal", "desc": "Consumes iron to produce ammo" },
-    "WALL": { "name": "Wall", "desc": "Fortification, reduces garrison casualties" },
-    "ORACLE_BEACON": { "name": "Oracle Beacon", "desc": "Heart of empire, accelerates research" }
+    "FARM": {
+      "name": "Farm",
+      "desc": "Produces food to sustain population"
+    },
+    "MINE": {
+      "name": "Mine",
+      "desc": "Extracts iron ore, backbone of industry"
+    },
+    "ARSENAL": {
+      "name": "Arsenal",
+      "desc": "Consumes iron to produce ammo"
+    },
+    "WALL": {
+      "name": "Wall",
+      "desc": "Fortification, reduces garrison casualties"
+    },
+    "ORACLE_BEACON": {
+      "name": "Oracle Beacon",
+      "desc": "Heart of empire, accelerates research"
+    }
   },
   "tech": {
     "title": "Research & Technology",
@@ -73,18 +92,54 @@
       "FOOD": "Agriculture",
       "WEAPON": "Weaponry"
     },
-    "BUILD_MASONRY": { "name": "Masonry", "desc": "Unlock all buildings Lv.2" },
-    "BUILD_ARCHITECTURE": { "name": "Architecture", "desc": "Unlock all buildings Lv.3" },
-    "BUILD_ENGINEERING": { "name": "Engineering", "desc": "Unlock max building level" },
-    "TRANSIT_ROADS": { "name": "Road Building", "desc": "Unlock Porter transport" },
-    "TRANSIT_WAGONS": { "name": "Draft Animals", "desc": "Unlock Carriage transport" },
-    "TRANSIT_RAILWAY": { "name": "Railways", "desc": "Unlock Train transport" },
-    "FOOD_IRRIGATION": { "name": "Irrigation", "desc": "Food +20%" },
-    "FOOD_FERTILIZER": { "name": "Fertilizer", "desc": "Food +40%" },
-    "FOOD_MECHANIZATION": { "name": "Mechanization", "desc": "Food +80%" },
-    "WEAPON_BLADES": { "name": "Blade Forging", "desc": "Unlock Swordsman" },
-    "WEAPON_GUNPOWDER": { "name": "Gunpowder", "desc": "Unlock Musketeer" },
-    "WEAPON_MACHINEGUN": { "name": "Machine Gun", "desc": "Unlock Maxim Gun" }
+    "BUILD_MASONRY": {
+      "name": "Masonry",
+      "desc": "Unlock all buildings Lv.2"
+    },
+    "BUILD_ARCHITECTURE": {
+      "name": "Architecture",
+      "desc": "Unlock all buildings Lv.3"
+    },
+    "BUILD_ENGINEERING": {
+      "name": "Engineering",
+      "desc": "Unlock max building level"
+    },
+    "TRANSIT_ROADS": {
+      "name": "Road Building",
+      "desc": "Unlock Porter transport"
+    },
+    "TRANSIT_WAGONS": {
+      "name": "Draft Animals",
+      "desc": "Unlock Carriage transport"
+    },
+    "TRANSIT_RAILWAY": {
+      "name": "Railways",
+      "desc": "Unlock Train transport"
+    },
+    "FOOD_IRRIGATION": {
+      "name": "Irrigation",
+      "desc": "Food +20%"
+    },
+    "FOOD_FERTILIZER": {
+      "name": "Fertilizer",
+      "desc": "Food +40%"
+    },
+    "FOOD_MECHANIZATION": {
+      "name": "Mechanization",
+      "desc": "Food +80%"
+    },
+    "WEAPON_BLADES": {
+      "name": "Blade Forging",
+      "desc": "Unlock Swordsman"
+    },
+    "WEAPON_GUNPOWDER": {
+      "name": "Gunpowder",
+      "desc": "Unlock Musketeer"
+    },
+    "WEAPON_MACHINEGUN": {
+      "name": "Machine Gun",
+      "desc": "Unlock Maxim Gun"
+    }
   },
   "logistics": {
     "title": "Logistics",
@@ -127,7 +182,10 @@
     "build_complete": "{node} {building} upgraded to Lv.{level}",
     "tech_complete": "Research complete: {tech}",
     "logistics_create": "Route created: {from} → {to} ({transport} carrying {cargo}×{amount})",
-    "logistics_deliver": "Delivery: {cargo}×{amount} arrived at {to}"
+    "logistics_deliver": "Delivery: {cargo}×{amount} arrived at {to}",
+    "combat_attack": "Attack launched: {from} sends {troops} troops toward {to}",
+    "combat_capture": "Captured: {node} is occupied with {troops} troops remaining",
+    "combat_defeat": "Attack failed: forces attacking {node} were destroyed, {losses} lost"
   },
   "log": {
     "title": "📜 Event Log",
