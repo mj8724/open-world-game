@@ -10,6 +10,13 @@ const TRANSPORTS = {
   TRAIN: { capacity: 200, speed: 4, buildTicks: 15, costFood: 20, costIron: 50, maintenanceFood: 2, maintenanceIron: 2 },
 };
 
+const UNIT_DEFS = {
+  MILITIA: { id: 'MILITIA', name: 'Militia', attack: 3, defense: 2, speed: 2, recruitCostFood: 10, recruitCostIron: 5, popCost: 1, upkeepFood: 1, ammoPerAttack: 0, requiredTech: null },
+  SWORDSMAN: { id: 'SWORDSMAN', name: 'Swordsman', attack: 8, defense: 5, speed: 2, recruitCostFood: 20, recruitCostIron: 15, popCost: 2, upkeepFood: 2, ammoPerAttack: 0, requiredTech: 'WEAPON_BLADES' },
+  MUSKETEER: { id: 'MUSKETEER', name: 'Musketeer', attack: 12, defense: 3, speed: 2, recruitCostFood: 25, recruitCostIron: 25, popCost: 2, upkeepFood: 2, ammoPerAttack: 1, requiredTech: 'WEAPON_GUNPOWDER' },
+  MAXIM_GUN: { id: 'MAXIM_GUN', name: 'Maxim Gun', attack: 30, defense: 2, speed: 1, recruitCostFood: 40, recruitCostIron: 60, popCost: 3, upkeepFood: 3, ammoPerAttack: 3, requiredTech: 'WEAPON_MACHINEGUN' },
+};
+
 export function createMockRuntime() {
   return new MockRuntime(MOCK_FULL_STATE);
 }
@@ -17,7 +24,77 @@ export function createMockRuntime() {
 class MockRuntime {
   constructor(initialState) {
     this.state = structuredClone(initialState);
-    this.nextEntityId = 1;
+    this.state.formations ||= {};
+    this.state.armies ||= {};
+    this.nextEntityId = this.findNextEntityId();
+    this.initializeCompaniesFromGarrisons();
+  }
+
+  findNextEntityId() {
+    const ids = [0, ...Object.keys(this.state.armies || {}).map(Number), ...Object.keys(this.state.logisticsEntities || {}).map(Number), ...Object.keys(this.state.formations || {}).map(Number)];
+    return Math.max(...ids.filter(Number.isFinite)) + 1;
+  }
+
+  initializeCompaniesFromGarrisons() {
+    for (const node of Object.values(this.state.nodes || {})) {
+      const strength = node.garrisonCount || 0;
+      if (strength <= 0) continue;
+      const existing = Object.values(this.state.armies || {}).some(army => army.currentNodeId === node.id && !army.currentEdgeId && army.factionId === node.factionId);
+      if (existing) continue;
+      const id = this.nextEntityId++;
+      this.state.armies[id] = this.createCompanyArmy(id, node, 'MILITIA', strength, `${node.name} 民兵连`);
+    }
+  }
+
+  createCompanyArmy(id, node, unitDefId, strength, name) {
+    const unit = UNIT_DEFS[unitDefId] || UNIT_DEFS.MILITIA;
+    const maxSupplyFood = Math.max(10, strength * Math.max(1, unit.upkeepFood) * 3);
+    const maxSupplyAmmo = unit.ammoPerAttack > 0 ? strength * unit.ammoPerAttack * 3 : 0;
+    return {
+      entityId: id,
+      factionId: node.factionId,
+      unitKind: 'COMPANY',
+      unitDefId: unit.id,
+      name,
+      strength,
+      maxStrength: Math.max(strength, 10),
+      troopCount: strength,
+      meleeTroops: strength,
+      rangedTroops: 0,
+      morale: 1,
+      supplyFood: maxSupplyFood,
+      supplyAmmo: 0,
+      maxSupplyFood,
+      maxSupplyAmmo,
+      carryFood: maxSupplyFood,
+      carryAmmo: 0,
+      regimentId: 0,
+      divisionId: 0,
+      stance: 'DEFEND',
+      currentNodeId: node.id,
+      currentEdgeId: null,
+      edgeProgress: 0,
+      targetNodeId: null,
+      state: 'IDLE',
+    };
+  }
+
+  syncCompanyFields(army) {
+    const strength = Math.max(0, army.strength ?? army.troopCount ?? 0);
+    army.strength = strength;
+    army.troopCount = strength;
+    army.meleeTroops = strength;
+    army.carryFood = army.supplyFood ?? army.carryFood ?? 0;
+    army.carryAmmo = army.supplyAmmo ?? army.carryAmmo ?? 0;
+  }
+
+  syncNodeGarrison(nodeId, delta) {
+    const node = this.state.nodes[nodeId];
+    if (!node) return;
+    node.garrisonCount = Object.values(this.state.armies || {})
+      .filter(army => army.currentNodeId === nodeId && !army.currentEdgeId && army.state === 'IDLE' && army.factionId === node.factionId)
+      .reduce((sum, army) => sum + Math.max(0, army.strength ?? army.troopCount ?? 0), 0);
+    delta.nodes[nodeId] = structuredClone(node);
   }
 
   getFullState() {
@@ -27,10 +104,12 @@ class MockRuntime {
   tick() {
     this.state.tick++;
     const delta = this.createDelta();
+    this.processNodeResources(delta);
     this.processProduction(delta);
     this.processMaintenance(delta);
     this.planLogistics(delta);
     this.processLogistics(delta);
+    this.processMilitarySupply(delta);
     this.processArmies(delta);
     this.planAIAttacks(delta);
     return delta;
@@ -64,6 +143,21 @@ class MockRuntime {
       case 'RETREAT':
         this.retreatArmy(payload.armyId ?? payload.troopCount, delta);
         break;
+      case 'CREATE_COMPANY':
+        this.createCompany(payload, delta);
+        break;
+      case 'MOVE_UNIT':
+        this.moveUnit(payload, delta, false);
+        break;
+      case 'ATTACK_NODE':
+        this.moveUnit(payload, delta, true);
+        break;
+      case 'RETREAT_UNIT':
+        this.retreatUnit(payload.entityId ?? payload.armyId ?? payload.troopCount, delta);
+        break;
+      case 'CREATE_FORMATION':
+        this.createFormation(payload, delta);
+        break;
     }
     return delta;
   }
@@ -77,6 +171,7 @@ class MockRuntime {
       rallyPoints: {},
       transportStocks: {},
       factions: {},
+      formations: {},
       removedEntityIds: [],
       removedRallyPointIds: [],
       transportProductionQueue: this.state.transportProductionQueue,
@@ -205,79 +300,163 @@ class MockRuntime {
   }
 
 
+  createCompany(payload, delta) {
+    const node = this.state.nodes[payload.nodeId];
+    const unit = UNIT_DEFS[payload.unitDefId || 'MILITIA'] || UNIT_DEFS.MILITIA;
+    const faction = this.state.factions.PLAYER;
+    if (!node || node.factionId !== 'PLAYER') return;
+    if (unit.requiredTech && !(faction.unlockedTechs || []).includes(unit.requiredTech)) return;
+    if (node.invFood < unit.recruitCostFood || node.invIron < unit.recruitCostIron) return;
+
+    node.invFood -= unit.recruitCostFood;
+    node.invIron -= unit.recruitCostIron;
+    const id = this.nextEntityId++;
+    const strength = Math.max(1, unit.popCost * 5);
+    const army = this.createCompanyArmy(id, node, unit.id, strength, payload.name || `${unit.name} Company #${id}`);
+    army.maxSupplyAmmo = unit.ammoPerAttack > 0 ? strength * unit.ammoPerAttack * 3 : 0;
+    army.supplyAmmo = Math.min(node.invAmmo, army.maxSupplyAmmo);
+    node.invAmmo -= army.supplyAmmo;
+    army.carryAmmo = army.supplyAmmo;
+    this.state.armies[id] = army;
+    delta.armies[id] = structuredClone(army);
+    this.syncNodeGarrison(node.id, delta);
+  }
+
+  moveUnit(payload, delta, attackOnly) {
+    const army = this.state.armies?.[payload.entityId ?? payload.armyId ?? payload.troopCount];
+    const target = this.state.nodes[payload.targetNodeId];
+    if (!army || !target || army.factionId !== 'PLAYER' || army.state !== 'IDLE' || !army.currentNodeId) return;
+    if (attackOnly && target.factionId === 'PLAYER') return;
+    if (!attackOnly && target.factionId !== 'PLAYER') return;
+    const edge = this.findAdjacentEdge(army.currentNodeId, target.id);
+    if (!edge) return;
+    const originNodeId = army.currentNodeId;
+    army.currentEdgeId = edge.id;
+    army.targetNodeId = target.id;
+    army.edgeProgress = 0;
+    army.state = 'MOVING';
+    army.stance = attackOnly ? 'ATTACK' : 'DEFEND';
+    this.syncCompanyFields(army);
+    delta.armies[army.entityId] = structuredClone(army);
+    this.syncNodeGarrison(originNodeId, delta);
+    if (attackOnly) {
+      const from = this.state.nodes[originNodeId];
+      delta.events.push({
+        type: 'COMBAT_ATTACK',
+        textKey: 'event.combat_attack',
+        params: { from: from?.name || originNodeId, to: target.name, troops: army.strength || army.troopCount || 0 },
+      });
+    }
+  }
+
+  retreatUnit(armyId, delta) {
+    const army = this.state.armies?.[armyId];
+    if (!army || army.factionId !== 'PLAYER' || army.state !== 'MOVING') return;
+    const homeNode = this.state.nodes[army.currentNodeId];
+    if (!homeNode || homeNode.factionId !== 'PLAYER') return;
+    army.currentEdgeId = null;
+    army.targetNodeId = null;
+    army.edgeProgress = 0;
+    army.state = 'IDLE';
+    army.stance = 'DEFEND';
+    this.syncCompanyFields(army);
+    delta.armies[army.entityId] = structuredClone(army);
+    this.syncNodeGarrison(homeNode.id, delta);
+    delta.events.push({
+      type: 'COMBAT_RETREAT',
+      textKey: 'event.combat_retreat',
+      params: { node: homeNode.name, troops: army.strength || army.troopCount || 0 },
+    });
+  }
+
+  createFormation(payload, delta) {
+    const entityIds = (payload.entityIds || []).map(Number).filter(id => this.state.armies?.[id]?.factionId === 'PLAYER');
+    if (!entityIds.length) return;
+    const id = this.nextEntityId++;
+    const type = payload.formationType === 'DIVISION' ? 'DIVISION' : 'REGIMENT';
+    const formation = {
+      entityId: id,
+      factionId: 'PLAYER',
+      formationType: type,
+      name: payload.name || (type === 'DIVISION' ? `Division #${id}` : `Regiment #${id}`),
+      parentFormationId: null,
+      childUnitIds: entityIds,
+      currentNodeId: this.state.armies[entityIds[0]]?.currentNodeId || null,
+    };
+    this.state.formations[id] = formation;
+    for (const entityId of entityIds) {
+      const army = this.state.armies[entityId];
+      if (type === 'DIVISION') army.divisionId = id;
+      else army.regimentId = id;
+      delta.armies[entityId] = structuredClone(army);
+    }
+    delta.formations[id] = structuredClone(formation);
+  }
+
   createAttack(payload, delta) {
     const from = this.state.nodes[payload.fromNodeId];
     const target = this.state.nodes[payload.targetNodeId];
     const troopCount = Math.max(0, Number(payload.troopCount || 0));
     if (!from || !target || from.factionId !== 'PLAYER' || target.factionId === 'PLAYER') return;
     if (troopCount <= 0 || (from.garrisonCount || 0) < troopCount) return;
-    this.launchAttack(from, target, troopCount, delta);
+    const id = this.nextEntityId++;
+    const army = this.createCompanyArmy(id, from, 'MILITIA', troopCount, `Militia Company #${id}`);
+    this.state.armies[id] = army;
+    this.moveUnit({ entityId: id, targetNodeId: target.id }, delta, true);
   }
 
   retreatArmy(armyId, delta) {
-    const army = this.state.armies?.[armyId];
-    if (!army || army.factionId !== 'PLAYER' || army.state !== 'MOVING') return;
-    const homeNode = this.state.nodes[army.currentNodeId];
-    if (!homeNode || homeNode.factionId !== 'PLAYER') return;
-
-    homeNode.garrisonCount = (homeNode.garrisonCount || 0) + (army.troopCount || 0);
-    delta.nodes[homeNode.id] = structuredClone(homeNode);
-    this.removeArmy(army, delta);
-    delta.events.push({
-      type: 'COMBAT_RETREAT',
-      textKey: 'event.combat_retreat',
-      params: { node: homeNode.name, troops: army.troopCount || 0 },
-    });
+    this.retreatUnit(armyId, delta);
   }
 
   launchAttack(from, target, troopCount, delta) {
-    const edge = this.findAdjacentEdge(from.id, target.id);
-    if (!edge) return false;
+    const company = Object.values(this.state.armies || {})
+      .filter(army => army.factionId === from.factionId && army.currentNodeId === from.id && !army.currentEdgeId && army.state === 'IDLE')
+      .sort((a, b) => (b.strength || b.troopCount || 0) - (a.strength || a.troopCount || 0))[0];
+    if (!company) return false;
+    this.moveExistingUnit(company, target, delta, true);
+    return true;
+  }
 
-    this.state.armies ||= {};
-    from.garrisonCount -= troopCount;
-    delta.nodes[from.id] = structuredClone(from);
-    const id = this.nextEntityId++;
-    const army = {
-      entityId: id,
-      factionId: from.factionId,
-      troopCount,
-      meleeTroops: troopCount,
-      rangedTroops: 0,
-      morale: 1,
-      carryFood: 0,
-      carryAmmo: 0,
-      currentNodeId: from.id,
-      currentEdgeId: edge.id,
-      edgeProgress: 0,
-      targetNodeId: target.id,
-      state: 'MOVING',
-    };
-    this.state.armies[id] = army;
-    delta.armies[id] = structuredClone(army);
-    delta.events.push({
-      type: 'COMBAT_ATTACK',
-      textKey: 'event.combat_attack',
-      params: { from: from.name, to: target.name, troops: troopCount },
-    });
+  moveExistingUnit(army, target, delta, attackOnly) {
+    const edge = this.findAdjacentEdge(army.currentNodeId, target.id);
+    if (!edge) return false;
+    const originNodeId = army.currentNodeId;
+    army.currentEdgeId = edge.id;
+    army.targetNodeId = target.id;
+    army.edgeProgress = 0;
+    army.state = 'MOVING';
+    army.stance = attackOnly ? 'ATTACK' : 'DEFEND';
+    this.syncCompanyFields(army);
+    delta.armies[army.entityId] = structuredClone(army);
+    this.syncNodeGarrison(originNodeId, delta);
+    if (attackOnly) {
+      const from = this.state.nodes[originNodeId];
+      delta.events.push({
+        type: 'COMBAT_ATTACK',
+        textKey: 'event.combat_attack',
+        params: { from: from?.name || originNodeId, to: target.name, troops: army.strength || army.troopCount || 0 },
+      });
+    }
     return true;
   }
 
   planAIAttacks(delta) {
     if (this.state.tick % AI_ATTACK_INTERVAL_TICKS !== 0) return;
-    const source = Object.values(this.state.nodes)
-      .filter(node => node.factionId === 'AI' && (node.garrisonCount || 0) >= AI_MIN_GARRISON_TO_ATTACK)
-      .sort((a, b) => (b.garrisonCount || 0) - (a.garrisonCount || 0) || a.id.localeCompare(b.id))
-      .find(node => this.findAdjacentTargets(node).length > 0);
+    const source = Object.values(this.state.armies || {})
+      .filter(army => army.factionId === 'AI' && army.state === 'IDLE' && army.currentNodeId && (army.strength || army.troopCount || 0) >= AI_MIN_GARRISON_TO_ATTACK)
+      .filter(army => {
+        const node = this.state.nodes[army.currentNodeId];
+        return node && this.findAdjacentTargets(node).length > 0;
+      })
+      .sort((a, b) => (b.strength || b.troopCount || 0) - (a.strength || a.troopCount || 0) || a.entityId - b.entityId)[0];
     if (!source) return;
 
-    const target = this.findAdjacentTargets(source)
+    const sourceNode = this.state.nodes[source.currentNodeId];
+    const target = this.findAdjacentTargets(sourceNode)
       .sort((a, b) => Number(b.factionId === 'NEUTRAL') - Number(a.factionId === 'NEUTRAL') || this.estimateDefenderPower(a) - this.estimateDefenderPower(b) || a.id.localeCompare(b.id))[0];
     if (!target) return;
-
-    const troopCount = Math.min((source.garrisonCount || 0) - AI_MIN_GARRISON_TO_KEEP, 3);
-    if (troopCount <= 0) return;
-    this.launchAttack(source, target, troopCount, delta);
+    this.moveExistingUnit(source, target, delta, true);
   }
 
   findAdjacentTargets(source) {
@@ -289,7 +468,42 @@ class MockRuntime {
   }
 
   estimateDefenderPower(node) {
-    return (node.garrisonCount || 0) * 2 + (node.wallHpCurrent || 0) + (node.wallLevel || 0) * 25;
+    const companies = Object.values(this.state.armies || {})
+      .filter(army => army.currentNodeId === node.id && !army.currentEdgeId && army.state === 'IDLE' && army.factionId === node.factionId);
+    const companyPower = companies.reduce((sum, army) => sum + this.companyDefensePower(army), 0);
+    return companyPower + (node.wallHpCurrent || 0) + (node.wallLevel || 0) * 25;
+  }
+
+  processMilitarySupply(delta) {
+    for (const army of Object.values(this.state.armies || {})) {
+      if (army.unitKind !== 'COMPANY') continue;
+      const unit = UNIT_DEFS[army.unitDefId] || UNIT_DEFS.MILITIA;
+      const strength = Math.max(army.strength ?? army.troopCount ?? 0, 0);
+      if (strength <= 0) continue;
+      const foodNeed = Math.max(1, Math.floor(unit.upkeepFood * strength / 10));
+      if ((army.supplyFood || 0) >= foodNeed) {
+        army.supplyFood -= foodNeed;
+        army.morale = Math.min(1.2, (army.morale || 1) + 0.01);
+      } else {
+        army.supplyFood = 0;
+        army.morale = Math.max(0.2, (army.morale || 1) - 0.05);
+        if (army.morale <= 0.3 && strength > 1) army.strength = strength - 1;
+      }
+      if (!army.currentEdgeId && army.currentNodeId) {
+        const node = this.state.nodes[army.currentNodeId];
+        if (node?.factionId === army.factionId) {
+          const foodLoad = Math.min(node.invFood, Math.max(0, (army.maxSupplyFood || 0) - (army.supplyFood || 0)));
+          node.invFood -= foodLoad;
+          army.supplyFood += foodLoad;
+          const ammoLoad = Math.min(node.invAmmo, Math.max(0, (army.maxSupplyAmmo || 0) - (army.supplyAmmo || 0)));
+          node.invAmmo -= ammoLoad;
+          army.supplyAmmo += ammoLoad;
+          this.syncNodeGarrison(node.id, delta);
+        }
+      }
+      this.syncCompanyFields(army);
+      delta.armies[army.entityId] = structuredClone(army);
+    }
   }
   processArmies(delta) {
     for (const army of Object.values({ ...(this.state.armies || {}) })) {
@@ -300,7 +514,8 @@ class MockRuntime {
         this.removeArmy(army, delta);
         continue;
       }
-      army.edgeProgress += 10 / Math.max(1, edge.length || 1);
+      const unit = UNIT_DEFS[army.unitDefId] || UNIT_DEFS.MILITIA;
+      army.edgeProgress += Math.max(1, unit.speed) * 5 / Math.max(1, edge.length || 1);
       if (army.edgeProgress < 1) {
         delta.armies[army.entityId] = structuredClone(army);
         continue;
@@ -308,25 +523,44 @@ class MockRuntime {
       army.edgeProgress = 1;
       army.currentNodeId = target.id;
       army.currentEdgeId = null;
-      army.state = 'FIGHTING';
-      this.resolveCombat(army, target, delta);
+      army.state = target.factionId === army.factionId ? 'IDLE' : 'FIGHTING';
+      if (army.state === 'IDLE') {
+        army.targetNodeId = null;
+        army.stance = 'DEFEND';
+        this.syncCompanyFields(army);
+        delta.armies[army.entityId] = structuredClone(army);
+        this.syncNodeGarrison(target.id, delta);
+      } else {
+        this.resolveCombat(army, target, delta);
+      }
     }
   }
 
   resolveCombat(army, target, delta) {
     const oldFactionId = target.factionId;
-    const attackerPower = army.troopCount * 3 * Math.max(0.1, army.morale || 1);
-    const defenderPower = (target.garrisonCount || 0) * 2 + (target.wallHpCurrent || 0) + (target.wallLevel || 0) * 25;
+    const defenders = Object.values(this.state.armies || {})
+      .filter(unit => unit.entityId !== army.entityId && unit.currentNodeId === target.id && !unit.currentEdgeId && unit.state === 'IDLE' && unit.factionId !== army.factionId);
+    const attackerPower = this.companyAttackPower(army);
+    const companyDefense = defenders.reduce((sum, defender) => sum + this.companyDefensePower(defender), 0);
+    const legacyDefense = defenders.length ? 0 : (target.garrisonCount || 0) * 2;
+    const defenderPower = companyDefense + legacyDefense + (target.wallHpCurrent || 0) + (target.wallLevel || 0) * 25;
     if (attackerPower > defenderPower) {
-      const survivors = Math.max(1, Math.min(army.troopCount, Math.ceil((attackerPower - defenderPower) / 3)));
+      const survivors = Math.max(1, Math.min(army.strength || army.troopCount || 1, Math.ceil((attackerPower - defenderPower) / Math.max(1, (UNIT_DEFS[army.unitDefId] || UNIT_DEFS.MILITIA).attack))));
+      for (const defender of defenders) this.removeArmy(defender, delta);
       target.factionId = army.factionId;
-      target.garrisonCount = survivors;
       target.loyalty = 0.6;
-      target.wallHpCurrent = Math.max(0, (target.wallHpCurrent || 0) - army.troopCount * 5);
+      target.wallHpCurrent = Math.max(0, (target.wallHpCurrent || 0) - (army.strength || army.troopCount || 0) * 5);
+      army.strength = survivors;
+      army.currentNodeId = target.id;
+      army.currentEdgeId = null;
+      army.targetNodeId = null;
+      army.state = 'IDLE';
+      army.stance = 'DEFEND';
+      this.syncCompanyFields(army);
       this.updateFactionOwnership(oldFactionId, army.factionId, target.id, delta);
       this.ensureCapturedStock(target.id, army.factionId, delta);
-      delta.nodes[target.id] = structuredClone(target);
-      this.removeArmy(army, delta);
+      delta.armies[army.entityId] = structuredClone(army);
+      this.syncNodeGarrison(target.id, delta);
       delta.events.push({
         type: 'COMBAT_CAPTURE',
         textKey: 'event.combat_capture',
@@ -339,14 +573,36 @@ class MockRuntime {
     const wallDamage = Math.min(target.wallHpCurrent || 0, damage);
     target.wallHpCurrent = (target.wallHpCurrent || 0) - wallDamage;
     damage -= wallDamage;
-    target.garrisonCount = Math.max(0, (target.garrisonCount || 0) - damage);
-    delta.nodes[target.id] = structuredClone(target);
+    for (const defender of defenders) {
+      if (damage <= 0) break;
+      const loss = Math.min(defender.strength || defender.troopCount || 0, Math.max(1, Math.ceil(damage / Math.max(1, defenders.length))));
+      defender.strength = Math.max(0, (defender.strength || defender.troopCount || 0) - loss);
+      this.syncCompanyFields(defender);
+      damage -= loss;
+      if (defender.strength <= 0) this.removeArmy(defender, delta);
+      else delta.armies[defender.entityId] = structuredClone(defender);
+    }
     this.removeArmy(army, delta);
+    this.syncNodeGarrison(target.id, delta);
     delta.events.push({
       type: 'COMBAT_DEFEAT',
       textKey: 'event.combat_defeat',
-      params: { node: target.name, losses: army.troopCount },
+      params: { node: target.name, losses: army.strength || army.troopCount || 0 },
     });
+  }
+
+  companyAttackPower(army) {
+    const unit = UNIT_DEFS[army.unitDefId] || UNIT_DEFS.MILITIA;
+    const strength = army.strength ?? army.troopCount ?? 0;
+    const supplyModifier = unit.ammoPerAttack > 0 && (army.supplyAmmo || 0) < unit.ammoPerAttack ? 0.5 : 1;
+    if (unit.ammoPerAttack > 0) army.supplyAmmo = Math.max(0, (army.supplyAmmo || 0) - Math.min(army.supplyAmmo || 0, unit.ammoPerAttack * strength));
+    return strength * unit.attack * Math.max(0.1, army.morale || 1) * supplyModifier;
+  }
+
+  companyDefensePower(army) {
+    const unit = UNIT_DEFS[army.unitDefId] || UNIT_DEFS.MILITIA;
+    const strength = army.strength ?? army.troopCount ?? 0;
+    return strength * unit.defense * Math.max(0.1, army.morale || 1);
   }
 
   ensureCapturedStock(nodeId, factionId, delta) {
@@ -377,6 +633,20 @@ class MockRuntime {
     return Object.values(this.state.edges).find(edge =>
       (edge.sourceNodeId === from && edge.targetNodeId === to) ||
       (edge.sourceNodeId === to && edge.targetNodeId === from));
+  }
+
+  processNodeResources(delta) {
+    for (const node of Object.values(this.state.nodes || {})) {
+      if (node.factionId === 'NEUTRAL') continue;
+      const foodOutput = Math.max(0, node.farmLevel || 0) * 10;
+      const ironOutput = Math.max(0, node.mineLevel || 0) * 8;
+      const ammoOutput = Math.max(0, node.arsenalLevel || 0) * 4;
+      const foodConsumed = Math.max(1, Math.floor((node.popCount || 0) / 10));
+      node.invFood = Math.max(0, (node.invFood || 0) + foodOutput - foodConsumed);
+      node.invIron = Math.max(0, (node.invIron || 0) + ironOutput);
+      node.invAmmo = Math.max(0, (node.invAmmo || 0) + ammoOutput);
+      delta.nodes[node.id] = structuredClone(node);
+    }
   }
 
   processProduction(delta) {

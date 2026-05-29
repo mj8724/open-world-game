@@ -232,6 +232,67 @@
   font-weight: var(--font-bold);
 }
 
+.management-dock .tech-research-status {
+  padding: 0 0 var(--space-2);
+  border-bottom: 0;
+}
+
+.management-dock .research-active {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+
+.management-dock .research-active span,
+.management-dock .research-idle {
+  font-size: var(--text-xs);
+  white-space: normal;
+}
+
+.management-dock .tech-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: 0;
+}
+
+.management-dock .tech-column {
+  gap: var(--space-1);
+}
+
+.management-dock .tech-column-header {
+  padding: 2px;
+  font-size: 10px;
+}
+
+.management-dock .tech-node {
+  padding: var(--space-1);
+  gap: var(--space-1);
+  min-height: 54px;
+}
+
+.management-dock .tech-node-icon {
+  width: 20px;
+  font-size: 16px;
+}
+
+.management-dock .tech-node-name {
+  font-size: 11px;
+}
+
+.management-dock .tech-node-desc {
+  display: none;
+}
+
+.management-dock .tech-node-cost {
+  font-size: 9px;
+}
+
+.management-dock .tech-research-btn {
+  position: static;
+  align-self: end;
+  padding: 2px 6px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .tech-grid {

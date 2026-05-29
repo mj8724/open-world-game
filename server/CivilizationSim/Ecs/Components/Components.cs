@@ -34,22 +34,46 @@ public class EdgeComponent
     public float Length { get; set; }
 }
 
-/// <summary>军队实体组件</summary>
+/// <summary>军队/连队实体组件</summary>
 public class ArmyComponent
 {
     public int EntityId { get; set; }
     public string FactionId { get; set; } = "";
+    public string UnitKind { get; set; } = "COMPANY";
+    public string UnitDefId { get; set; } = "MILITIA";
+    public string Name { get; set; } = "";
+    public int Strength { get; set; }
+    public int MaxStrength { get; set; }
     public int TroopCount { get; set; }
     public int MeleeTroops { get; set; }
     public int RangedTroops { get; set; }
     public float Morale { get; set; } = 1.0f;
+    public int SupplyFood { get; set; }
+    public int SupplyAmmo { get; set; }
+    public int MaxSupplyFood { get; set; }
+    public int MaxSupplyAmmo { get; set; }
     public int CarryFood { get; set; }
     public int CarryAmmo { get; set; }
+    public int RegimentId { get; set; }
+    public int DivisionId { get; set; }
+    public string Stance { get; set; } = "DEFEND";
     public string? CurrentNodeId { get; set; }
     public string? CurrentEdgeId { get; set; }
     public float EdgeProgress { get; set; }
     public string? TargetNodeId { get; set; }
     public string State { get; set; } = "IDLE"; // IDLE | MOVING | FIGHTING | FLEEING
+}
+
+/// <summary>团/师编组组件</summary>
+public class FormationComponent
+{
+    public int EntityId { get; set; }
+    public string FactionId { get; set; } = "";
+    public string FormationType { get; set; } = "REGIMENT";
+    public string Name { get; set; } = "";
+    public int? ParentFormationId { get; set; }
+    public List<int> ChildUnitIds { get; set; } = new();
+    public string? CurrentNodeId { get; set; }
 }
 
 /// <summary>物流路线组件</summary>

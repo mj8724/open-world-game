@@ -61,8 +61,8 @@ public class ResourceSystem : IGameSystem
             }
 
             // ─── 粮食消耗 ───
-            // 每10人消耗1粮食/tick，驻军每人消耗0.5粮食/tick
-            int foodConsumed = Math.Max(1, node.PopCount / 10 + node.GarrisonCount / 2);
+            // 每10人消耗1粮食/tick，军队补给由 MilitarySupplySystem 单独处理
+            int foodConsumed = Math.Max(1, node.PopCount / 10);
 
             // ─── 应用变化 ───
             node.InvFood += foodOutput - foodConsumed;

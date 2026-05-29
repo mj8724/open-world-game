@@ -19,6 +19,12 @@ public enum CommandAction
     PRODUCE_TRANSPORT,
     ATTACK,
     RETREAT,
+    CREATE_COMPANY,
+    MOVE_UNIT,
+    ATTACK_NODE,
+    RETREAT_UNIT,
+    CREATE_FORMATION,
+    ASSIGN_TO_FORMATION,
     SET_SPEED,
     UPGRADE_EDGE
 }
@@ -44,6 +50,12 @@ public class GameCommand
     public Dictionary<string, RallyCargoPolicy>? RallyPolicies { get; set; }
     public bool? Enabled { get; set; }
     public int TroopCount { get; set; }
+    public int EntityId { get; set; }
+    public List<int>? EntityIds { get; set; }
+    public string? UnitDefId { get; set; }
+    public int FormationId { get; set; }
+    public string? FormationType { get; set; }
+    public string? Name { get; set; }
     public int Speed { get; set; } = 1;
     public int Seq { get; set; }
 }
@@ -106,6 +118,24 @@ public class CommandProcessor : IGameSystem
                     break;
                 case CommandAction.RETREAT:
                     ProcessRetreat(world, cmd, logger);
+                    break;
+                case CommandAction.CREATE_COMPANY:
+                    ProcessCreateCompany(world, dict, cmd, logger);
+                    break;
+                case CommandAction.MOVE_UNIT:
+                    ProcessMoveUnit(world, cmd, logger, attackOnly: false);
+                    break;
+                case CommandAction.ATTACK_NODE:
+                    ProcessMoveUnit(world, cmd, logger, attackOnly: true);
+                    break;
+                case CommandAction.RETREAT_UNIT:
+                    ProcessRetreatUnit(world, cmd, logger);
+                    break;
+                case CommandAction.CREATE_FORMATION:
+                    ProcessCreateFormation(world, cmd, logger);
+                    break;
+                case CommandAction.ASSIGN_TO_FORMATION:
+                    ProcessAssignToFormation(world, cmd, logger);
                     break;
                 default:
                     logger.Log($"[指令] 未实现的指令类型: {cmd.Action}");
@@ -416,6 +446,7 @@ public class CommandProcessor : IGameSystem
             EdgeProgress = 0,
             State = "MOVING"
         };
+        InitializeCompanyFields(army, $"{fromNode.Name} 临时连", "MILITIA", troopCount);
 
         world.Armies[entityId] = army;
         world.MarkDirty(army);
@@ -447,6 +478,149 @@ public class CommandProcessor : IGameSystem
             Params = new() { ["node"] = homeNode.Name, ["troops"] = army.TroopCount }
         });
         logger.Log($"[战斗] {army.TroopCount} 人撤回 {homeNode.Name}");
+    }
+
+    private void ProcessCreateCompany(World world, DictRegistry dict, GameCommand cmd, GameLogger logger)
+    {
+        if (cmd.NodeId == null) return;
+        if (!world.Nodes.TryGetValue(cmd.NodeId, out var node) || node.FactionId != "PLAYER") return;
+        if (!world.Factions.TryGetValue("PLAYER", out var faction)) return;
+
+        var unitDefId = cmd.UnitDefId ?? "MILITIA";
+        if (!dict.HasUnit(unitDefId)) return;
+        var unit = dict.GetUnit(unitDefId);
+        if (!string.IsNullOrEmpty(unit.RequiredTech) && !faction.UnlockedTechs.Contains(unit.RequiredTech)) return;
+        if (node.InvFood < unit.RecruitCostFood || node.InvIron < unit.RecruitCostIron) return;
+
+        node.InvFood -= unit.RecruitCostFood;
+        node.InvIron -= unit.RecruitCostIron;
+
+        var entityId = world.EntityManager.CreateEntityId();
+        var strength = Math.Max(1, unit.PopCost * 5);
+        var army = new ArmyComponent
+        {
+            EntityId = entityId,
+            FactionId = "PLAYER",
+            CurrentNodeId = node.Id,
+            State = "IDLE"
+        };
+        InitializeCompanyFields(army, string.IsNullOrWhiteSpace(cmd.Name) ? $"{unit.Name}连 #{entityId}" : cmd.Name!, unit.Id, strength);
+        army.MaxSupplyFood = Math.Max(10, strength * Math.Max(1, unit.UpkeepFood) * 3);
+        army.SupplyFood = army.MaxSupplyFood;
+        army.MaxSupplyAmmo = unit.AmmoPerAttack > 0 ? strength * unit.AmmoPerAttack * 3 : 0;
+        army.SupplyAmmo = Math.Min(node.InvAmmo, army.MaxSupplyAmmo);
+        node.InvAmmo -= army.SupplyAmmo;
+        army.CarryFood = army.SupplyFood;
+        army.CarryAmmo = army.SupplyAmmo;
+
+        world.Armies[entityId] = army;
+        SyncNodeGarrisonCountFromCompanies(world, node.Id);
+        world.MarkDirty(army);
+        world.MarkDirty(node);
+        logger.Log($"[军事] {node.Name} 组建 {army.Name}");
+    }
+
+    private void ProcessMoveUnit(World world, GameCommand cmd, GameLogger logger, bool attackOnly)
+    {
+        var entityId = cmd.EntityId != 0 ? cmd.EntityId : cmd.TroopCount;
+        if (cmd.TargetNodeId == null || !world.Armies.TryGetValue(entityId, out var army)) return;
+        if (army.FactionId != "PLAYER" || army.State != "IDLE" || army.CurrentNodeId == null) return;
+        if (!world.Nodes.TryGetValue(army.CurrentNodeId, out var source)) return;
+        if (!world.Nodes.TryGetValue(cmd.TargetNodeId, out var target)) return;
+        if (attackOnly && target.FactionId == army.FactionId) return;
+        if (!attackOnly && target.FactionId != army.FactionId) return;
+
+        var edge = FindAdjacentEdge(world, source.Id, target.Id);
+        if (edge == null)
+        {
+            logger.Log($"[军事] {army.Name} 无法移动到非相邻节点 {target.Name}");
+            return;
+        }
+
+        army.CurrentEdgeId = edge.Id;
+        army.TargetNodeId = target.Id;
+        army.EdgeProgress = 0;
+        army.State = "MOVING";
+        army.Stance = attackOnly ? "ATTACK" : "DEFEND";
+        SyncNodeGarrisonCountFromCompanies(world, source.Id);
+        world.MarkDirty(army);
+        world.MarkDirty(source);
+        world.AddEvent(new GameEvent
+        {
+            Type = "COMBAT_ATTACK",
+            TextKey = "event.combat_attack",
+            Params = new() { ["from"] = source.Name, ["to"] = target.Name, ["troops"] = army.Strength }
+        });
+        logger.Log($"[军事] {army.Name} 前往 {target.Name}");
+    }
+
+    private void ProcessRetreatUnit(World world, GameCommand cmd, GameLogger logger)
+    {
+        var entityId = cmd.EntityId != 0 ? cmd.EntityId : cmd.TroopCount;
+        if (!world.Armies.TryGetValue(entityId, out var army)) return;
+        if (army.FactionId != "PLAYER" || army.State != "MOVING") return;
+        if (army.CurrentNodeId == null || !world.Nodes.TryGetValue(army.CurrentNodeId, out var homeNode)) return;
+        if (homeNode.FactionId != "PLAYER") return;
+
+        army.CurrentEdgeId = null;
+        army.TargetNodeId = null;
+        army.EdgeProgress = 0;
+        army.State = "IDLE";
+        army.Stance = "DEFEND";
+        SyncLegacyCompanyFields(army);
+        SyncNodeGarrisonCountFromCompanies(world, homeNode.Id);
+        world.MarkDirty(army);
+        world.MarkDirty(homeNode);
+        world.AddEvent(new GameEvent
+        {
+            Type = "COMBAT_RETREAT",
+            TextKey = "event.combat_retreat",
+            Params = new() { ["node"] = homeNode.Name, ["troops"] = army.Strength }
+        });
+        logger.Log($"[战斗] {army.Name} 撤回 {homeNode.Name}");
+    }
+
+    private void ProcessCreateFormation(World world, GameCommand cmd, GameLogger logger)
+    {
+        var ids = cmd.EntityIds?.Where(id => world.Armies.TryGetValue(id, out var army) && army.FactionId == "PLAYER").Distinct().ToList();
+        if (ids == null || ids.Count == 0) return;
+        var entityId = world.EntityManager.CreateEntityId();
+        var formation = new FormationComponent
+        {
+            EntityId = entityId,
+            FactionId = "PLAYER",
+            FormationType = cmd.FormationType == "DIVISION" ? "DIVISION" : "REGIMENT",
+            Name = string.IsNullOrWhiteSpace(cmd.Name) ? $"{(cmd.FormationType == "DIVISION" ? "师" : "团")} #{entityId}" : cmd.Name!,
+            ChildUnitIds = ids,
+            CurrentNodeId = world.Armies[ids[0]].CurrentNodeId
+        };
+        world.Formations[entityId] = formation;
+        foreach (var id in ids)
+        {
+            var army = world.Armies[id];
+            if (formation.FormationType == "DIVISION") army.DivisionId = entityId;
+            else army.RegimentId = entityId;
+            world.MarkDirty(army);
+        }
+        world.MarkDirty(formation);
+        logger.Log($"[军事] 创建编组 {formation.Name}");
+    }
+
+    private void ProcessAssignToFormation(World world, GameCommand cmd, GameLogger logger)
+    {
+        if (!world.Formations.TryGetValue(cmd.FormationId, out var formation) || formation.FactionId != "PLAYER") return;
+        var ids = cmd.EntityIds?.Where(id => world.Armies.TryGetValue(id, out var army) && army.FactionId == "PLAYER").Distinct().ToList();
+        if (ids == null) return;
+        foreach (var id in ids)
+        {
+            if (!formation.ChildUnitIds.Contains(id)) formation.ChildUnitIds.Add(id);
+            var army = world.Armies[id];
+            if (formation.FormationType == "DIVISION") army.DivisionId = formation.EntityId;
+            else army.RegimentId = formation.EntityId;
+            world.MarkDirty(army);
+        }
+        world.MarkDirty(formation);
+        logger.Log($"[军事] 调整编组 {formation.Name}");
     }
 
     private static bool IsCargoType(string cargoType) => cargoType is "FOOD" or "IRON" or "AMMO";
@@ -532,6 +706,36 @@ public class CommandProcessor : IGameSystem
             edges.Add(edge.Id);
         }
         return edges;
+    }
+
+    private static void SyncLegacyCompanyFields(ArmyComponent army)
+    {
+        if (army.Strength <= 0) army.Strength = army.TroopCount;
+        if (army.MaxStrength <= 0) army.MaxStrength = Math.Max(army.Strength, army.TroopCount);
+        army.TroopCount = army.Strength;
+        army.MeleeTroops = army.Strength;
+        army.CarryFood = army.SupplyFood;
+        army.CarryAmmo = army.SupplyAmmo;
+    }
+
+    private static void InitializeCompanyFields(ArmyComponent army, string name, string unitDefId, int strength)
+    {
+        army.UnitKind = "COMPANY";
+        army.UnitDefId = unitDefId;
+        army.Name = name;
+        army.Strength = strength;
+        army.MaxStrength = Math.Max(strength, army.MaxStrength);
+        if (army.MaxSupplyFood <= 0) army.MaxSupplyFood = Math.Max(10, strength * 2);
+        if (army.SupplyFood <= 0) army.SupplyFood = army.MaxSupplyFood;
+        SyncLegacyCompanyFields(army);
+    }
+
+    private static void SyncNodeGarrisonCountFromCompanies(World world, string nodeId)
+    {
+        if (!world.Nodes.TryGetValue(nodeId, out var node)) return;
+        node.GarrisonCount = world.Armies.Values
+            .Where(army => army.CurrentNodeId == nodeId && army.CurrentEdgeId == null && army.State == "IDLE" && army.FactionId == node.FactionId)
+            .Sum(army => Math.Max(army.Strength, army.TroopCount));
     }
 
     private static void UpdateRouteEstimates(World world, DictRegistry dict, LogisticsComponent logistics)

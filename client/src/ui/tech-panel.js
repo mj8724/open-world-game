@@ -73,6 +73,11 @@ function renderTechTree() {
   const grid = document.getElementById('tech-grid');
   const statusEl = document.getElementById('tech-research-status');
   if (!grid) return;
+  renderTechTreeInto(grid, statusEl, () => renderTechTree());
+}
+
+export function renderTechTreeInto(grid, statusEl = null, refresh = null) {
+  if (!grid) return;
 
   const faction = stateStore.getPlayerFaction();
   if (!faction) return;
@@ -149,7 +154,7 @@ function renderTechTree() {
       sendResearch(btn.dataset.tech);
       btn.disabled = true;
       btn.textContent = '⏳';
-      setTimeout(renderTechTree, 500);
+      setTimeout(refresh || (() => renderTechTreeInto(grid, statusEl, refresh)), 500);
     });
   });
 }

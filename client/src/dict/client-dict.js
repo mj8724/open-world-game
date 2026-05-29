@@ -23,6 +23,13 @@ const TRANSPORTS = {
   TRAIN: { id:'TRAIN', icon:'🚂', capacity:200, speed:4, costFood:20, costIron:50, buildTicks:15, maintenanceFood:2, maintenanceIron:2, requiredTech:'TRANSIT_RAILWAY' },
 };
 
+const UNITS = {
+  MILITIA: { id:'MILITIA', icon:'🛡️', attack:3, defense:2, recruitCostFood:10, recruitCostIron:5, upkeepFood:1, requiredTech:null },
+  SWORDSMAN: { id:'SWORDSMAN', icon:'⚔️', attack:8, defense:5, recruitCostFood:20, recruitCostIron:15, upkeepFood:2, requiredTech:'WEAPON_BLADES' },
+  MUSKETEER: { id:'MUSKETEER', icon:'🔫', attack:12, defense:3, recruitCostFood:25, recruitCostIron:25, upkeepFood:2, requiredTech:'WEAPON_GUNPOWDER' },
+  MAXIM_GUN: { id:'MAXIM_GUN', icon:'💥', attack:30, defense:2, recruitCostFood:40, recruitCostIron:60, upkeepFood:3, requiredTech:'WEAPON_MACHINEGUN' },
+};
+
 const TECHS = {
   SCAVENGING:     { id:'SCAVENGING',     category:'BUILD',   prereq:[], default:true },
   BUILD_MASONRY:  { id:'BUILD_MASONRY',  category:'BUILD',   prereq:[] },
@@ -43,7 +50,9 @@ export function getBuilding(id) { return BUILDINGS[id]; }
 export function getTech(id) { return TECHS[id]; }
 export function getResource(id) { return RESOURCES[id]; }
 export function getTransport(id) { return TRANSPORTS[id]; }
+export function getUnit(id) { return UNITS[id]; }
 export function getAllBuildings() { return BUILDINGS; }
 export function getAllTechs() { return TECHS; }
 export function getAllResources() { return RESOURCES; }
 export function getAllTransports() { return TRANSPORTS; }
+export function getAllUnits() { return UNITS; }

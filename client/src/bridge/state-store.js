@@ -10,6 +10,7 @@ class StateStore {
     this.edges = {};
     this.factions = {};
     this.armies = {};
+    this.formations = {};
     this.logistics = {};
     this.rallyPoints = {};
     this.transportStocks = {};
@@ -32,6 +33,7 @@ class StateStore {
     this.edges = fullState.edges || {};
     this.factions = fullState.factions || {};
     this.armies = fullState.armies || {};
+    this.formations = fullState.formations || {};
     this.logistics = fullState.logisticsEntities || {};
     this.rallyPoints = fullState.rallyPoints || {};
     this.transportStocks = fullState.transportStocks || {};
@@ -66,6 +68,12 @@ class StateStore {
         this.armies[id] = { ...this.armies[id], ...army };
       }
     }
+    // 合并编组
+    if (delta.formations) {
+      for (const [id, formation] of Object.entries(delta.formations)) {
+        this.formations[id] = { ...this.formations[id], ...formation };
+      }
+    }
     // 合并物流
     if (delta.logisticsEntities) {
       for (const [id, logi] of Object.entries(delta.logisticsEntities)) {
@@ -94,6 +102,7 @@ class StateStore {
     if (delta.removedEntityIds) {
       for (const id of delta.removedEntityIds) {
         delete this.armies[id];
+        delete this.formations[id];
         delete this.logistics[id];
       }
     }

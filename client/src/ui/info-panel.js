@@ -4,9 +4,10 @@
  */
 import i18n from '../i18n/i18n.js';
 import { stateStore } from '../bridge/state-store.js';
-import { sendAttack, sendBuild, sendRetreat } from '../bridge/command-sender.js';
+import { sendAttack, sendAttackNode, sendCreateCompany, sendMoveUnit, sendRetreatUnit } from '../bridge/command-sender.js';
 import { eventBus } from './event-bus.js';
-import { getAllBuildings } from '../dict/client-dict.js';
+import { getAllBuildings, getAllUnits, getUnit } from '../dict/client-dict.js';
+import { renderCitySketch } from './city-sketch.js';
 
 let currentNodeId = null;
 
@@ -15,14 +16,6 @@ export function initInfoPanel() {
   document.getElementById('panel-close')?.addEventListener('click', () => {
     showPlaceholder();
     eventBus.emit('panel-closed');
-  });
-
-  document.getElementById('btn-research')?.addEventListener('click', () => {
-    eventBus.emit('open-tech-panel');
-  });
-
-  document.getElementById('btn-logistics')?.addEventListener('click', () => {
-    eventBus.emit('open-logistics-panel', currentNodeId);
   });
 
   eventBus.on('node-selected', (nodeId) => showNodeDetails(nodeId));
@@ -69,6 +62,9 @@ export function showNodeDetails(nodeId) {
     badge.className = 'faction-badge ' + (isPlayer ? 'faction-player' : isAI ? 'faction-ai' : 'faction-neutral');
   }
 
+  const sketchEl = document.getElementById('detail-city-sketch');
+  if (sketchEl) sketchEl.innerHTML = renderCitySketch(node);
+
   // 人口（含人口上限）
   const popEl = document.getElementById('detail-pop');
   if (popEl) {
@@ -86,17 +82,88 @@ export function showNodeDetails(nodeId) {
 
   // 建筑列表
   renderBuildings(node);
+  renderCompanyControls(node);
   renderAttackControls(node);
   renderArmyControls(node);
 }
 
+
+function renderCompanyControls(node) {
+  const container = document.getElementById('detail-buildings');
+  if (!container) return;
+  document.getElementById('company-controls')?.remove();
+
+  const companies = Object.values(stateStore.armies || {})
+    .filter(army => army.currentNodeId === node.id && !army.currentEdgeId && army.state === 'IDLE')
+    .sort((a, b) => Number(a.entityId) - Number(b.entityId));
+  const playerCompanies = companies.filter(army => army.factionId === 'PLAYER');
+  const adjacent = getAdjacentNodes(node.id);
+  const unitOptions = Object.values(getAllUnits()).map(unit => `<option value="${unit.id}">${unit.icon} ${i18n.t(`unit.${unit.id}.name`, {}) !== `unit.${unit.id}.name` ? i18n.t(`unit.${unit.id}.name`) : unit.id}</option>`).join('');
+
+  container.insertAdjacentHTML('afterend', `
+    <div class="company-controls" id="company-controls">
+      <h4>${i18n.t('panel.companies')}</h4>
+      ${companies.length ? companies.map(army => companyRowHtml(army, adjacent)).join('') : `<div class="attack-empty">${i18n.t('panel.noCompanies')}</div>`}
+      ${node.factionId === 'PLAYER' ? `
+        <div class="company-create">
+          <select id="company-unit-type">${unitOptions}</select>
+          <button class="action-btn" id="btn-create-company">${i18n.t('panel.createCompany')}</button>
+        </div>
+      ` : ''}
+    </div>
+  `);
+
+  document.getElementById('btn-create-company')?.addEventListener('click', () => {
+    sendCreateCompany(node.id, document.getElementById('company-unit-type')?.value || 'MILITIA');
+  });
+
+  document.querySelectorAll('.company-move').forEach(select => {
+    select.addEventListener('change', () => {
+      const targetNodeId = select.value;
+      if (!targetNodeId) return;
+      const entityId = Number(select.dataset.armyId);
+      const target = stateStore.nodes[targetNodeId];
+      if (target?.factionId === 'PLAYER') sendMoveUnit(entityId, targetNodeId);
+      else sendAttackNode(entityId, targetNodeId);
+      select.value = '';
+    });
+  });
+}
+
+function companyRowHtml(army, adjacent) {
+  const unit = getUnit(army.unitDefId || 'MILITIA') || { icon: '⚔️' };
+  const canCommand = army.factionId === 'PLAYER';
+  const moveOptions = adjacent.map(target => `<option value="${target.id}">${nodeName(target.id)}</option>`).join('');
+  const supplyFood = army.supplyFood ?? army.carryFood ?? 0;
+  const supplyAmmo = army.supplyAmmo ?? army.carryAmmo ?? 0;
+  return `
+    <div class="company-row faction-${(army.factionId || 'neutral').toLowerCase()}">
+      <div class="company-title"><span>${unit.icon}</span><strong>${army.name || `${army.unitDefId || 'MILITIA'} #${army.entityId}`}</strong></div>
+      <div class="company-stats">
+        <span>${i18n.t('panel.strength')}: ${army.strength ?? army.troopCount ?? 0}/${army.maxStrength || army.strength || army.troopCount || 0}</span>
+        <span>${i18n.t('panel.morale')}: ${Math.round((army.morale || 1) * 100)}%</span>
+        <span>${i18n.t('panel.foodAmmo')}: ${supplyFood}/${supplyAmmo}</span>
+      </div>
+      ${canCommand ? `<select class="company-move" data-army-id="${army.entityId}"><option value="">${i18n.t('panel.move')}</option>${moveOptions}</select>` : ''}
+    </div>
+  `;
+}
+
+function getAdjacentNodes(nodeId) {
+  const ids = new Set();
+  Object.values(stateStore.edges || {}).forEach(edge => {
+    if (edge.sourceNodeId === nodeId) ids.add(edge.targetNodeId);
+    if (edge.targetNodeId === nodeId) ids.add(edge.sourceNodeId);
+  });
+  return [...ids].map(id => stateStore.nodes[id]).filter(Boolean);
+}
 
 function renderAttackControls(node) {
   const container = document.getElementById('detail-buildings');
   if (!container) return;
   const existing = document.getElementById('attack-controls');
   if (existing) existing.remove();
-  if (node.factionId !== 'PLAYER') return;
+  if (node.factionId !== 'PLAYER' || Object.values(stateStore.armies || {}).some(army => army.factionId === 'PLAYER' && army.currentNodeId === node.id && !army.currentEdgeId && army.state === 'IDLE')) return;
 
   const targets = getAdjacentAttackTargets(node.id);
   const garrison = node.garrisonCount || 0;
@@ -153,7 +220,7 @@ function renderArmyControls(node) {
 
   document.querySelectorAll('.btn-retreat').forEach(btn => {
     btn.addEventListener('click', () => {
-      sendRetreat(Number(btn.dataset.armyId));
+      sendRetreatUnit(Number(btn.dataset.armyId));
       btn.disabled = true;
     });
   });
@@ -212,7 +279,7 @@ function renderBuildings(node) {
           <span class="build-progress-text">${inQueue.remainingTicks}t</span>
         </div>`;
     } else if (canUpgrade) {
-      actionHtml = `<button class="btn-upgrade" data-node="${node.id}" data-building="${type}">${i18n.t('panel.upgrade')}</button>`;
+      actionHtml = `<span class="building-maxed">↗</span>`;
     } else {
       actionHtml = `<span class="building-maxed">${level >= def.maxLevel ? 'MAX' : '—'}</span>`;
     }
@@ -226,19 +293,6 @@ function renderBuildings(node) {
       </div>
     `;
   }).join('');
-
-  // 绑定升级按钮
-  container.querySelectorAll('.btn-upgrade').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const nodeId = btn.dataset.node;
-      const buildingType = btn.dataset.building;
-      sendBuild(nodeId, buildingType);
-      btn.disabled = true;
-      btn.textContent = '⏳';
-      // 短暂延迟后刷新面板以显示建造队列
-      setTimeout(() => refreshCurrentPanel(), 500);
-    });
-  });
 }
 
 /** 刷新当前选中的节点 */

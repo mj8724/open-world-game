@@ -468,7 +468,72 @@ public class LogisticsSystem : IGameSystem
     }
 }
 
-/// <summary>战斗系统 — Phase 4A 相邻节点攻击</summary>
+/// <summary>军队补给系统</summary>
+public class MilitarySupplySystem : IGameSystem
+{
+    public int Order => 65;
+
+    public void Execute(World world, DictRegistry dict, GameLogger logger)
+    {
+        foreach (var army in world.Armies.Values.ToList())
+        {
+            if (army.UnitKind != "COMPANY") continue;
+            if (!dict.HasUnit(army.UnitDefId)) continue;
+            var unit = dict.GetUnit(army.UnitDefId);
+            var strength = Math.Max(army.Strength, army.TroopCount);
+            if (strength <= 0) continue;
+
+            var foodNeed = Math.Max(1, unit.UpkeepFood * strength / 10);
+            if (army.SupplyFood >= foodNeed)
+            {
+                army.SupplyFood -= foodNeed;
+                army.Morale = Math.Min(1.2f, army.Morale + 0.01f);
+            }
+            else
+            {
+                army.SupplyFood = 0;
+                army.Morale = Math.Max(0.2f, army.Morale - 0.05f);
+                if (army.Morale <= 0.3f && strength > 1)
+                {
+                    army.Strength = strength - 1;
+                }
+            }
+
+            if (army.CurrentEdgeId == null && army.CurrentNodeId != null && world.Nodes.TryGetValue(army.CurrentNodeId, out var node) && node.FactionId == army.FactionId)
+            {
+                var foodLoad = Math.Min(node.InvFood, Math.Max(0, army.MaxSupplyFood - army.SupplyFood));
+                node.InvFood -= foodLoad;
+                army.SupplyFood += foodLoad;
+                var ammoLoad = Math.Min(node.InvAmmo, Math.Max(0, army.MaxSupplyAmmo - army.SupplyAmmo));
+                node.InvAmmo -= ammoLoad;
+                army.SupplyAmmo += ammoLoad;
+                SyncNodeGarrisonCountFromCompanies(world, node.Id);
+                world.MarkDirty(node);
+            }
+
+            SyncLegacyCompanyFields(army);
+            world.MarkDirty(army);
+        }
+    }
+
+    private static void SyncLegacyCompanyFields(ArmyComponent army)
+    {
+        army.TroopCount = army.Strength;
+        army.MeleeTroops = army.Strength;
+        army.CarryFood = army.SupplyFood;
+        army.CarryAmmo = army.SupplyAmmo;
+    }
+
+    private static void SyncNodeGarrisonCountFromCompanies(World world, string nodeId)
+    {
+        if (!world.Nodes.TryGetValue(nodeId, out var node)) return;
+        node.GarrisonCount = world.Armies.Values
+            .Where(army => army.CurrentNodeId == nodeId && army.CurrentEdgeId == null && army.State == "IDLE" && army.FactionId == node.FactionId)
+            .Sum(army => Math.Max(army.Strength, army.TroopCount));
+    }
+}
+
+/// <summary>战斗系统 — 连队移动与结算</summary>
 public class CombatSystem : IGameSystem
 {
     public int Order => 70;
@@ -484,61 +549,107 @@ public class CombatSystem : IGameSystem
                 continue;
             }
 
-            army.EdgeProgress += 10f / Math.Max(1f, edge.Length);
+            var unitSpeed = dict.HasUnit(army.UnitDefId) ? dict.GetUnit(army.UnitDefId).Speed : 2;
+            army.EdgeProgress += Math.Max(1, unitSpeed) * 5f / Math.Max(1f, edge.Length);
             if (army.EdgeProgress < 1f)
             {
                 world.MarkDirty(army);
                 continue;
             }
 
+            var sourceNodeId = army.CurrentNodeId;
             army.EdgeProgress = 1f;
             army.CurrentNodeId = target.Id;
             army.CurrentEdgeId = null;
             army.State = "FIGHTING";
-            ResolveCombat(world, army, target, logger);
+            if (sourceNodeId != null) SyncNodeGarrisonCountFromCompanies(world, sourceNodeId);
+            ResolveCombat(world, dict, army, target, logger);
         }
     }
 
-    private static void ResolveCombat(World world, ArmyComponent army, NodeComponent target, GameLogger logger)
+    private static void ResolveCombat(World world, DictRegistry dict, ArmyComponent army, NodeComponent target, GameLogger logger)
     {
         var oldFactionId = target.FactionId;
-        var attackerPower = army.TroopCount * 3f * Math.Max(0.1f, army.Morale);
-        var defenderPower = target.GarrisonCount * 2f + target.WallHpCurrent + target.WallLevel * 25f;
+        var defenders = world.Armies.Values
+            .Where(unit => unit.EntityId != army.EntityId && unit.CurrentNodeId == target.Id && unit.CurrentEdgeId == null && unit.State == "IDLE" && unit.FactionId != army.FactionId)
+            .ToList();
+        var attackerPower = AttackPower(dict, army);
+        var defenderPower = defenders.Sum(defender => DefensePower(dict, defender));
+        if (oldFactionId != army.FactionId) defenderPower += target.WallHpCurrent + target.WallLevel * 25f;
+        if (defenders.Count == 0) defenderPower += target.GarrisonCount * 2f;
 
         if (attackerPower > defenderPower)
         {
-            var survivors = Math.Clamp((int)Math.Ceiling((attackerPower - defenderPower) / 3f), 1, army.TroopCount);
-            CaptureNode(world, target, oldFactionId, army.FactionId, survivors);
-            target.WallHpCurrent = Math.Max(0, target.WallHpCurrent - army.TroopCount * 5);
+            foreach (var defender in defenders) RemoveArmy(world, defender);
+            var survivors = Math.Clamp((int)Math.Ceiling((attackerPower - defenderPower) / Math.Max(1f, UnitAttack(dict, army))), 1, Math.Max(1, army.Strength));
+            army.Strength = Math.Min(army.MaxStrength, survivors);
+            army.State = "IDLE";
+            army.Stance = "DEFEND";
+            army.TargetNodeId = null;
+            SyncLegacyCompanyFields(army);
+            CaptureNode(world, target, oldFactionId, army.FactionId);
+            target.WallHpCurrent = Math.Max(0, target.WallHpCurrent - Math.Max(1, army.Strength) * 5);
+            SyncNodeGarrisonCountFromCompanies(world, target.Id);
+            world.MarkDirty(army);
             world.MarkDirty(target);
-            RemoveArmy(world, army);
             world.AddEvent(new GameEvent
             {
                 Type = "COMBAT_CAPTURE",
                 TextKey = "event.combat_capture",
-                Params = new() { ["node"] = target.Name, ["troops"] = survivors }
+                Params = new() { ["node"] = target.Name, ["troops"] = army.Strength }
             });
-            logger.Log($"[战斗] {target.Name} 被 {army.FactionId} 占领，剩余 {survivors} 人驻守");
+            logger.Log($"[战斗] {target.Name} 被 {army.FactionId} 占领，{army.Name} 剩余 {army.Strength}");
             return;
         }
 
-        var damage = (int)Math.Floor(attackerPower / 2f);
-        var wallDamage = Math.Min(target.WallHpCurrent, damage);
+        var losses = Math.Min(Math.Max(1, army.Strength), Math.Max(1, (int)Math.Ceiling(defenderPower / Math.Max(1f, UnitDefense(dict, army)))));
+        foreach (var defender in defenders)
+        {
+            var defenderLoss = Math.Max(0, (int)Math.Floor(attackerPower / Math.Max(1, defenders.Count) / Math.Max(1f, UnitDefense(dict, defender))));
+            defender.Strength = Math.Max(0, defender.Strength - defenderLoss);
+            SyncLegacyCompanyFields(defender);
+            if (defender.Strength <= 0) RemoveArmy(world, defender);
+            else world.MarkDirty(defender);
+        }
+        var wallDamage = Math.Min(target.WallHpCurrent, (int)Math.Floor(attackerPower / 2f));
         target.WallHpCurrent -= wallDamage;
-        damage -= wallDamage;
-        target.GarrisonCount = Math.Max(0, target.GarrisonCount - damage);
-        world.MarkDirty(target);
+        army.Strength = Math.Max(0, army.Strength - losses);
         RemoveArmy(world, army);
+        SyncNodeGarrisonCountFromCompanies(world, target.Id);
+        world.MarkDirty(target);
         world.AddEvent(new GameEvent
         {
             Type = "COMBAT_DEFEAT",
             TextKey = "event.combat_defeat",
-            Params = new() { ["node"] = target.Name, ["losses"] = army.TroopCount }
+            Params = new() { ["node"] = target.Name, ["losses"] = Math.Max(army.TroopCount, losses) }
         });
         logger.Log($"[战斗] 攻击 {target.Name} 失败，守军剩余 {target.GarrisonCount}");
     }
 
-    private static void CaptureNode(World world, NodeComponent node, string oldFactionId, string newFactionId, int garrison)
+    private static float AttackPower(DictRegistry dict, ArmyComponent army)
+    {
+        var attack = UnitAttack(dict, army);
+        var supplyModifier = army.SupplyFood <= 0 ? 0.65f : 1f;
+        if (dict.HasUnit(army.UnitDefId))
+        {
+            var unit = dict.GetUnit(army.UnitDefId);
+            if (unit.AmmoPerAttack > 0)
+            {
+                var ammoNeed = Math.Max(1, unit.AmmoPerAttack * Math.Max(1, army.Strength / 5));
+                if (army.SupplyAmmo < ammoNeed) supplyModifier *= 0.55f;
+                else army.SupplyAmmo -= ammoNeed;
+            }
+        }
+        return Math.Max(1, army.Strength) * attack * Math.Max(0.1f, army.Morale) * supplyModifier;
+    }
+
+    private static float DefensePower(DictRegistry dict, ArmyComponent army) => Math.Max(1, army.Strength) * UnitDefense(dict, army) * Math.Max(0.1f, army.Morale) * (army.SupplyFood <= 0 ? 0.75f : 1f);
+
+    private static float UnitAttack(DictRegistry dict, ArmyComponent army) => dict.HasUnit(army.UnitDefId) ? Math.Max(1, dict.GetUnit(army.UnitDefId).Attack) : 3;
+
+    private static float UnitDefense(DictRegistry dict, ArmyComponent army) => dict.HasUnit(army.UnitDefId) ? Math.Max(1, dict.GetUnit(army.UnitDefId).Defense) : 2;
+
+    private static void CaptureNode(World world, NodeComponent node, string oldFactionId, string newFactionId)
     {
         if (world.Factions.TryGetValue(oldFactionId, out var oldFaction))
         {
@@ -552,7 +663,6 @@ public class CombatSystem : IGameSystem
         }
 
         node.FactionId = newFactionId;
-        node.GarrisonCount = garrison;
         node.Loyalty = 0.6f;
         if (!world.TransportStocks.ContainsKey(node.Id))
         {
@@ -560,6 +670,22 @@ public class CombatSystem : IGameSystem
             world.TransportStocks[node.Id] = stock;
             world.MarkDirty(stock);
         }
+    }
+
+    private static void SyncLegacyCompanyFields(ArmyComponent army)
+    {
+        army.TroopCount = army.Strength;
+        army.MeleeTroops = army.Strength;
+        army.CarryFood = army.SupplyFood;
+        army.CarryAmmo = army.SupplyAmmo;
+    }
+
+    private static void SyncNodeGarrisonCountFromCompanies(World world, string nodeId)
+    {
+        if (!world.Nodes.TryGetValue(nodeId, out var node)) return;
+        node.GarrisonCount = world.Armies.Values
+            .Where(army => army.CurrentNodeId == nodeId && army.CurrentEdgeId == null && army.State == "IDLE" && army.FactionId == node.FactionId)
+            .Sum(army => Math.Max(army.Strength, army.TroopCount));
     }
 
     private static void RemoveArmy(World world, ArmyComponent army)
@@ -580,7 +706,6 @@ public class MoraleSystem : IGameSystem
 public class AISystem : IGameSystem
 {
     private const int AttackIntervalTicks = 12;
-    private const int MinGarrisonToKeep = 2;
     private const int MinGarrisonToAttack = 4;
     private int _ticks;
 
@@ -591,27 +716,25 @@ public class AISystem : IGameSystem
         _ticks++;
         if (_ticks % AttackIntervalTicks != 0) return;
 
-        var source = world.Nodes.Values
-            .Where(node => node.FactionId == "AI" && node.GarrisonCount >= MinGarrisonToAttack)
-            .OrderByDescending(node => node.GarrisonCount)
-            .ThenBy(node => node.Id)
-            .FirstOrDefault(node => FindAdjacentTargets(world, node).Any());
-        if (source == null) return;
+        var source = world.Armies.Values
+            .Where(army => army.FactionId == "AI" && army.State == "IDLE" && army.CurrentNodeId != null && Math.Max(army.Strength, army.TroopCount) >= MinGarrisonToAttack)
+            .Where(army => world.Nodes.TryGetValue(army.CurrentNodeId!, out var node) && FindAdjacentTargets(world, node).Any())
+            .OrderByDescending(army => Math.Max(army.Strength, army.TroopCount))
+            .ThenBy(army => army.EntityId)
+            .FirstOrDefault();
+        if (source == null || source.CurrentNodeId == null || !world.Nodes.TryGetValue(source.CurrentNodeId, out var sourceNode)) return;
 
-        var target = FindAdjacentTargets(world, source)
+        var target = FindAdjacentTargets(world, sourceNode)
             .OrderByDescending(node => node.FactionId == "NEUTRAL")
             .ThenBy(EstimateDefenderPower)
             .ThenBy(node => node.Id)
             .FirstOrDefault();
         if (target == null) return;
 
-        var edge = FindAdjacentEdge(world, source.Id, target.Id);
+        var edge = FindAdjacentEdge(world, sourceNode.Id, target.Id);
         if (edge == null) return;
 
-        var troopCount = Math.Min(source.GarrisonCount - MinGarrisonToKeep, 3);
-        if (troopCount <= 0) return;
-
-        LaunchAttack(world, source, target, edge, troopCount, logger);
+        LaunchAttack(world, source, sourceNode, target, edge, logger);
     }
 
     private static IEnumerable<NodeComponent> FindAdjacentTargets(World world, NodeComponent source)
@@ -632,35 +755,31 @@ public class AISystem : IGameSystem
 
     private static float EstimateDefenderPower(NodeComponent node) => node.GarrisonCount * 2f + node.WallHpCurrent + node.WallLevel * 25f;
 
-    private static void LaunchAttack(World world, NodeComponent source, NodeComponent target, EdgeComponent edge, int troopCount, GameLogger logger)
+    private static void LaunchAttack(World world, ArmyComponent army, NodeComponent source, NodeComponent target, EdgeComponent edge, GameLogger logger)
     {
-        source.GarrisonCount -= troopCount;
+        army.CurrentEdgeId = edge.Id;
+        army.TargetNodeId = target.Id;
+        army.EdgeProgress = 0;
+        army.State = "MOVING";
+        army.Stance = "ATTACK";
+        SyncNodeGarrisonCountFromCompanies(world, source.Id);
         world.MarkDirty(source);
-
-        var entityId = world.EntityManager.CreateEntityId();
-        var army = new ArmyComponent
-        {
-            EntityId = entityId,
-            FactionId = source.FactionId,
-            TroopCount = troopCount,
-            MeleeTroops = troopCount,
-            Morale = 1.0f,
-            CurrentNodeId = source.Id,
-            CurrentEdgeId = edge.Id,
-            TargetNodeId = target.Id,
-            EdgeProgress = 0,
-            State = "MOVING"
-        };
-
-        world.Armies[entityId] = army;
         world.MarkDirty(army);
         world.AddEvent(new GameEvent
         {
             Type = "COMBAT_ATTACK",
             TextKey = "event.combat_attack",
-            Params = new() { ["from"] = source.Name, ["to"] = target.Name, ["troops"] = troopCount }
+            Params = new() { ["from"] = source.Name, ["to"] = target.Name, ["troops"] = Math.Max(army.Strength, army.TroopCount) }
         });
-        logger.Log($"[AI] {source.Name} 派出 {troopCount} 人攻击 {target.Name}");
+        logger.Log($"[AI] {source.Name} 派出 {army.Name} 攻击 {target.Name}");
+    }
+
+    private static void SyncNodeGarrisonCountFromCompanies(World world, string nodeId)
+    {
+        if (!world.Nodes.TryGetValue(nodeId, out var node)) return;
+        node.GarrisonCount = world.Armies.Values
+            .Where(army => army.CurrentNodeId == nodeId && army.CurrentEdgeId == null && army.State == "IDLE" && army.FactionId == node.FactionId)
+            .Sum(army => Math.Max(army.Strength, army.TroopCount));
     }
 }
 

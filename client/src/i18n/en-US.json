@@ -46,6 +46,7 @@
     "placeholder": "Click a node on the map to view details",
     "population": "Population",
     "resources": "Resources",
+    "cityOverview": "City Overview",
     "buildings": "Buildings",
     "actions": "Actions",
     "build": "Build",
@@ -59,7 +60,35 @@
     "armyTarget": "Target",
     "retreat": "Retreat",
     "noAttackTargets": "No adjacent attack targets",
-    "noGarrison": "No garrison available"
+    "noGarrison": "No garrison available",
+    "companies": "Companies",
+    "createCompany": "Recruit Company",
+    "move": "Move",
+    "strength": "Strength",
+    "morale": "Morale",
+    "supply": "Supply",
+    "foodAmmo": "Food / Ammo",
+    "noCompanies": "No companies stationed here"
+  },
+  "management": {
+    "selectNode": "Select a city to manage it",
+    "playerOnly": "Only player-controlled cities can be managed",
+    "noPlayerNodes": "No player cities available"
+  },
+  "build": {
+    "title": "Build Management",
+    "selectCity": "Select City",
+    "playerCities": "Player Cities",
+    "currentCity": "Current City",
+    "upgrade": "Upgrade",
+    "max": "MAX",
+    "inProgress": "Building"
+  },
+  "unit": {
+    "MILITIA": { "name": "Militia" },
+    "SWORDSMAN": { "name": "Swordsman" },
+    "MUSKETEER": { "name": "Musketeer" },
+    "MAXIM_GUN": { "name": "Maxim Gun" }
   },
   "building": {
     "FARM": {

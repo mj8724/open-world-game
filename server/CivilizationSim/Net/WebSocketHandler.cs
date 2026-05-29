@@ -132,11 +132,17 @@ public class WebSocketHandler
                         cmd.CargoType = GetString(p, "cargoType");
                         cmd.TransportType = GetString(p, "transportType");
                         cmd.RouteMode = GetString(p, "routeMode");
+                        cmd.UnitDefId = GetString(p, "unitDefId");
+                        cmd.FormationType = GetString(p, "formationType");
+                        cmd.Name = GetString(p, "name");
 
                         if (p.TryGetProperty("targetLevel", out var tl)) cmd.TargetLevel = tl.GetInt32();
                         if (p.TryGetProperty("troopCount", out var tc)) cmd.TroopCount = tc.GetInt32();
-                        if (p.TryGetProperty("armyId", out var aid)) cmd.TroopCount = aid.GetInt32();
+                        if (p.TryGetProperty("entityId", out var eid)) cmd.EntityId = eid.GetInt32();
+                        if (p.TryGetProperty("armyId", out var aid)) { cmd.EntityId = aid.GetInt32(); cmd.TroopCount = aid.GetInt32(); }
                         if (p.TryGetProperty("routeId", out var rid)) cmd.TroopCount = rid.GetInt32();
+                        if (p.TryGetProperty("formationId", out var fid)) cmd.FormationId = fid.GetInt32();
+                        if (p.TryGetProperty("entityIds", out var eids)) cmd.EntityIds = ParseIntArray(eids);
                         if (p.TryGetProperty("transportCount", out var tcnt)) cmd.TransportCount = tcnt.GetInt32();
                         if (p.TryGetProperty("priority", out var pr)) cmd.Priority = pr.GetInt32();
                         if (p.TryGetProperty("quantity", out var qty)) cmd.Quantity = qty.GetInt32();
@@ -203,6 +209,17 @@ public class WebSocketHandler
     private static string? GetString(JsonElement el, string prop)
     {
         return el.TryGetProperty(prop, out var v) ? v.GetString() : null;
+    }
+
+    private static List<int> ParseIntArray(JsonElement values)
+    {
+        var result = new List<int>();
+        if (values.ValueKind != JsonValueKind.Array) return result;
+        foreach (var value in values.EnumerateArray())
+        {
+            if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var id)) result.Add(id);
+        }
+        return result;
     }
 
     private static Dictionary<string, RallyCargoPolicy> ParseRallyPolicies(JsonElement policies)

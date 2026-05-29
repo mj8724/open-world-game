@@ -96,4 +96,5 @@ public class DictRegistry
     public bool HasBuilding(string id) => _buildings.ContainsKey(id);
     public bool HasTech(string id) => _techs.ContainsKey(id);
     public bool HasTransport(string id) => _transports.ContainsKey(id);
+    public bool HasUnit(string id) => _units.ContainsKey(id);
 }

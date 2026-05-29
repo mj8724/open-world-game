@@ -15,6 +15,7 @@ public class World
     public Dictionary<string, NodeComponent> Nodes { get; } = new();
     public Dictionary<string, EdgeComponent> Edges { get; } = new();
     public Dictionary<int, ArmyComponent> Armies { get; } = new();
+    public Dictionary<int, FormationComponent> Formations { get; } = new();
     public Dictionary<int, LogisticsComponent> Logistics { get; } = new();
     public Dictionary<string, RallyPointComponent> RallyPoints { get; } = new();
     public Dictionary<string, TransportStockComponent> TransportStocks { get; } = new();
@@ -28,6 +29,7 @@ public class World
     private readonly HashSet<string> _dirtyNodes = new();
     private readonly HashSet<string> _dirtyEdges = new();
     private readonly HashSet<int> _dirtyArmies = new();
+    private readonly HashSet<int> _dirtyFormations = new();
     private readonly HashSet<int> _dirtyLogistics = new();
     private readonly HashSet<string> _dirtyRallyPoints = new();
     private readonly HashSet<string> _dirtyTransportStocks = new();
@@ -42,6 +44,8 @@ public class World
     public void MarkDirty(EdgeComponent edge) => _dirtyEdges.Add(edge.Id);
     /// <summary>标记军队已变化</summary>
     public void MarkDirty(ArmyComponent army) => _dirtyArmies.Add(army.EntityId);
+    /// <summary>标记编组已变化</summary>
+    public void MarkDirty(FormationComponent formation) => _dirtyFormations.Add(formation.EntityId);
     /// <summary>标记物流已变化</summary>
     public void MarkDirty(LogisticsComponent logi) => _dirtyLogistics.Add(logi.EntityId);
     /// <summary>标记集结点已变化</summary>
@@ -63,6 +67,7 @@ public class World
         _dirtyNodes.Clear();
         _dirtyEdges.Clear();
         _dirtyArmies.Clear();
+        _dirtyFormations.Clear();
         _dirtyLogistics.Clear();
         _dirtyRallyPoints.Clear();
         _dirtyTransportStocks.Clear();
@@ -81,6 +86,7 @@ public class World
             Nodes = new Dictionary<string, NodeComponent>(),
             Edges = new Dictionary<string, EdgeComponent>(),
             Armies = new Dictionary<int, ArmyComponent>(),
+            Formations = new Dictionary<int, FormationComponent>(),
             LogisticsEntities = new Dictionary<int, LogisticsComponent>(),
             RallyPoints = new Dictionary<string, RallyPointComponent>(),
             TransportStocks = new Dictionary<string, TransportStockComponent>(),
@@ -103,6 +109,10 @@ public class World
         foreach (var id in _dirtyArmies)
             if (Armies.TryGetValue(id, out var army))
                 delta.Armies[id] = army;
+
+        foreach (var id in _dirtyFormations)
+            if (Formations.TryGetValue(id, out var formation))
+                delta.Formations[id] = formation;
 
         foreach (var id in _dirtyLogistics)
             if (Logistics.TryGetValue(id, out var logi))
@@ -209,8 +219,11 @@ public class World
             // 应用初始驻军
             foreach (var (nodeId, garrison) in factionStart.StartingGarrison)
             {
-                if (Nodes.TryGetValue(nodeId, out var node))
+                if (Nodes.TryGetValue(nodeId, out var node) && garrison > 0)
+                {
+                    CreateStartingCompany(node, garrison);
                     node.GarrisonCount = garrison;
+                }
             }
 
             // 应用初始资源
@@ -241,6 +254,31 @@ public class World
                 }
             }
         }
+    private void CreateStartingCompany(NodeComponent node, int strength)
+    {
+        var entityId = EntityManager.CreateEntityId();
+        var army = new ArmyComponent
+        {
+            EntityId = entityId,
+            FactionId = node.FactionId,
+            UnitKind = "COMPANY",
+            UnitDefId = "MILITIA",
+            Name = $"{node.Name} 民兵连",
+            Strength = strength,
+            MaxStrength = Math.Max(strength, 10),
+            TroopCount = strength,
+            MeleeTroops = strength,
+            Morale = 1.0f,
+            SupplyFood = Math.Max(10, strength * 2),
+            MaxSupplyFood = Math.Max(10, strength * 2),
+            SupplyAmmo = 0,
+            MaxSupplyAmmo = 0,
+            CarryFood = Math.Max(10, strength * 2),
+            CarryAmmo = 0,
+            CurrentNodeId = node.Id,
+            State = "IDLE"
+        };
+        Armies[entityId] = army;
     }
 }
 
@@ -251,6 +289,7 @@ public class TickDelta
     public Dictionary<string, NodeComponent> Nodes { get; set; } = new();
     public Dictionary<string, EdgeComponent> Edges { get; set; } = new();
     public Dictionary<int, ArmyComponent> Armies { get; set; } = new();
+    public Dictionary<int, FormationComponent> Formations { get; set; } = new();
     public Dictionary<int, LogisticsComponent> LogisticsEntities { get; set; } = new();
     public Dictionary<string, RallyPointComponent> RallyPoints { get; set; } = new();
     public Dictionary<string, TransportStockComponent> TransportStocks { get; set; } = new();

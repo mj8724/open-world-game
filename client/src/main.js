@@ -12,6 +12,7 @@ import './styles/battle-log.css';
 import './styles/animations.css';
 import './styles/tech-panel.css';
 import './styles/logistics-panel.css';
+import './styles/build-panel.css';
 
 // ─── 模块导入 ───
 import i18n from './i18n/i18n.js';
@@ -27,6 +28,8 @@ import { initBattleLog, addEntry } from './ui/battle-log.js';
 import { initSettingsPanel } from './ui/settings-panel.js';
 import { initTechPanel } from './ui/tech-panel.js';
 import { initLogisticsPanel } from './ui/logistics-panel.js';
+import { initBuildPanel } from './ui/build-panel.js';
+import { initManagementDock, refreshManagementDock } from './ui/management-dock.js';
 
 // ─── 初始化 ───
 async function init() {
@@ -44,6 +47,8 @@ async function init() {
   initSettingsPanel();
   initTechPanel();
   initLogisticsPanel();
+  initBuildPanel();
+  initManagementDock();
   initMap('cy');
 
   // 3. 连接服务器（或降级到 mock）
@@ -62,7 +67,6 @@ async function init() {
     Object.keys(delta?.nodes || {}).forEach(updateNodeVisual);
     refreshCurrentPanel();
     refreshLogisticsVisuals();
-    refreshArmyVisuals();
   });
 
   eventBus.on('connection-changed', (connected) => {
@@ -85,6 +89,7 @@ async function init() {
     refreshLabels();
     refreshLogisticsVisuals();
     refreshArmyVisuals();
+    refreshManagementDock();
   });
 
   console.log('[App] 初始化完成');

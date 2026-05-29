@@ -52,6 +52,7 @@ export const MOCK_FULL_STATE = {
     AI:     { id:'AI',     name:'AI势力',   ownedNodeIds:['N10','N11','N12'], unlockedTechs:['SCAVENGING','TRANSIT_ROADS','WEAPON_BLADES'], researchingTechId:null, researchProgress:0, isPlayer:false, capitalNodeId:'N10' },
   },
   armies: {},
+  formations: {},
   logisticsEntities: {},
   rallyPoints: {},
   transportStocks: {

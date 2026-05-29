@@ -30,7 +30,8 @@ export function initLogisticsPanel() {
   `;
   document.body.appendChild(overlay);
   const body = document.getElementById('logistics-body');
-  body?.addEventListener('click', handleLogisticsClick);
+  if (!body) return;
+  bindLogisticsActions(body, () => renderLogisticsPanel());
   document.getElementById('logistics-close')?.addEventListener('click', hideLogisticsPanel);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) hideLogisticsPanel(); });
   eventBus.on('open-logistics-panel', (nodeId) => showLogisticsPanel(nodeId));
@@ -69,11 +70,29 @@ export function hideLogisticsPanel() {
 function renderLogisticsPanel() {
   const body = document.getElementById('logistics-body');
   if (!body) return;
+  renderLogisticsInto(body, selectedNodeId, (nextNodeId) => {
+    selectedNodeId = nextNodeId || selectedNodeId;
+    renderLogisticsPanel();
+  }, { bindActions: false });
+}
+
+export function renderLogisticsInto(body, nodeId = null, refresh = null, options = {}) {
+  if (!body) return;
 
   const playerNodes = getPlayerNodes();
-  const selected = selectedNodeId && stateStore.nodes[selectedNodeId]?.factionId === 'PLAYER'
-    ? selectedNodeId
+  const selected = nodeId && stateStore.nodes[nodeId]?.factionId === 'PLAYER'
+    ? nodeId
     : playerNodes[0]?.id;
+
+  if (!selected) {
+    body.innerHTML = `<div class="logistics-empty">${i18n.t('management.noPlayerNodes')}</div>`;
+    return;
+  }
+
+  const rerender = (nextNodeId = selected) => {
+    if (refresh) refresh(nextNodeId);
+    else renderLogisticsInto(body, nextNodeId, refresh);
+  };
 
   body.innerHTML = `
     <div class="logistics-grid">
@@ -96,8 +115,9 @@ function renderLogisticsPanel() {
     </div>
   `;
 
-  bindRallyEditor();
-  bindManualRouteForm();
+  bindRallyEditor(body, rerender);
+  bindManualRouteForm(body, rerender);
+  if (options.bindActions !== false) bindLogisticsActions(body, rerender, { once: true });
 }
 
 function renderRallyEditor(nodes, selected) {
@@ -197,21 +217,21 @@ function renderTransportStock(nodes) {
   }).join('');
 }
 
-function bindRallyEditor() {
-  document.getElementById('rally-node')?.addEventListener('change', (e) => {
+function bindRallyEditor(container = document, refresh = () => renderLogisticsPanel()) {
+  container.querySelector('#rally-node')?.addEventListener('change', (e) => {
     selectedNodeId = e.target.value;
-    renderLogisticsPanel();
+    refresh(e.target.value);
   });
-  document.querySelectorAll('.rally-unlimited').forEach(input => {
+  container.querySelectorAll('.rally-unlimited').forEach(input => {
     input.addEventListener('change', () => {
       const target = input.closest('.logistics-policy-row')?.querySelector('.rally-target');
       if (target) target.disabled = input.checked;
     });
   });
-  document.getElementById('save-rally')?.addEventListener('click', () => {
-    const nodeId = document.getElementById('rally-node')?.value;
+  container.querySelector('#save-rally')?.addEventListener('click', () => {
+    const nodeId = container.querySelector('#rally-node')?.value;
     const policies = {};
-    document.querySelectorAll('.logistics-policy-row').forEach(row => {
+    container.querySelectorAll('.logistics-policy-row').forEach(row => {
       const cargo = row.dataset.cargo;
       const unlimited = row.querySelector('.rally-unlimited')?.checked || false;
       policies[cargo] = {
@@ -222,44 +242,48 @@ function bindRallyEditor() {
       };
     });
     sendSetRallyPoint(nodeId, policies);
-    renderLogisticsPanel();
+    refresh(nodeId);
   });
-  document.getElementById('clear-rally')?.addEventListener('click', () => {
-    const nodeId = document.getElementById('rally-node')?.value;
+  container.querySelector('#clear-rally')?.addEventListener('click', () => {
+    const nodeId = container.querySelector('#rally-node')?.value;
     sendClearRallyPoint(nodeId);
-    renderLogisticsPanel();
+    refresh(nodeId);
   });
 }
 
-function bindManualRouteForm() {
+function bindManualRouteForm(container = document, refresh = () => renderLogisticsPanel()) {
   ['route-from', 'route-to', 'route-transport'].forEach(id => {
-    document.getElementById(id)?.addEventListener('change', renderLogisticsPanel);
+    container.querySelector(`#${id}`)?.addEventListener('change', () => refresh(container.querySelector('#route-from')?.value));
   });
-  document.getElementById('create-route')?.addEventListener('click', () => {
+  container.querySelector('#create-route')?.addEventListener('click', () => {
     sendCreateRoute({
-      fromNodeId: document.getElementById('route-from')?.value,
-      targetNodeId: document.getElementById('route-to')?.value,
-      cargoType: document.getElementById('route-cargo')?.value,
-      transportType: document.getElementById('route-transport')?.value,
-      transportCount: Number(document.getElementById('route-count')?.value || 1),
-      priority: Number(document.getElementById('route-priority')?.value || 50),
+      fromNodeId: container.querySelector('#route-from')?.value,
+      targetNodeId: container.querySelector('#route-to')?.value,
+      cargoType: container.querySelector('#route-cargo')?.value,
+      transportType: container.querySelector('#route-transport')?.value,
+      transportCount: Number(container.querySelector('#route-count')?.value || 1),
+      priority: Number(container.querySelector('#route-priority')?.value || 50),
     });
-    renderLogisticsPanel();
+    refresh(container.querySelector('#route-from')?.value);
   });
 }
 
-function handleLogisticsClick(event) {
+export function bindLogisticsActions(container, refresh = () => renderLogisticsPanel(), options = {}) {
+  container?.addEventListener('click', (event) => handleLogisticsClick(event, container, refresh), options.once ? { once: true } : undefined);
+}
+
+function handleLogisticsClick(event, container = document, refresh = () => renderLogisticsPanel()) {
   const cancel = event.target.closest('.btn-cancel-route');
   if (cancel) {
     sendCancelRoute(Number(cancel.dataset.id));
-    renderLogisticsPanel();
+    refresh();
     return;
   }
 
   const manual = event.target.closest('.btn-manual');
   if (manual) {
     sendUpdateRoute(Number(manual.dataset.id), { priority: 50, enabled: true });
-    renderLogisticsPanel();
+    refresh();
     return;
   }
 
@@ -269,14 +293,14 @@ function handleLogisticsClick(event) {
     const enabled = toggle.dataset.enabled === 'true';
     sendUpdateRoute(routeId, { enabled });
     if (stateStore.logistics[routeId]) stateStore.logistics[routeId].enabled = enabled;
-    renderLogisticsPanel();
+    refresh();
     return;
   }
 
   const produce = event.target.closest('.btn-produce');
   if (produce) {
     sendProduceTransport(produce.dataset.node, produce.dataset.type, 1);
-    renderLogisticsPanel();
+    refresh(produce.dataset.node);
   }
 }
 

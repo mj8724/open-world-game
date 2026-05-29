@@ -46,6 +46,7 @@
     "placeholder": "点击地图上的节点查看详情",
     "population": "人口",
     "resources": "资源",
+    "cityOverview": "城市概览",
     "buildings": "建筑",
     "actions": "操作",
     "build": "建造",
@@ -59,7 +60,35 @@
     "armyTarget": "目标",
     "retreat": "撤退",
     "noAttackTargets": "没有相邻的可攻击目标",
-    "noGarrison": "没有可派出的驻军"
+    "noGarrison": "没有可派出的驻军",
+    "companies": "连队",
+    "createCompany": "招募连队",
+    "move": "移动",
+    "strength": "兵力",
+    "morale": "士气",
+    "supply": "补给",
+    "foodAmmo": "粮食 / 弹药",
+    "noCompanies": "此处没有驻扎连队"
+  },
+  "management": {
+    "selectNode": "选择一个城池后可进行管理",
+    "playerOnly": "只能管理玩家控制的城池",
+    "noPlayerNodes": "暂无可管理的玩家城池"
+  },
+  "build": {
+    "title": "建造管理",
+    "selectCity": "选择城池",
+    "playerCities": "玩家城池",
+    "currentCity": "当前城池",
+    "upgrade": "升级",
+    "max": "MAX",
+    "inProgress": "建造中"
+  },
+  "unit": {
+    "MILITIA": { "name": "民兵" },
+    "SWORDSMAN": { "name": "剑士" },
+    "MUSKETEER": { "name": "火枪手" },
+    "MAXIM_GUN": { "name": "马克沁机枪组" }
   },
   "building": {
     "FARM": {

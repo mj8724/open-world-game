@@ -34,6 +34,26 @@ export function sendRetreat(armyId) {
   gameBridge.sendCommand('RETREAT', { armyId, troopCount: armyId });
 }
 
+export function sendCreateCompany(nodeId, unitDefId = 'MILITIA') {
+  gameBridge.sendCommand('CREATE_COMPANY', { nodeId, unitDefId });
+}
+
+export function sendMoveUnit(entityId, targetNodeId) {
+  gameBridge.sendCommand('MOVE_UNIT', { entityId, targetNodeId });
+}
+
+export function sendAttackNode(entityId, targetNodeId) {
+  gameBridge.sendCommand('ATTACK_NODE', { entityId, targetNodeId });
+}
+
+export function sendRetreatUnit(entityId) {
+  gameBridge.sendCommand('RETREAT_UNIT', { entityId, armyId: entityId, troopCount: entityId });
+}
+
+export function sendCreateFormation(name, formationType, entityIds) {
+  gameBridge.sendCommand('CREATE_FORMATION', { name, formationType, entityIds });
+}
+
 /**
  * 设置游戏速度
  * @param {number} speed - 0=暂停, 1=正常, 2=二倍速, 5=五倍速

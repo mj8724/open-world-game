@@ -177,6 +177,58 @@
   font-size: var(--text-xs);
 }
 
+.management-dock .logistics-grid {
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+}
+
+.management-dock .logistics-section {
+  padding: var(--space-2);
+}
+
+.management-dock .logistics-section-wide {
+  grid-column: auto;
+}
+
+.management-dock .logistics-section h3,
+.management-dock .transport-node h4 {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.management-dock .logistics-form {
+  gap: var(--space-2);
+}
+
+.management-dock .logistics-form select,
+.management-dock .logistics-form input {
+  padding: var(--space-1);
+}
+
+.management-dock .logistics-policy-head {
+  display: none;
+}
+
+.management-dock .logistics-policy-row,
+.management-dock .transport-row,
+.management-dock .route-meta,
+.management-dock .route-main {
+  grid-template-columns: 1fr;
+  gap: var(--space-1);
+}
+
+.management-dock .logistics-route-card,
+.management-dock .transport-row,
+.management-dock .logistics-policy-row {
+  padding: var(--space-1);
+}
+
+.management-dock .route-main,
+.management-dock .route-meta,
+.management-dock .transport-row {
+  font-size: 10px;
+}
+
 @media (max-width: 900px) {
   .logistics-grid {
     grid-template-columns: 1fr;
