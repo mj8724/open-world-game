@@ -254,6 +254,8 @@ public class World
                 }
             }
         }
+    }
+
     private void CreateStartingCompany(NodeComponent node, int strength)
     {
         var entityId = EntityManager.CreateEntityId();
