@@ -4,7 +4,7 @@
  */
 import i18n from '../i18n/i18n.js';
 import { stateStore } from '../bridge/state-store.js';
-import { sendAttack, sendAttackNode, sendCreateCompany, sendMoveUnit, sendRetreatUnit } from '../bridge/command-sender.js';
+import { sendAttack, sendAttackNode, sendCreateCompany, sendMoveUnit, sendRetreatUnit, sendBuild } from '../bridge/command-sender.js';
 import { eventBus } from './event-bus.js';
 import { getAllBuildings, getAllUnits, getUnit } from '../dict/client-dict.js';
 import { renderCitySketch } from './city-sketch.js';
@@ -20,6 +20,9 @@ export function initInfoPanel() {
 
   eventBus.on('node-selected', (nodeId) => showNodeDetails(nodeId));
   eventBus.on('node-deselected', () => showPlaceholder());
+  eventBus.on('army-selected', (entityId) => showArmyDetails(entityId));
+  eventBus.on('wild-resource-selected', (id) => showWildResourceDetails(id));
+  eventBus.on('neutral-structure-selected', (id) => showNeutralStructureDetails(id));
 }
 
 function showPlaceholder() {
@@ -279,7 +282,7 @@ function renderBuildings(node) {
           <span class="build-progress-text">${inQueue.remainingTicks}t</span>
         </div>`;
     } else if (canUpgrade) {
-      actionHtml = `<span class="building-maxed">↗</span>`;
+      actionHtml = `<button class="building-upgrade-btn" data-building="${type}" data-node="${node.id}">↗</button>`;
     } else {
       actionHtml = `<span class="building-maxed">${level >= def.maxLevel ? 'MAX' : '—'}</span>`;
     }
@@ -293,9 +296,90 @@ function renderBuildings(node) {
       </div>
     `;
   }).join('');
+
+  container.querySelectorAll('.building-upgrade-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const buildingType = btn.dataset.building;
+      const nodeId = btn.dataset.node;
+      sendBuild(nodeId, buildingType);
+    });
+  });
 }
 
 /** 刷新当前选中的节点 */
 export function refreshCurrentPanel() {
   if (currentNodeId) showNodeDetails(currentNodeId);
+}
+
+function showEntityDetails(data, icon, title, fields) {
+  currentNodeId = null;
+  const placeholder = document.getElementById('panel-placeholder');
+  const details = document.getElementById('panel-details');
+  const titleEl = document.getElementById('panel-title');
+  if (placeholder) placeholder.style.display = 'none';
+  if (details) details.style.display = 'block';
+  if (titleEl) titleEl.textContent = `${icon} ${title}`;
+
+  const badge = document.getElementById('faction-badge');
+  if (badge) badge.textContent = data.factionId || '-';
+
+  const sketchEl = document.getElementById('detail-city-sketch');
+  if (sketchEl) sketchEl.innerHTML = '';
+
+  document.getElementById('detail-pop') && (document.getElementById('detail-pop').textContent = '');
+  document.getElementById('detail-food') && (document.getElementById('detail-food').textContent = '');
+  document.getElementById('detail-iron') && (document.getElementById('detail-iron').textContent = '');
+  document.getElementById('detail-ammo') && (document.getElementById('detail-ammo').textContent = '');
+
+  const container = document.getElementById('detail-buildings');
+  if (!container) return;
+  document.getElementById('company-controls')?.remove();
+  document.getElementById('attack-controls')?.remove();
+  document.getElementById('army-controls')?.remove();
+
+  container.innerHTML = `
+    <div class="entity-detail">
+      ${fields.map(f => `<div class="entity-field"><span class="entity-field-label">${f.label}</span><span class="entity-field-value">${f.value}</span></div>`).join('')}
+    </div>
+  `;
+}
+
+export function showArmyDetails(entityId) {
+  const army = stateStore.armies?.[entityId];
+  if (!army) return;
+  const unit = getUnit(army.unitDefId || 'MILITIA') || { icon: '⚔️' };
+  const nodeName = army.currentNodeId ? (stateStore.nodes[army.currentNodeId]?.name || army.currentNodeId) : '-';
+  const targetName = army.targetNodeId ? (stateStore.nodes[army.targetNodeId]?.name || army.targetNodeId) : '-';
+  const factionLabel = army.factionId === 'PLAYER' ? '玩家' : army.factionId === 'AI' ? 'AI' : '中立';
+
+  showEntityDetails(army, unit.icon, army.name || `军队 #${entityId}`, [
+    { label: '势力', value: factionLabel },
+    { label: '兵力', value: `${army.strength ?? army.troopCount ?? 0} / ${army.maxStrength || army.strength || army.troopCount || 0}` },
+    { label: '士气', value: `${Math.round((army.morale || 1) * 100)}%` },
+    { label: '补给 (粮/弹)', value: `${army.supplyFood ?? army.carryFood ?? 0} / ${army.supplyAmmo ?? army.carryAmmo ?? 0}` },
+    { label: '当前位置', value: nodeName },
+    { label: '目标', value: army.targetNodeId ? targetName : '-' },
+    { label: '状态', value: army.state === 'MOVING' ? '移动中' : army.state === 'IDLE' ? '待命' : army.state },
+  ]);
+}
+
+export function showWildResourceDetails(id) {
+  const wr = stateStore.wildResources?.[id];
+  if (!wr) return;
+
+  showEntityDetails(wr, '🌿', `野外资源 #${id}`, [
+    { label: '资源类型', value: wr.resourceType || '-' },
+    { label: '产量', value: `${wr.yield ?? 0}` },
+    { label: '坐标', value: `(${wr.x?.toFixed(0)}, ${wr.z?.toFixed(0)})` },
+  ]);
+}
+
+export function showNeutralStructureDetails(id) {
+  const ns = stateStore.neutralStructures?.[id];
+  if (!ns) return;
+
+  showEntityDetails(ns, '🏛️', `中立建筑 #${id}`, [
+    { label: '建筑类型', value: ns.structureType || '-' },
+    { label: '坐标', value: `(${ns.x?.toFixed(0)}, ${ns.z?.toFixed(0)})` },
+  ]);
 }

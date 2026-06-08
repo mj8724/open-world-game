@@ -98,6 +98,8 @@ public class TickEngine
             RallyPoints = new Dictionary<string, RallyPointComponent>(_world.RallyPoints),
             TransportStocks = new Dictionary<string, TransportStockComponent>(_world.TransportStocks),
             Factions = new Dictionary<string, FactionComponent>(_world.Factions),
+            WildResources = new Dictionary<string, WildResource>(_world.WildResources),
+            NeutralStructures = new Dictionary<string, NeutralStructure>(_world.NeutralStructures),
             BuildQueue = new List<BuildQueueItem>(_world.BuildQueue),
             TransportProductionQueue = new List<TransportProductionQueueItem>(_world.TransportProductionQueue)
         };
@@ -116,6 +118,8 @@ public class FullStateSnapshot
     public Dictionary<string, RallyPointComponent> RallyPoints { get; set; } = new();
     public Dictionary<string, TransportStockComponent> TransportStocks { get; set; } = new();
     public Dictionary<string, FactionComponent> Factions { get; set; } = new();
+    public Dictionary<string, WildResource> WildResources { get; set; } = new();
+    public Dictionary<string, NeutralStructure> NeutralStructures { get; set; } = new();
     public List<BuildQueueItem> BuildQueue { get; set; } = new();
     public List<TransportProductionQueueItem> TransportProductionQueue { get; set; } = new();
 }

@@ -20,7 +20,7 @@
 </head>
 <body>
   <div id="app">
-    <!-- HUD Bar -->
+    <!-- HUD Bar (AoE4 暗色半透明顶部条) -->
     <header id="hud-bar" class="hud-bar">
       <div class="hud-logo" id="hud-logo">
         <span class="hud-logo-icon">🏛️</span>
@@ -65,105 +65,109 @@
       </div>
     </header>
 
-    <!-- Main Content Area -->
-    <main id="main-content" class="main-content">
-      <!-- Topology Map -->
-      <section id="map-container" class="map-container">
-        <div id="cy" class="cy-container"></div>
-        <div class="map-legend" id="map-legend">
-          <div class="legend-item">
-            <span class="legend-dot legend-player"></span>
-            <span data-i18n="map.legend.player">玩家</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-dot legend-ai"></span>
-            <span data-i18n="map.legend.ai">AI</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-dot legend-neutral"></span>
-            <span data-i18n="map.legend.neutral">中立</span>
-          </div>
-        </div>
-      </section>
+    <!-- 3D Map Container (全视口) -->
+    <section id="map-container" class="map-container">
+      <!-- Three.js canvas 由 scene-manager.js 动态插入 -->
+      <!-- Minimap -->
+      <div id="minimap-container" class="minimap-container"></div>
+    </section>
 
-      <!-- Info Panel -->
-      <aside id="info-panel" class="info-panel">
-        <div class="panel-header">
-          <h2 class="panel-title" id="panel-title" data-i18n="panel.selectNode">选择一个节点</h2>
-          <button class="panel-close" id="panel-close">✕</button>
+    <!-- Info Panel (右侧滑入，默认隐藏) -->
+    <aside id="info-panel" class="info-panel">
+      <div class="panel-header">
+        <h2 class="panel-title" id="panel-title" data-i18n="panel.selectNode">选择一个节点</h2>
+        <button class="panel-close" id="panel-close">✕</button>
+      </div>
+      <div class="panel-body" id="panel-body">
+        <div class="panel-placeholder" id="panel-placeholder">
+          <span class="placeholder-icon">🗺️</span>
+          <p data-i18n="panel.placeholder">点击地图上的城市查看详情</p>
         </div>
-        <div class="panel-body" id="panel-body">
-          <div class="panel-placeholder" id="panel-placeholder">
-            <span class="placeholder-icon">🗺️</span>
-            <p data-i18n="panel.placeholder">点击地图上的节点查看详情</p>
+        <div class="panel-details" id="panel-details" style="display:none;">
+          <!-- Faction Badge -->
+          <div class="detail-faction" id="detail-faction">
+            <span class="faction-badge" id="faction-badge">—</span>
           </div>
-            <div class="panel-details" id="panel-details" style="display:none;">
-            <!-- Faction Badge -->
-            <div class="detail-faction" id="detail-faction">
-              <span class="faction-badge" id="faction-badge">—</span>
-            </div>
-            <!-- City Sketch -->
-            <div class="detail-section">
-              <h3 class="detail-heading" data-i18n="panel.cityOverview">城市概览</h3>
-              <div class="city-sketch-card" id="detail-city-sketch"></div>
-            </div>
-            <!-- Population -->
-            <div class="detail-section">
-              <h3 class="detail-heading" data-i18n="panel.population">人口</h3>
-              <div class="detail-value" id="detail-pop">0</div>
-            </div>
-            <!-- Resources -->
-            <div class="detail-section">
-              <h3 class="detail-heading" data-i18n="panel.resources">资源</h3>
-              <div class="detail-resources" id="detail-resources">
-                <div class="detail-res-row">
-                  <span>🌾 <span data-i18n="hud.food">粮食</span></span>
-                  <span id="detail-food">0</span>
-                </div>
-                <div class="detail-res-row">
-                  <span>⛏️ <span data-i18n="hud.iron">铁矿</span></span>
-                  <span id="detail-iron">0</span>
-                </div>
-                <div class="detail-res-row">
-                  <span>💥 <span data-i18n="hud.ammo">弹药</span></span>
-                  <span id="detail-ammo">0</span>
-                </div>
+          <!-- City Overview -->
+          <div class="detail-section">
+            <h3 class="detail-heading" data-i18n="panel.cityOverview">城市概览</h3>
+            <div class="detail-city-info" id="detail-city-info"></div>
+          </div>
+          <!-- Population -->
+          <div class="detail-section">
+            <h3 class="detail-heading" data-i18n="panel.population">人口</h3>
+            <div class="detail-value" id="detail-pop">0</div>
+          </div>
+          <!-- Resources -->
+          <div class="detail-section">
+            <h3 class="detail-heading" data-i18n="panel.resources">资源</h3>
+            <div class="detail-resources" id="detail-resources">
+              <div class="detail-res-row">
+                <span>🌾 <span data-i18n="hud.food">粮食</span></span>
+                <span id="detail-food">0</span>
               </div>
-            </div>
-            <!-- Buildings -->
-            <div class="detail-section">
-              <h3 class="detail-heading" data-i18n="panel.buildings">建筑</h3>
-              <div class="detail-buildings" id="detail-buildings"></div>
-            </div>
-            <!-- Actions -->
-            <div class="detail-section">
-              <h3 class="detail-heading" data-i18n="panel.actions">操作</h3>
-              <div class="detail-actions" id="detail-actions">
-                <button class="action-btn action-btn-danger" id="btn-attack" disabled data-i18n="panel.attack">进攻</button>
+              <div class="detail-res-row">
+                <span>⛏️ <span data-i18n="hud.iron">铁矿</span></span>
+                <span id="detail-iron">0</span>
+              </div>
+              <div class="detail-res-row">
+                <span>💥 <span data-i18n="hud.ammo">弹药</span></span>
+                <span id="detail-ammo">0</span>
               </div>
             </div>
           </div>
+          <!-- Buildings -->
+          <div class="detail-section">
+            <h3 class="detail-heading" data-i18n="panel.buildings">建筑</h3>
+            <div class="detail-buildings" id="detail-buildings"></div>
+          </div>
+          <!-- Actions -->
+          <div class="detail-section">
+            <h3 class="detail-heading" data-i18n="panel.actions">操作</h3>
+            <div class="detail-actions" id="detail-actions">
+              <button class="action-btn action-btn-danger" id="btn-attack" disabled data-i18n="panel.attack">进攻</button>
+            </div>
+          </div>
         </div>
-      </aside>
-    </main>
+      </div>
+    </aside>
 
-    <!-- Battle Log + Management Launchers -->
-    <footer id="battle-log" class="battle-log">
+    <!-- Action Bar (AoE4 底部操作条) -->
+    <footer id="action-bar" class="action-bar">
+      <button class="action-bar-btn" id="btn-build" title="建造 (B)">
+        <span class="action-bar-icon">🔨</span>
+        <span class="action-bar-label" data-i18n="action.build">建造</span>
+      </button>
+      <button class="action-bar-btn" id="btn-wall" title="城墙 (W)">
+        <span class="action-bar-icon">🧱</span>
+        <span class="action-bar-label" data-i18n="action.wall">城墙</span>
+      </button>
+      <button class="action-bar-btn" id="btn-logistics" title="物流 (L)">
+        <span class="action-bar-icon">📦</span>
+        <span class="action-bar-label" data-i18n="action.logistics">物流</span>
+      </button>
+      <button class="action-bar-btn" id="btn-research" title="研究 (T)">
+        <span class="action-bar-icon">🔬</span>
+        <span class="action-bar-label" data-i18n="action.research">研究</span>
+      </button>
+      <button class="action-bar-btn" id="btn-log-toggle" title="日志 (J)">
+        <span class="action-bar-icon">📜</span>
+        <span class="action-bar-label" data-i18n="action.log">日志</span>
+      </button>
+    </footer>
+
+    <!-- Battle Log (可折叠，默认隐藏) -->
+    <div id="battle-log" class="battle-log" style="display:none;">
       <div class="log-header">
         <span class="log-title" data-i18n="log.title">📜 事件日志</span>
-        <div class="log-management-actions" id="management-actions">
-          <button class="management-action-btn" id="btn-open-build" data-i18n="panel.build">建造</button>
-          <button class="management-action-btn" id="btn-open-logistics" data-i18n="logistics.title">物流管理</button>
-          <button class="management-action-btn" id="btn-open-research" data-i18n="panel.research">研究</button>
-        </div>
       </div>
       <div class="log-entries" id="log-entries">
         <div class="log-entry log-info">
           <span class="log-time">[00:00]</span>
-          <span class="log-msg" data-i18n="log.welcome">系统初始化完成，欢迎来到文明模拟器。</span>
+          <span class="log-msg" data-i18n="log.welcome">系统初始化完成</span>
         </div>
       </div>
-    </footer>
+    </div>
 
     <!-- Settings Panel (hidden by default) -->
     <div class="settings-overlay" id="settings-overlay" style="display:none;">
@@ -184,7 +188,7 @@
             <span class="settings-label" data-i18n="settings.connection">连接状态</span>
             <span class="connection-status" id="connection-status">
               <span class="status-dot offline"></span>
-              <span data-i18n="settings.offline">离线（演示模式）</span>
+              <span data-i18n="settings.offline">离线</span>
             </span>
           </div>
         </div>

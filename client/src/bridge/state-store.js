@@ -16,6 +16,8 @@ class StateStore {
     this.transportStocks = {};
     this.transportProductionQueue = [];
     this.buildQueue = [];
+    this.wildResources = {};
+    this.neutralStructures = {};
     this.currentTick = 0;
     this._initialized = false;
   }
@@ -39,6 +41,8 @@ class StateStore {
     this.transportStocks = fullState.transportStocks || {};
     this.transportProductionQueue = fullState.transportProductionQueue || [];
     this.buildQueue = fullState.buildQueue || [];
+    this.wildResources = fullState.wildResources || {};
+    this.neutralStructures = fullState.neutralStructures || {};
     this._initialized = true;
     eventBus.emit('state-full-update', this);
   }
@@ -98,6 +102,18 @@ class StateStore {
         this.factions[id] = { ...this.factions[id], ...faction };
       }
     }
+    // 合并野外资源点
+    if (delta.wildResources) {
+      for (const [id, wr] of Object.entries(delta.wildResources)) {
+        this.wildResources[id] = { ...this.wildResources[id], ...wr };
+      }
+    }
+    // 合并中立建筑
+    if (delta.neutralStructures) {
+      for (const [id, ns] of Object.entries(delta.neutralStructures)) {
+        this.neutralStructures[id] = { ...this.neutralStructures[id], ...ns };
+      }
+    }
     // 移除实体
     if (delta.removedEntityIds) {
       for (const id of delta.removedEntityIds) {
@@ -110,6 +126,18 @@ class StateStore {
     if (delta.removedRallyPointIds) {
       for (const id of delta.removedRallyPointIds) {
         delete this.rallyPoints[id];
+      }
+    }
+    // 移除野外资源点
+    if (delta.removedWildResourceIds) {
+      for (const id of delta.removedWildResourceIds) {
+        delete this.wildResources[id];
+      }
+    }
+    // 移除中立建筑
+    if (delta.removedNeutralStructureIds) {
+      for (const id of delta.removedNeutralStructureIds) {
+        delete this.neutralStructures[id];
       }
     }
     // 更新建造队列
@@ -138,6 +166,8 @@ class StateStore {
   getFaction(id) { return this.factions[id]; }
   /** 获取玩家势力 */
   getPlayerFaction() { return this.factions['PLAYER']; }
+  /** 获取地形类型，默认 PLAINS */
+  getTerrain(nodeId) { return this.nodes[nodeId]?.terrain || 'PLAINS'; }
 
   /** 计算玩家全局资源总量 */
   getPlayerTotals() {

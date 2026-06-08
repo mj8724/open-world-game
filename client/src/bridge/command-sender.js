@@ -132,3 +132,47 @@ export function sendClearRallyPoint(nodeId) {
 export function sendProduceTransport(nodeId, transportType, quantity = 1) {
   gameBridge.sendCommand('PRODUCE_TRANSPORT', { nodeId, transportType, quantity });
 }
+
+// ─── 新增：3D 建筑放置 & 城墙绘制命令 ───
+
+/**
+ * 自由放置建筑
+ * @param {string} nodeId
+ * @param {string} buildingType - FARM|MINE|ARSENAL|ORACLE_BEACON
+ * @param {number} localX - 相对城市的局部 X
+ * @param {number} localZ - 相对城市的局部 Z
+ * @param {number} rotation - Y轴旋转角度（度）
+ */
+export function sendPlaceBuilding(nodeId, buildingType, localX, localZ, rotation = 0) {
+  gameBridge.sendCommand('PLACE_BUILDING', { nodeId, buildingType, localX, localZ, rotation });
+}
+
+/**
+ * 建造城墙段
+ * @param {string} nodeId
+ * @param {number} fromX - 起点 X（局部坐标）
+ * @param {number} fromZ - 起点 Z
+ * @param {number} toX - 终点 X
+ * @param {number} toZ - 终点 Z
+ */
+export function sendBuildWall(nodeId, fromX, fromZ, toX, toZ) {
+  gameBridge.sendCommand('BUILD_WALL', { nodeId, fromX, fromZ, toX, toZ });
+}
+
+/**
+ * 拆除建筑
+ * @param {string} nodeId
+ * @param {number} buildingIndex
+ */
+export function sendDemolishBuilding(nodeId, buildingIndex) {
+  gameBridge.sendCommand('DEMOLISH_BUILDING', { nodeId, buildingIndex });
+}
+
+/**
+ * 拆除城墙段
+ * @param {string} nodeId
+ * @param {number} wallIndex
+ */
+export function sendDemolishWall(nodeId, wallIndex) {
+  gameBridge.sendCommand('DEMOLISH_WALL', { nodeId, wallIndex });
+}

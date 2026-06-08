@@ -1,0 +1,90 @@
+/* ─── 3D 地图样式 ─── */
+
+/* 地图容器：全视口 */
+.map-container {
+  position: fixed;
+  top: 52px;        /* HUD 高度 */
+  left: 0;
+  right: 0;
+  bottom: 48px;     /* Action Bar 高度 */
+  overflow: hidden;
+  z-index: 0;
+}
+
+.map-container canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 迷你地图 */
+.minimap-container {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  width: 200px;
+  height: 150px;
+  border: 2px solid var(--color-border, #4a5568);
+  border-radius: 6px;
+  overflow: hidden;
+  z-index: 10;
+  background: rgba(15, 20, 30, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.minimap-container canvas {
+  width: 200px !important;
+  height: 150px !important;
+}
+
+/* 3D Tooltip */
+.map3d-tooltip {
+  position: fixed;
+  z-index: 2000;
+  background: rgba(15, 20, 30, 0.9);
+  color: #e2e8f0;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  max-width: 200px;
+}
+
+/* 3D 标签（CSS2DRenderer 生成） */
+.map3d-label {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 建筑放置模式指示器 */
+.placement-indicator {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 20, 30, 0.9);
+  color: #e2e8f0;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  z-index: 15;
+  border: 1px solid rgba(37, 99, 235, 0.5);
+}
+
+/* 城墙绘制模式指示器 */
+.wall-build-indicator {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 20, 30, 0.9);
+  color: #e2e8f0;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  z-index: 15;
+  border: 1px solid rgba(234, 88, 12, 0.5);
+}

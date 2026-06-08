@@ -271,6 +271,45 @@
   font-style: italic;
 }
 
+.building-upgrade-btn {
+  background: none;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  border-radius: var(--radius-sm);
+  padding: 0 6px;
+  line-height: 20px;
+  transition: background 0.15s, color 0.15s;
+}
+.building-upgrade-btn:hover {
+  background: var(--color-accent);
+  color: var(--color-bg-primary);
+}
+
+.entity-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.entity-field {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.entity-field-label {
+  color: var(--color-text-tertiary);
+}
+
+.entity-field-value {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
 .build-progress {
   position: relative;
   width: 52px;

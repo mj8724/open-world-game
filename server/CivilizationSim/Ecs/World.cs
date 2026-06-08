@@ -20,6 +20,8 @@ public class World
     public Dictionary<string, RallyPointComponent> RallyPoints { get; } = new();
     public Dictionary<string, TransportStockComponent> TransportStocks { get; } = new();
     public Dictionary<string, FactionComponent> Factions { get; } = new();
+    public Dictionary<string, WildResource> WildResources { get; } = new();
+    public Dictionary<string, NeutralStructure> NeutralStructures { get; } = new();
     public List<BuildQueueItem> BuildQueue { get; } = new();
     public List<TransportProductionQueueItem> TransportProductionQueue { get; } = new();
 
@@ -34,8 +36,12 @@ public class World
     private readonly HashSet<string> _dirtyRallyPoints = new();
     private readonly HashSet<string> _dirtyTransportStocks = new();
     private readonly HashSet<string> _dirtyFactions = new();
+    private readonly HashSet<string> _dirtyWildResources = new();
+    private readonly HashSet<string> _dirtyNeutralStructures = new();
     private readonly List<int> _removedEntities = new();
     private readonly List<string> _removedRallyPoints = new();
+    private readonly List<string> _removedWildResources = new();
+    private readonly List<string> _removedNeutralStructures = new();
     private readonly List<GameEvent> _events = new();
 
     /// <summary>标记节点已变化</summary>
@@ -54,10 +60,18 @@ public class World
     public void MarkDirty(TransportStockComponent stock) => _dirtyTransportStocks.Add(stock.NodeId);
     /// <summary>标记势力已变化</summary>
     public void MarkDirty(FactionComponent faction) => _dirtyFactions.Add(faction.Id);
+    /// <summary>标记野外资源点已变化</summary>
+    public void MarkDirty(WildResource wr) => _dirtyWildResources.Add(wr.Id);
+    /// <summary>标记中立建筑已变化</summary>
+    public void MarkDirty(NeutralStructure ns) => _dirtyNeutralStructures.Add(ns.Id);
     /// <summary>记录实体已移除</summary>
     public void MarkRemoved(int entityId) => _removedEntities.Add(entityId);
     /// <summary>记录集结点已移除</summary>
     public void MarkRemovedRallyPoint(string nodeId) => _removedRallyPoints.Add(nodeId);
+    /// <summary>记录野外资源点已移除</summary>
+    public void MarkRemovedWildResource(string id) => _removedWildResources.Add(id);
+    /// <summary>记录中立建筑已移除</summary>
+    public void MarkRemovedNeutralStructure(string id) => _removedNeutralStructures.Add(id);
     /// <summary>添加游戏事件</summary>
     public void AddEvent(GameEvent evt) => _events.Add(evt);
 
@@ -72,8 +86,12 @@ public class World
         _dirtyRallyPoints.Clear();
         _dirtyTransportStocks.Clear();
         _dirtyFactions.Clear();
+        _dirtyWildResources.Clear();
+        _dirtyNeutralStructures.Clear();
         _removedEntities.Clear();
         _removedRallyPoints.Clear();
+        _removedWildResources.Clear();
+        _removedNeutralStructures.Clear();
         _events.Clear();
     }
 
@@ -91,8 +109,12 @@ public class World
             RallyPoints = new Dictionary<string, RallyPointComponent>(),
             TransportStocks = new Dictionary<string, TransportStockComponent>(),
             Factions = new Dictionary<string, FactionComponent>(),
+            WildResources = new Dictionary<string, WildResource>(),
+            NeutralStructures = new Dictionary<string, NeutralStructure>(),
             RemovedEntityIds = new List<int>(_removedEntities),
             RemovedRallyPointIds = new List<string>(_removedRallyPoints),
+            RemovedWildResourceIds = new List<string>(_removedWildResources),
+            RemovedNeutralStructureIds = new List<string>(_removedNeutralStructures),
             Events = new List<GameEvent>(_events),
             BuildQueue = new List<BuildQueueItem>(BuildQueue),
             TransportProductionQueue = new List<TransportProductionQueueItem>(TransportProductionQueue)
@@ -130,6 +152,14 @@ public class World
             if (Factions.TryGetValue(id, out var faction))
                 delta.Factions[id] = faction;
 
+        foreach (var id in _dirtyWildResources)
+            if (WildResources.TryGetValue(id, out var wr))
+                delta.WildResources[id] = wr;
+
+        foreach (var id in _dirtyNeutralStructures)
+            if (NeutralStructures.TryGetValue(id, out var ns))
+                delta.NeutralStructures[id] = ns;
+
         return delta;
     }
 
@@ -145,6 +175,7 @@ public class World
                 Name = nodeDef.Name,
                 X = nodeDef.X,
                 Y = nodeDef.Y,
+                Terrain = nodeDef.Terrain,
                 Tags = new List<string>(nodeDef.Tags),
                 FactionId = "NEUTRAL",
                 Loyalty = 0.5f
@@ -164,6 +195,31 @@ public class World
                 Length = edgeDef.Length
             };
             Edges[edge.Id] = edge;
+        }
+
+        // 创建野外资源点
+        foreach (var wrDef in map.WildResources)
+        {
+            WildResources[wrDef.Id] = new WildResource
+            {
+                Id = wrDef.Id,
+                X = wrDef.X,
+                Z = wrDef.Z,
+                ResourceType = wrDef.ResourceType,
+                Yield = wrDef.Yield
+            };
+        }
+
+        // 创建中立建筑
+        foreach (var nsDef in map.NeutralStructures)
+        {
+            NeutralStructures[nsDef.Id] = new NeutralStructure
+            {
+                Id = nsDef.Id,
+                X = nsDef.X,
+                Z = nsDef.Z,
+                StructureType = nsDef.StructureType
+            };
         }
 
         // 初始化势力
@@ -296,8 +352,12 @@ public class TickDelta
     public Dictionary<string, RallyPointComponent> RallyPoints { get; set; } = new();
     public Dictionary<string, TransportStockComponent> TransportStocks { get; set; } = new();
     public Dictionary<string, FactionComponent> Factions { get; set; } = new();
+    public Dictionary<string, WildResource> WildResources { get; set; } = new();
+    public Dictionary<string, NeutralStructure> NeutralStructures { get; set; } = new();
     public List<int> RemovedEntityIds { get; set; } = new();
     public List<string> RemovedRallyPointIds { get; set; } = new();
+    public List<string> RemovedWildResourceIds { get; set; } = new();
+    public List<string> RemovedNeutralStructureIds { get; set; } = new();
     public List<GameEvent> Events { get; set; } = new();
     public List<BuildQueueItem> BuildQueue { get; set; } = new();
     public List<TransportProductionQueueItem> TransportProductionQueue { get; set; } = new();

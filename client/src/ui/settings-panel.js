@@ -2,7 +2,7 @@
  * SettingsPanel — 设置面板（语言切换）
  */
 import i18n from '../i18n/i18n.js';
-import { refreshLabels } from './map-view.js';
+import { refreshLabels } from '../map3d/index.js';
 import { eventBus } from './event-bus.js';
 
 /** 初始化设置面板 */

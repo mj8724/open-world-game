@@ -26,7 +26,11 @@ public enum CommandAction
     CREATE_FORMATION,
     ASSIGN_TO_FORMATION,
     SET_SPEED,
-    UPGRADE_EDGE
+    UPGRADE_EDGE,
+    PLACE_BUILDING,
+    BUILD_WALL,
+    DEMOLISH_BUILDING,
+    DEMOLISH_WALL
 }
 
 /// <summary>玩家指令</summary>
@@ -58,6 +62,18 @@ public class GameCommand
     public string? Name { get; set; }
     public int Speed { get; set; } = 1;
     public int Seq { get; set; }
+    // 自由放置建筑参数
+    public float LocalX { get; set; }
+    public float LocalZ { get; set; }
+    public float Rotation { get; set; }
+    // 城墙段参数
+    public float FromX { get; set; }
+    public float FromZ { get; set; }
+    public float ToX { get; set; }
+    public float ToZ { get; set; }
+    // 拆除索引
+    public int BuildingIndex { get; set; }
+    public int WallIndex { get; set; }
 }
 
 /// <summary>指令处理器 — 校验并执行玩家指令</summary>
@@ -136,6 +152,18 @@ public class CommandProcessor : IGameSystem
                     break;
                 case CommandAction.ASSIGN_TO_FORMATION:
                     ProcessAssignToFormation(world, cmd, logger);
+                    break;
+                case CommandAction.PLACE_BUILDING:
+                    ProcessPlaceBuilding(world, dict, cmd, logger);
+                    break;
+                case CommandAction.BUILD_WALL:
+                    ProcessBuildWall(world, dict, cmd, logger);
+                    break;
+                case CommandAction.DEMOLISH_BUILDING:
+                    ProcessDemolishBuilding(world, cmd, logger);
+                    break;
+                case CommandAction.DEMOLISH_WALL:
+                    ProcessDemolishWall(world, cmd, logger);
                     break;
                 default:
                     logger.Log($"[指令] 未实现的指令类型: {cmd.Action}");
@@ -750,5 +778,98 @@ public class CommandProcessor : IGameSystem
             : 0;
         int target = logistics.DesiredTargetQuantity ?? transport.Capacity * logistics.AssignedTransportCount;
         logistics.EstimatedRequiredTransportCount = Math.Max(1, (int)Math.Ceiling(target / (float)Math.Max(1, transport.Capacity)));
+    }
+
+    private void ProcessPlaceBuilding(World world, DictRegistry dict, GameCommand cmd, GameLogger logger)
+    {
+        if (cmd.NodeId == null || cmd.BuildingType == null) return;
+        if (!world.Nodes.TryGetValue(cmd.NodeId, out var node)) return;
+        if (node.FactionId != "PLAYER") return;
+
+        var buildingDef = dict.GetBuilding(cmd.BuildingType);
+        if (buildingDef == null) return;
+
+        // 计算当前该类型建筑数量 + 1 作为目标等级
+        int sameTypeCount = node.PlacedBuildings.Count(b => b.BuildingType == cmd.BuildingType);
+        int targetLevel = Math.Min(sameTypeCount + 1, buildingDef.MaxLevel);
+        if (targetLevel <= 0) return;
+
+        // 检查资源消耗
+        var costIron = (int)buildingDef.GetLevelValue(targetLevel, "build_cost_iron");
+        if (node.InvIron < costIron) return;
+
+        // 扣除资源
+        node.InvIron -= costIron;
+
+        // 添加放置建筑
+        node.PlacedBuildings.Add(new PlacedBuilding
+        {
+            BuildingType = cmd.BuildingType,
+            Level = targetLevel,
+            LocalX = cmd.LocalX,
+            LocalZ = cmd.LocalZ,
+            Rotation = cmd.Rotation
+        });
+
+        world.MarkDirty(node);
+        logger.Log($"[建造] {node.Name} 放置 {cmd.BuildingType} 于 ({cmd.LocalX:F1}, {cmd.LocalZ:F1})");
+    }
+
+    private void ProcessBuildWall(World world, DictRegistry dict, GameCommand cmd, GameLogger logger)
+    {
+        if (cmd.NodeId == null) return;
+        if (!world.Nodes.TryGetValue(cmd.NodeId, out var node)) return;
+        if (node.FactionId != "PLAYER") return;
+
+        // 检查资源（城墙消耗铁矿）
+        int wallLevel = Math.Max(1, node.WallLevel);
+        var wallDef = dict.GetBuilding("WALL");
+        int costIron = wallDef != null ? (int)wallDef.GetLevelValue(wallLevel, "build_cost_iron") : 20;
+        if (node.InvIron < costIron) return;
+
+        node.InvIron -= costIron;
+
+        // 估算城墙段 HP
+        int wallHp = wallDef != null ? (int)wallDef.GetLevelValue(wallLevel, "wall_hp") : 100 * wallLevel;
+
+        node.WallSegments.Add(new WallSegment
+        {
+            FromX = cmd.FromX,
+            FromZ = cmd.FromZ,
+            ToX = cmd.ToX,
+            ToZ = cmd.ToZ,
+            Level = wallLevel,
+            Hp = wallHp,
+            MaxHp = wallHp
+        });
+
+        node.WallLevel = wallLevel;
+        world.MarkDirty(node);
+        logger.Log($"[建造] {node.Name} 建造城墙段 ({cmd.FromX:F1},{cmd.FromZ:F1}) → ({cmd.ToX:F1},{cmd.ToZ:F1})");
+    }
+
+    private void ProcessDemolishBuilding(World world, GameCommand cmd, GameLogger logger)
+    {
+        if (cmd.NodeId == null) return;
+        if (!world.Nodes.TryGetValue(cmd.NodeId, out var node)) return;
+        if (node.FactionId != "PLAYER") return;
+        if (cmd.BuildingIndex < 0 || cmd.BuildingIndex >= node.PlacedBuildings.Count) return;
+
+        var removed = node.PlacedBuildings[cmd.BuildingIndex];
+        node.PlacedBuildings.RemoveAt(cmd.BuildingIndex);
+        world.MarkDirty(node);
+        logger.Log($"[拆除] {node.Name} 拆除 {removed.BuildingType} 于 ({removed.LocalX:F1}, {removed.LocalZ:F1})");
+    }
+
+    private void ProcessDemolishWall(World world, GameCommand cmd, GameLogger logger)
+    {
+        if (cmd.NodeId == null) return;
+        if (!world.Nodes.TryGetValue(cmd.NodeId, out var node)) return;
+        if (node.FactionId != "PLAYER") return;
+        if (cmd.WallIndex < 0 || cmd.WallIndex >= node.WallSegments.Count) return;
+
+        node.WallSegments.RemoveAt(cmd.WallIndex);
+        world.MarkDirty(node);
+        logger.Log($"[拆除] {node.Name} 拆除城墙段 #{cmd.WallIndex}");
     }
 }

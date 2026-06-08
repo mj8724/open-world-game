@@ -1,49 +1,85 @@
 /* =============================================
-   Layout — Grid-based App Structure
+   Layout — AoE4 风格：3D 地图占满视口，UI 半透明覆盖
    ============================================= */
 
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: 'Inter', 'Noto Sans SC', sans-serif;
+}
+
 #app {
-  display: grid;
-  grid-template-rows: 52px 1fr 120px;
-  grid-template-columns: 1fr;
-  grid-template-areas:
-    "hud"
-    "main"
-    "log";
-  height: 100vh;
+  position: relative;
   width: 100vw;
+  height: 100vh;
   overflow: hidden;
-  background: var(--color-bg-primary);
+  background: #0a0a0f;
 }
 
-/* HUD spans full width */
-.hud-bar {
-  grid-area: hud;
+/* HUD 固定在顶部 */
+#hud-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 52px;
+  z-index: 10;
 }
 
-/* Main content area (map + panel) */
-.main-content {
-  grid-area: main;
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  grid-template-rows: 1fr;
+/* Map container: 全视口 */
+#map-container {
+  position: fixed;
+  top: 52px;
+  left: 0;
+  right: 0;
+  bottom: 48px;
   overflow: hidden;
+  z-index: 0;
 }
 
-/* Map takes center-left */
-.map-container {
+/* Info Panel 右侧滑入 */
+#info-panel {
+  position: fixed;
+  top: 52px;
+  right: 0;
+  bottom: 48px;
+  width: 340px;
+  z-index: 10;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;
+}
+
+#info-panel.open {
+  transform: translateX(0);
+}
+
+/* Action Bar 固定在底部 */
+#action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+}
+
+/* Battle Log 可折叠 */
+#battle-log {
+  position: fixed;
+  bottom: 48px;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  z-index: 10;
   overflow: hidden;
-  min-height: 0;
-}
-
-/* Info panel on the right */
-.info-panel {
-  overflow: hidden;
-}
-
-/* Battle log at bottom */
-.battle-log {
-  grid-area: log;
+  transition: max-height 0.3s ease;
 }
 
 /* Settings overlay */
@@ -53,7 +89,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: var(--z-overlay);
+  z-index: 40;
   background: rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
@@ -63,13 +99,14 @@
 
 /* Responsive */
 @media (max-width: 1024px) {
-  #app {
-    grid-template-columns: 1fr;
-    grid-template-rows: 52px 1fr 280px 140px;
-    grid-template-areas:
-      "hud"
-      "map"
-      "panel"
-      "log";
+  #info-panel {
+    width: 100%;
+    top: auto;
+    bottom: 48px;
+    max-height: 50vh;
+    transform: translateY(100%);
+  }
+  #info-panel.open {
+    transform: translateY(0);
   }
 }

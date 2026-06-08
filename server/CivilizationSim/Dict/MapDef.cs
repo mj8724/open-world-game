@@ -103,6 +103,51 @@ public record MapDef
     [JsonPropertyName("edges")]
     public List<MapEdgeDef> Edges { get; init; } = new();
 
+    [JsonPropertyName("wild_resources")]
+    public List<MapWildResourceDef> WildResources { get; init; } = new();
+
+    [JsonPropertyName("neutral_structures")]
+    public List<MapNeutralStructureDef> NeutralStructures { get; init; } = new();
+
     [JsonPropertyName("faction_starts")]
     public List<FactionStartDef> FactionStarts { get; init; } = new();
+}
+
+/// <summary>
+/// 野外资源点定义
+/// </summary>
+public record MapWildResourceDef
+{
+    [JsonPropertyName("id")]
+    public string Id { get; init; } = "";
+
+    [JsonPropertyName("x")]
+    public float X { get; init; }
+
+    [JsonPropertyName("z")]
+    public float Z { get; init; }
+
+    [JsonPropertyName("resource_type")]
+    public string ResourceType { get; init; } = "FOOD";
+
+    [JsonPropertyName("yield")]
+    public int Yield { get; init; }
+}
+
+/// <summary>
+/// 中立建筑/遗迹定义
+/// </summary>
+public record MapNeutralStructureDef
+{
+    [JsonPropertyName("id")]
+    public string Id { get; init; } = "";
+
+    [JsonPropertyName("x")]
+    public float X { get; init; }
+
+    [JsonPropertyName("z")]
+    public float Z { get; init; }
+
+    [JsonPropertyName("structure_type")]
+    public string StructureType { get; init; } = "RUINS";
 }

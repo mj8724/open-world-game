@@ -1,5 +1,48 @@
 namespace CivilizationSim.Ecs.Components;
 
+/// <summary>已放置的建筑实例（自由放置）</summary>
+public class PlacedBuilding
+{
+    public string BuildingType { get; set; } = ""; // FARM, MINE, ARSENAL, WALL, ORACLE_BEACON
+    public int Level { get; set; }
+    public float LocalX { get; set; }   // 相对于城市的局部坐标
+    public float LocalZ { get; set; }
+    public float Rotation { get; set; } // Y轴旋转角度（度）
+}
+
+/// <summary>城墙段（点击连线式）</summary>
+public class WallSegment
+{
+    public float FromX { get; set; }
+    public float FromZ { get; set; }
+    public float ToX { get; set; }
+    public float ToZ { get; set; }
+    public int Level { get; set; } = 1;
+    public int Hp { get; set; }
+    public int MaxHp { get; set; }
+}
+
+/// <summary>野外资源点</summary>
+public class WildResource
+{
+    public string Id { get; set; } = "";
+    public float X { get; set; }
+    public float Z { get; set; }
+    public string ResourceType { get; set; } = ""; // IRON, FOOD, AMMO
+    public int Yield { get; set; }
+    public string OwnerFactionId { get; set; } = ""; // 空表示中立
+}
+
+/// <summary>中立建筑/遗迹</summary>
+public class NeutralStructure
+{
+    public string Id { get; set; } = "";
+    public float X { get; set; }
+    public float Z { get; set; }
+    public string StructureType { get; set; } = ""; // RUINS, OUTPOST, SHRINE
+    public string OwnerFactionId { get; set; } = "";
+}
+
 /// <summary>节点状态组件 — 城市/矿区/据点的完整状态</summary>
 public class NodeComponent
 {
@@ -22,6 +65,9 @@ public class NodeComponent
     public List<string> Tags { get; set; } = new();
     public float X { get; set; }
     public float Y { get; set; }
+    public string Terrain { get; set; } = "PLAINS";
+    public List<PlacedBuilding> PlacedBuildings { get; set; } = new();
+    public List<WallSegment> WallSegments { get; set; } = new();
 }
 
 /// <summary>边组件 — 节点间连接通路</summary>

@@ -42,6 +42,20 @@
     { "id": "E21", "source": "N13", "target": "N16", "type": "TRAIL", "length": 3 },
     { "id": "E22", "source": "N15", "target": "N12", "type": "TRAIL", "length": 4 }
   ],
+  "wild_resources": [
+    { "id": "WR01", "x": 250, "z": 200, "resource_type": "IRON", "yield": 5 },
+    { "id": "WR02", "x": 400, "z": 300, "resource_type": "FOOD", "yield": 8 },
+    { "id": "WR03", "x": 600, "z": 150, "resource_type": "IRON", "yield": 6 },
+    { "id": "WR04", "x": 350, "z": 100, "resource_type": "FOOD", "yield": 5 },
+    { "id": "WR05", "x": 700, "z": 300, "resource_type": "AMMO", "yield": 3 },
+    { "id": "WR06", "x": 200, "z": 400, "resource_type": "FOOD", "yield": 4 }
+  ],
+  "neutral_structures": [
+    { "id": "NS01", "x": 500, "z": 50, "structure_type": "RUINS" },
+    { "id": "NS02", "x": 550, "z": 280, "structure_type": "OUTPOST" },
+    { "id": "NS03", "x": 150, "z": 200, "structure_type": "SHRINE" },
+    { "id": "NS04", "x": 650, "z": 250, "structure_type": "RUINS" }
+  ],
   "faction_starts": [
     {
       "faction_id": "PLAYER",

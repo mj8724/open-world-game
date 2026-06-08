@@ -1,0 +1,61 @@
+/* ─── Action Bar (AoE4 底部操作条) ─── */
+
+.action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: rgba(15, 20, 30, 0.88);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(212, 175, 55, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 16px;
+  z-index: 10;
+}
+
+.action-bar-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 64px;
+}
+
+.action-bar-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.action-bar-btn:active,
+.action-bar-btn.active {
+  background: rgba(37, 99, 235, 0.3);
+  color: #93c5fd;
+}
+
+.action-bar-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.action-bar-label {
+  font-size: 10px;
+  font-family: 'Inter', 'Noto Sans SC', sans-serif;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+/* Action bar buttons with keyboard shortcut hints */
+.action-bar-btn[title]::after {
+  content: none;
+}

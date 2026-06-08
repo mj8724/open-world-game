@@ -702,11 +702,15 @@ public class MoraleSystem : IGameSystem
     public void Execute(World world, DictRegistry dict, GameLogger logger) { /* Phase 4 实现 */ }
 }
 
-/// <summary>AI决策系统 — Phase 4B 基础进攻</summary>
+/// <summary>AI决策系统</summary>
 public class AISystem : IGameSystem
 {
     private const int AttackIntervalTicks = 12;
     private const int MinGarrisonToAttack = 4;
+    private const int BuildIntervalTicks = 12;
+    private const int ResearchIntervalTicks = 15;
+    private const int DefenseIntervalTicks = 8;
+    private const int ProductionIntervalTicks = 20;
     private int _ticks;
 
     public int Order => 90;
@@ -714,8 +718,219 @@ public class AISystem : IGameSystem
     public void Execute(World world, DictRegistry dict, GameLogger logger)
     {
         _ticks++;
-        if (_ticks % AttackIntervalTicks != 0) return;
 
+        if (!world.Factions.TryGetValue("AI", out var aiFaction)) return;
+
+        if (_ticks % AttackIntervalTicks == 0)
+            ProcessAttack(world, dict, aiFaction, logger);
+
+        if (_ticks % BuildIntervalTicks == 2)
+            ProcessBuild(world, dict, aiFaction, logger);
+
+        if (_ticks % ResearchIntervalTicks == 5)
+            ProcessResearch(world, dict, aiFaction, logger);
+
+        if (_ticks % DefenseIntervalTicks == 0)
+            ProcessDefense(world, dict, aiFaction, logger);
+
+        if (_ticks % ProductionIntervalTicks == 3)
+            ProcessProduction(world, dict, aiFaction, logger);
+    }
+
+    private static void ProcessBuild(World world, DictRegistry dict, FactionComponent aiFaction, GameLogger logger)
+    {
+        var aiNodes = aiFaction.OwnedNodeIds
+            .Select(id => world.Nodes.TryGetValue(id, out var n) ? n : null)
+            .Where(n => n != null)
+            .ToList();
+
+        foreach (var node in aiNodes.OrderBy(n => n.GarrisonCount))
+        {
+            if (node.FactionId != "AI") continue;
+
+            if (world.BuildQueue.Any(b => b.NodeId == node.Id)) continue;
+
+            string? choice = null;
+            int foodPerTick = node.FarmLevel > 0 ? (int)dict.GetBuilding("FARM").GetLevelValue(node.FarmLevel, "food_per_tick", 3) : 0;
+            int ironPerTick = node.MineLevel > 0 ? (int)dict.GetBuilding("MINE").GetLevelValue(node.MineLevel, "iron_per_tick", 2) : 0;
+            int popCap = 5 + (node.FarmLevel) * 25;
+
+            if (node.PopCount >= popCap * 0.8 && node.FarmLevel < 5)
+                choice = "FARM";
+            else if (node.InvIron < 100 && node.MineLevel < 5)
+                choice = "MINE";
+            else if (node.InvAmmo < 50 && node.ArsenalLevel < 5)
+                choice = "ARSENAL";
+            else if (IsBorderNode(world, node) && node.WallLevel < 3)
+                choice = "WALL";
+            else if (node.FarmLevel < 3)
+                choice = "FARM";
+            else if (node.MineLevel < 3)
+                choice = "MINE";
+
+            if (choice == null) continue;
+
+            var def = dict.GetBuilding(choice);
+            int targetLevel = choice switch
+            {
+                "FARM" => node.FarmLevel + 1,
+                "MINE" => node.MineLevel + 1,
+                "ARSENAL" => node.ArsenalLevel + 1,
+                "WALL" => node.WallLevel + 1,
+                _ => 1
+            };
+            if (targetLevel > def.MaxLevel) continue;
+
+            int cost = (int)def.GetLevelValue(targetLevel, "build_cost_iron", 20);
+            if (node.InvIron < cost) continue;
+
+            node.InvIron -= cost;
+            world.BuildQueue.Add(new BuildQueueItem
+            {
+                NodeId = node.Id,
+                BuildingType = choice,
+                TargetLevel = targetLevel,
+                RemainingTicks = (int)def.GetLevelValue(targetLevel, "build_ticks", 8),
+                FactionId = "AI"
+            });
+            world.MarkDirty(node);
+            logger.Log($"[AI建造] {node.Name} 开始建造 {choice} Lv.{targetLevel}");
+            break;
+        }
+    }
+
+    private static void ProcessResearch(World world, DictRegistry dict, FactionComponent aiFaction, GameLogger logger)
+    {
+        if (!string.IsNullOrEmpty(aiFaction.ResearchingTechId)) return;
+
+        var available = dict.AllTechs.Values
+            .Where(t => !aiFaction.UnlockedTechs.Contains(t.Id))
+            .Where(t => t.Prerequisites.All(p => aiFaction.UnlockedTechs.Contains(p)))
+            .ToList();
+
+        if (available.Count == 0) return;
+
+        var choice = available
+            .OrderByDescending(t => t.Category switch
+            {
+                "FOOD" => 3,
+                "TRANSIT" => 2,
+                "WEAPON" => 1,
+                "BUILD" => 0,
+                _ => -1
+            })
+            .ThenBy(t => t.Tier)
+            .FirstOrDefault();
+
+        if (choice == null) return;
+
+        if (world.Nodes.TryGetValue(aiFaction.CapitalNodeId, out var capital) && capital.InvIron >= choice.ResearchCostIron)
+        {
+            capital.InvIron -= choice.ResearchCostIron;
+            world.MarkDirty(capital);
+            aiFaction.ResearchingTechId = choice.Id;
+            aiFaction.ResearchProgress = 0;
+            logger.Log($"[AI科技] 开始研发 {choice.Id}");
+        }
+    }
+
+    private static void ProcessDefense(World world, DictRegistry dict, FactionComponent aiFaction, GameLogger logger)
+    {
+        foreach (var node in aiFaction.OwnedNodeIds.Select(id => world.Nodes.TryGetValue(id, out var n) ? n : null).Where(n => n != null))
+        {
+            if (!IsBorderNode(world, node)) continue;
+
+            var threatPower = GetAdjacentEnemyStrength(world, node);
+            var ownPower = node.GarrisonCount * 2f + (node.WallHpCurrent + node.WallLevel * 25f);
+            if (threatPower <= ownPower * 1.5f) continue;
+
+            var reinforcement = world.Armies.Values
+                .Where(army => army.FactionId == "AI" && army.State == "IDLE" && army.CurrentNodeId != null && Math.Max(army.Strength, army.TroopCount) >= 2)
+                .Where(army => {
+                    if (army.CurrentNodeId != null && world.Nodes.TryGetValue(army.CurrentNodeId, out var n))
+                        return !IsBorderNode(world, n);
+                    return false;
+                })
+                .OrderBy(army => Math.Max(army.Strength, army.TroopCount))
+                .FirstOrDefault();
+
+            if (reinforcement == null || reinforcement.CurrentNodeId == null) continue;
+
+            var edge = FindAdjacentPath(world, reinforcement.CurrentNodeId, node.Id);
+            if (edge == null) continue;
+
+            var currentNode = world.Nodes.TryGetValue(reinforcement.CurrentNodeId, out var currentNode2) ? currentNode2 : null;
+            reinforcement.CurrentEdgeId = edge.Id;
+            reinforcement.TargetNodeId = node.Id;
+            reinforcement.EdgeProgress = 0;
+            reinforcement.State = "MOVING";
+            reinforcement.Stance = "DEFEND";
+            SyncNodeGarrisonCountFromCompanies(world, reinforcement.CurrentNodeId);
+            world.MarkDirty(reinforcement);
+            if (currentNode != null) world.MarkDirty(currentNode);
+            logger.Log($"[AI防御] {reinforcement.Name} 从 {(reinforcement.CurrentNodeId)} 调往 {node.Name}");
+        }
+    }
+
+    private static void ProcessProduction(World world, DictRegistry dict, FactionComponent aiFaction, GameLogger logger)
+    {
+        int totalStrength = world.Armies.Values
+            .Where(army => army.FactionId == "AI")
+            .Sum(army => Math.Max(army.Strength, army.TroopCount));
+
+        int aiNodeCount = aiFaction.OwnedNodeIds.Count;
+        int targetStrength = aiNodeCount * 15;
+
+        if (totalStrength >= targetStrength) return;
+
+        var productionNode = aiFaction.OwnedNodeIds
+            .Select(id => world.Nodes.TryGetValue(id, out var n) ? n : null)
+            .Where(n => n != null && n.InvFood >= 50 && n.InvIron >= 30)
+            .OrderByDescending(n => n.PopCount)
+            .FirstOrDefault();
+
+        if (productionNode == null) return;
+
+        string unitDefId = "MILITIA";
+        if (aiFaction.UnlockedTechs.Contains("WEAPON_MACHINEGUN")) unitDefId = "MAXIM_GUN";
+        else if (aiFaction.UnlockedTechs.Contains("WEAPON_GUNPOWDER")) unitDefId = "MUSKETEER";
+        else if (aiFaction.UnlockedTechs.Contains("WEAPON_BLADES")) unitDefId = "SWORDSMAN";
+
+        if (!dict.HasUnit(unitDefId)) return;
+        var unit = dict.GetUnit(unitDefId);
+
+        if (productionNode.InvFood < unit.RecruitCostFood || productionNode.InvIron < unit.RecruitCostIron) return;
+
+        productionNode.InvFood -= unit.RecruitCostFood;
+        productionNode.InvIron -= unit.RecruitCostIron;
+
+        var entityId = world.EntityManager.CreateEntityId();
+        var strength = Math.Max(1, unit.PopCost * 5);
+        var army = new ArmyComponent
+        {
+            EntityId = entityId,
+            FactionId = "AI",
+            CurrentNodeId = productionNode.Id,
+            State = "IDLE",
+            UnitKind = "COMPANY",
+            UnitDefId = unitDefId,
+            Name = $"{unit.Name}连 #{entityId}",
+            Strength = strength,
+            MaxStrength = strength,
+            Morale = 1.0f
+        };
+        army.MaxSupplyFood = Math.Max(10, strength * Math.Max(1, unit.UpkeepFood) * 3);
+        army.SupplyFood = army.MaxSupplyFood;
+        army.TroopCount = strength;
+        world.Armies[entityId] = army;
+        SyncNodeGarrisonCountFromCompanies(world, productionNode.Id);
+        world.MarkDirty(army);
+        world.MarkDirty(productionNode);
+        logger.Log($"[AI生产] {productionNode.Name} 组建 {army.Name}");
+    }
+
+    private static void ProcessAttack(World world, DictRegistry dict, FactionComponent aiFaction, GameLogger logger)
+    {
         var source = world.Armies.Values
             .Where(army => army.FactionId == "AI" && army.State == "IDLE" && army.CurrentNodeId != null && Math.Max(army.Strength, army.TroopCount) >= MinGarrisonToAttack)
             .Where(army => world.Nodes.TryGetValue(army.CurrentNodeId!, out var node) && FindAdjacentTargets(world, node).Any())
@@ -735,6 +950,35 @@ public class AISystem : IGameSystem
         if (edge == null) return;
 
         LaunchAttack(world, source, sourceNode, target, edge, logger);
+    }
+
+    private static bool IsBorderNode(World world, NodeComponent node)
+    {
+        return world.Edges.Values.Any(e =>
+            (e.SourceNodeId == node.Id && world.Nodes.TryGetValue(e.TargetNodeId, out var t1) && t1.FactionId != node.FactionId) ||
+            (e.TargetNodeId == node.Id && world.Nodes.TryGetValue(e.SourceNodeId, out var t2) && t2.FactionId != node.FactionId));
+    }
+
+    private static float GetAdjacentEnemyStrength(World world, NodeComponent node)
+    {
+        float total = 0;
+        foreach (var edge in world.Edges.Values)
+        {
+            var otherId = edge.SourceNodeId == node.Id ? edge.TargetNodeId : edge.TargetNodeId == node.Id ? edge.SourceNodeId : null;
+            if (otherId == null || !world.Nodes.TryGetValue(otherId, out var other) || other.FactionId == node.FactionId) continue;
+            total += other.GarrisonCount * 2f;
+            total += world.Armies.Values
+                .Where(a => a.FactionId != node.FactionId && a.CurrentNodeId == otherId && a.CurrentEdgeId == null && a.State == "IDLE")
+                .Sum(a => Math.Max(a.Strength, a.TroopCount));
+        }
+        return total;
+    }
+
+    private static EdgeComponent? FindAdjacentPath(World world, string from, string to)
+    {
+        return world.Edges.Values.FirstOrDefault(e =>
+            (e.SourceNodeId == from && e.TargetNodeId == to) ||
+            (e.SourceNodeId == to && e.TargetNodeId == from));
     }
 
     private static IEnumerable<NodeComponent> FindAdjacentTargets(World world, NodeComponent source)
