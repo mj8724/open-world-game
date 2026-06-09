@@ -18,7 +18,18 @@ namespace OpenWorld
 
         private Label _fpsLabel;
         private Label _mapLabel;
-        private Label _resourceLabel;
+        private Label _resFood;
+        private Label _resWood;
+        private Label _resStone;
+        private Label _resOre;
+        private Label _resCoal;
+        private Label _resIron;
+        private Label _resSteel;
+        private Label _resParts;
+        private Label _resRail;
+        private Label _resPowder;
+        private Label _resFuel;
+        private Label _resAmmo;
         private Label _entityLabel;
         private Label _toolLabel;
         private Label _systemsLabel;
@@ -75,7 +86,18 @@ namespace OpenWorld
 
             _fpsLabel = root.Q<Label>("fps-value");
             _mapLabel = root.Q<Label>("map-value");
-            _resourceLabel = root.Q<Label>("resource-value");
+            _resFood = root.Q<Label>("res-food");
+            _resWood = root.Q<Label>("res-wood");
+            _resStone = root.Q<Label>("res-stone");
+            _resOre = root.Q<Label>("res-ore");
+            _resCoal = root.Q<Label>("res-coal");
+            _resIron = root.Q<Label>("res-iron");
+            _resSteel = root.Q<Label>("res-steel");
+            _resParts = root.Q<Label>("res-parts");
+            _resRail = root.Q<Label>("res-rail");
+            _resPowder = root.Q<Label>("res-powder");
+            _resFuel = root.Q<Label>("res-fuel");
+            _resAmmo = root.Q<Label>("res-ammo");
             _entityLabel = root.Q<Label>("entity-value");
             _toolLabel = root.Q<Label>("tool-value");
             _systemsLabel = root.Q<Label>("systems-value");
@@ -192,7 +214,18 @@ namespace OpenWorld
 
             SetText(_fpsLabel, $"{_fps:0}");
             SetText(_mapLabel, $"{_world.MapSize} x {_world.MapSize} / chunk {_world.ChunkSize} / overlay {_knowledge?.CurrentOverlay}");
-            SetText(_resourceLabel, $"Food {_world.Inventory.Food}  Wood {_world.Inventory.Wood}  Stone {_world.Inventory.Stone}  Ore {_world.Inventory.IronOre}  Coal {_world.Inventory.Coal}  Iron {_world.Inventory.IronIngot}  Steel {_world.Inventory.Steel}  Parts {_world.Inventory.MachineParts}  Rail {_world.Inventory.RailParts}  Powder {_world.Inventory.Gunpowder}  Fuel {_world.Inventory.Fuel}  Ammo {_world.Inventory.Ammo}");
+            SetText(_resFood, _world.Inventory.Food.ToString());
+            SetText(_resWood, _world.Inventory.Wood.ToString());
+            SetText(_resStone, _world.Inventory.Stone.ToString());
+            SetText(_resOre, _world.Inventory.IronOre.ToString());
+            SetText(_resCoal, _world.Inventory.Coal.ToString());
+            SetText(_resIron, _world.Inventory.IronIngot.ToString());
+            SetText(_resSteel, _world.Inventory.Steel.ToString());
+            SetText(_resParts, _world.Inventory.MachineParts.ToString());
+            SetText(_resRail, _world.Inventory.RailParts.ToString());
+            SetText(_resPowder, _world.Inventory.Gunpowder.ToString());
+            SetText(_resFuel, _world.Inventory.Fuel.ToString());
+            SetText(_resAmmo, _world.Inventory.Ammo.ToString());
             SetText(_entityLabel, $"Buildings {_world.Buildings.Count}  Units {_world.Units.Count}  Vehicles {_world.Vehicles.Count}  Blueprints {_world.Blueprints.Count}  Routes {_world.LogisticsRoutes.Count}  Selected {_units?.SelectedUnits.Count ?? 0}/{_vehicles?.SelectedVehicles.Count ?? 0}");
             SetText(_toolLabel, $"{_input.CurrentTool} / brush {_input.BrushRadius} / build {_input.CurrentBuildable} / vehicle {_input.CurrentVehicle}");
             SetText(_systemsLabel, $"Pop {_world.Population.Residents}  Workers {_world.Population.Workers}  Soldiers {_world.Population.Soldiers}  Wounded {_world.Population.Wounded}  Morale {_world.Population.CityMorale:0}  Era {_world.Tech.Era}  Research {_simulation?.ResearchSummary ?? _world.Tech.CurrentResearch}  Production {_simulation?.ProductionSummary ?? "-"}");

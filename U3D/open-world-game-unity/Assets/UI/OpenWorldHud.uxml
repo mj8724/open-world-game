@@ -1,6 +1,24 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <ui:Style src="project://database/Assets/UI/OpenWorldHud.uss" />
     <ui:VisualElement name="hud-root" class="hud-root">
+        
+        <!-- Top Resource Bar -->
+        <ui:VisualElement name="top-bar" class="top-bar">
+            <ui:VisualElement class="res-item"><ui:Label text="Food" class="res-name"/><ui:Label name="res-food" text="0" class="res-value"/></ui:VisualElement>
+            <ui:VisualElement class="res-item"><ui:Label text="Wood" class="res-name"/><ui:Label name="res-wood" text="0" class="res-value"/></ui:VisualElement>
+            <ui:VisualElement class="res-item"><ui:Label text="Stone" class="res-name"/><ui:Label name="res-stone" text="0" class="res-value"/></ui:VisualElement>
+            <ui:VisualElement class="res-item"><ui:Label text="Ore" class="res-name"/><ui:Label name="res-ore" text="0" class="res-value"/></ui:VisualElement>
+            <ui:VisualElement class="res-item"><ui:Label text="Coal" class="res-name"/><ui:Label name="res-coal" text="0" class="res-value"/></ui:VisualElement>
+            <ui:VisualElement class="res-item"><ui:Label text="Iron" class="res-name"/><ui:Label name="res-iron" text="0" class="res-value"/></ui:VisualElement>
+            <ui:VisualElement class="res-item"><ui:Label text="Steel" class="res-name"/><ui:Label name="res-steel" text="0" class="res-value"/></ui:VisualElement>
+            <ui:VisualElement class="res-item"><ui:Label text="Parts" class="res-name"/><ui:Label name="res-parts" text="0" class="res-value"/></ui:VisualElement>
+            <ui:VisualElement class="res-item"><ui:Label text="Rail" class="res-name"/><ui:Label name="res-rail" text="0" class="res-value"/></ui:VisualElement>
+            <ui:VisualElement class="res-item"><ui:Label text="Powder" class="res-name"/><ui:Label name="res-powder" text="0" class="res-value"/></ui:VisualElement>
+            <ui:VisualElement class="res-item"><ui:Label text="Fuel" class="res-name"/><ui:Label name="res-fuel" text="0" class="res-value"/></ui:VisualElement>
+            <ui:VisualElement class="res-item"><ui:Label text="Ammo" class="res-name"/><ui:Label name="res-ammo" text="0" class="res-value"/></ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Left Status Panel -->
         <ui:VisualElement name="status-panel" class="status-panel">
             <ui:Label text="Open World Surface" class="hud-title" />
             <ui:VisualElement class="stat-row">
@@ -10,10 +28,6 @@
             <ui:VisualElement class="stat-row">
                 <ui:Label text="Map" class="stat-name" />
                 <ui:Label name="map-value" text="-" class="stat-value" />
-            </ui:VisualElement>
-            <ui:VisualElement class="stat-block">
-                <ui:Label text="Resources" class="stat-name" />
-                <ui:Label name="resource-value" text="-" class="stat-value wrap" />
             </ui:VisualElement>
             <ui:VisualElement class="stat-block">
                 <ui:Label text="Entities" class="stat-name" />
@@ -40,6 +54,8 @@
             </ui:VisualElement>
             <ui:Label name="controls-value" text="1-9 tools  B build  F1-F8 buildings  V vehicle  L/U load-unload  M map  O overlay  X+click cancel  +/- priority  Shift+click blueprint  F9 save" class="controls" />
         </ui:VisualElement>
+
+        <!-- Right Strategic Map Panel -->
         <ui:VisualElement name="strategic-map-panel" class="strategic-map-panel">
             <ui:VisualElement class="strategic-map-header">
                 <ui:Label name="strategic-map-title" text="Strategic Map" class="hud-title" />
@@ -59,5 +75,6 @@
             <ui:Label name="strategic-map-legend" text="-" class="map-legend" />
             <ui:Label name="strategic-map-details" text="-" class="controls" />
         </ui:VisualElement>
+
     </ui:VisualElement>
 </ui:UXML>
