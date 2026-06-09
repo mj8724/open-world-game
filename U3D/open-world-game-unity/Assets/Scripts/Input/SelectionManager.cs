@@ -38,11 +38,11 @@ namespace Input
         private void Update()
         {
             // 鼠标左键点击
-            if (Input.GetMouseButtonDown(0))
+            if (UnityEngine.Input.GetMouseButtonDown(0))
                 HandleLeftClick();
 
             // 鼠标右键
-            if (Input.GetMouseButtonDown(1))
+            if (UnityEngine.Input.GetMouseButtonDown(1))
                 HandleRightClick();
 
             // 悬停
@@ -52,7 +52,7 @@ namespace Input
         /// <summary>射线检测</summary>
         private RaycastHit? Raycast()
         {
-            var ray = _raycastCamera.ScreenPointToRay(Input.mousePosition);
+            var ray = _raycastCamera.ScreenPointToRay(UnityEngine.Input.mousePosition);
             if (Physics.Raycast(ray, out var hit, 100f, _interactableLayers))
             {
                 return hit;

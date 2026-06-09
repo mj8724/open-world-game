@@ -1,0 +1,63 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:Style src="project://database/Assets/UI/OpenWorldHud.uss" />
+    <ui:VisualElement name="hud-root" class="hud-root">
+        <ui:VisualElement name="status-panel" class="status-panel">
+            <ui:Label text="Open World Surface" class="hud-title" />
+            <ui:VisualElement class="stat-row">
+                <ui:Label text="FPS" class="stat-name" />
+                <ui:Label name="fps-value" text="0" class="stat-value" />
+            </ui:VisualElement>
+            <ui:VisualElement class="stat-row">
+                <ui:Label text="Map" class="stat-name" />
+                <ui:Label name="map-value" text="-" class="stat-value" />
+            </ui:VisualElement>
+            <ui:VisualElement class="stat-block">
+                <ui:Label text="Resources" class="stat-name" />
+                <ui:Label name="resource-value" text="-" class="stat-value wrap" />
+            </ui:VisualElement>
+            <ui:VisualElement class="stat-block">
+                <ui:Label text="Entities" class="stat-name" />
+                <ui:Label name="entity-value" text="-" class="stat-value wrap" />
+            </ui:VisualElement>
+            <ui:VisualElement class="stat-block">
+                <ui:Label text="Tool" class="stat-name" />
+                <ui:Label name="tool-value" text="-" class="stat-value wrap" />
+            </ui:VisualElement>
+            <ui:VisualElement class="stat-block">
+                <ui:Label text="Systems" class="stat-name" />
+                <ui:Label name="systems-value" text="-" class="stat-value wrap" />
+            </ui:VisualElement>
+            <ui:VisualElement class="stat-block">
+                <ui:Label text="Logistics" class="stat-name" />
+                <ui:Label name="logistics-value" text="-" class="stat-value wrap" />
+            </ui:VisualElement>
+            <ui:VisualElement class="stat-block">
+                <ui:Label text="Unity Goal" class="stat-name" />
+                <ui:Label name="goal-value" text="-" class="stat-value wrap" />
+            </ui:VisualElement>
+            <ui:VisualElement class="hud-actions">
+                <ui:Button name="save-button" text="Save" class="hud-button" />
+            </ui:VisualElement>
+            <ui:Label name="controls-value" text="1-9 tools  B build  F1-F8 buildings  V vehicle  L/U load-unload  M map  O overlay  X+click cancel  +/- priority  Shift+click blueprint  F9 save" class="controls" />
+        </ui:VisualElement>
+        <ui:VisualElement name="strategic-map-panel" class="strategic-map-panel">
+            <ui:VisualElement class="strategic-map-header">
+                <ui:Label name="strategic-map-title" text="Strategic Map" class="hud-title" />
+                <ui:Label text="M toggle / O overlay / wheel zoom / drag pan / click jump" class="map-help" />
+            </ui:VisualElement>
+            <ui:VisualElement class="map-actions">
+                <ui:Button name="map-overlay-button" text="Overlay" class="hud-button" />
+                <ui:Button name="map-zoom-in-button" text="+" class="icon-button" />
+                <ui:Button name="map-zoom-out-button" text="-" class="icon-button" />
+                <ui:Button name="map-camera-button" text="Camera" class="hud-button" />
+                <ui:Button name="map-scout-button" text="Scout" class="hud-button" />
+                <ui:Button name="map-road-button" text="Road" class="hud-button" />
+                <ui:Button name="map-rail-button" text="Rail" class="hud-button" />
+                <ui:Button name="map-bridge-button" text="Bridge" class="hud-button" />
+            </ui:VisualElement>
+            <ui:VisualElement name="strategic-map-image" class="strategic-map-image" />
+            <ui:Label name="strategic-map-legend" text="-" class="map-legend" />
+            <ui:Label name="strategic-map-details" text="-" class="controls" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

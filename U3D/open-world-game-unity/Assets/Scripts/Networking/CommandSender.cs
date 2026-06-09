@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 /// <summary>
 /// CommandSender — 封装发送指令的便捷 API
 /// 移植自 client/src/bridge/command-sender.js
@@ -71,8 +73,22 @@ namespace Networking
         public void SendCancelRoute(int routeId) =>
             _ws.SendCommand("CANCEL_ROUTE", new { routeId });
 
-        public void SendUpdateRoute(int routeId, object patch) =>
-            _ws.SendCommand("UPDATE_ROUTE", new { routeId, troopCount = routeId, ...patch });
+        public void SendUpdateRoute(int routeId, IDictionary<string, object>? patch = null)
+        {
+            var payload = new Dictionary<string, object>
+            {
+                ["routeId"] = routeId,
+                ["troopCount"] = routeId
+            };
+
+            if (patch != null)
+            {
+                foreach (var (key, value) in patch)
+                    payload[key] = value;
+            }
+
+            _ws.SendCommand("UPDATE_ROUTE", payload);
+        }
 
         // ─── 集结点 ───
         public void SendSetRallyPoint(string nodeId, object policies) =>

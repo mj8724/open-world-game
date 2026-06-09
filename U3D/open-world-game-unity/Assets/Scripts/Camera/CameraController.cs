@@ -81,28 +81,28 @@ namespace CameraControl
         private void HandleInput()
         {
             // 鼠标左键旋转
-            if (Input.GetMouseButtonDown(0))
+            if (UnityEngine.Input.GetMouseButtonDown(0))
             {
                 _isDragging = true;
                 _isPanning = false;
-                _lastMousePos = Input.mousePosition;
+                _lastMousePos = UnityEngine.Input.mousePosition;
             }
 
             // 鼠标右键或中键平移
-            if (Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(2))
+            if (UnityEngine.Input.GetMouseButtonDown(1) || UnityEngine.Input.GetMouseButtonDown(2))
             {
                 _isPanning = true;
                 _isDragging = false;
-                _lastMousePos = Input.mousePosition;
+                _lastMousePos = UnityEngine.Input.mousePosition;
                 _dragStart = _lastMousePos;
             }
 
-            if (Input.GetMouseButtonUp(0)) _isDragging = false;
-            if (Input.GetMouseButtonUp(1) || Input.GetMouseButtonUp(2)) _isPanning = false;
+            if (UnityEngine.Input.GetMouseButtonUp(0)) _isDragging = false;
+            if (UnityEngine.Input.GetMouseButtonUp(1) || UnityEngine.Input.GetMouseButtonUp(2)) _isPanning = false;
 
-            if (_isDragging && Input.GetMouseButton(0))
+            if (_isDragging && UnityEngine.Input.GetMouseButton(0))
             {
-                Vector3 delta = Input.mousePosition - _lastMousePos;
+                Vector3 delta = UnityEngine.Input.mousePosition - _lastMousePos;
                 _currentAzimuth -= delta.x * _rotateSpeed * 0.005f;
                 _currentPolar = Mathf.Clamp(
                     _currentPolar + delta.y * _rotateSpeed * 0.005f,
@@ -111,9 +111,9 @@ namespace CameraControl
                 );
             }
 
-            if (_isPanning && (Input.GetMouseButton(1) || Input.GetMouseButton(2)))
+            if (_isPanning && (UnityEngine.Input.GetMouseButton(1) || UnityEngine.Input.GetMouseButton(2)))
             {
-                Vector3 delta = Input.mousePosition - _lastMousePos;
+                Vector3 delta = UnityEngine.Input.mousePosition - _lastMousePos;
                 // 平移速度随距离缩放
                 float panScale = _currentDistance * 0.002f * _panSpeed;
                 Vector3 right = _targetCamera.transform.right;
@@ -125,7 +125,7 @@ namespace CameraControl
             }
 
             // 滚轮缩放
-            float scroll = Input.GetAxis("Mouse ScrollWheel");
+            float scroll = UnityEngine.Input.GetAxis("Mouse ScrollWheel");
             if (Mathf.Abs(scroll) > 0.01f)
             {
                 _currentDistance = Mathf.Clamp(
@@ -135,7 +135,7 @@ namespace CameraControl
                 );
             }
 
-            _lastMousePos = Input.mousePosition;
+            _lastMousePos = UnityEngine.Input.mousePosition;
 
             // 聚焦动画
             if (_focusTarget.HasValue)

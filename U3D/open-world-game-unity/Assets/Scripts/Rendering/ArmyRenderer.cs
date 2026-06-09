@@ -175,14 +175,14 @@ namespace Rendering
         {
             if (root == null || _terrain == null) return;
 
-            var nodes = FindObjectOfType<Networking.StateStore>()?.Nodes;
+            var nodes = global::GameApp.Instance?.State?.Nodes;
             if (nodes == null) return;
 
             float GetHeight(float wx, float wz) => _terrain.GetHeightAt(wx, wz) + 0.05f;
 
             if (!string.IsNullOrEmpty(army.CurrentEdgeId))
             {
-                var edgeStore = FindObjectOfType<Networking.StateStore>()?.Edges;
+                var edgeStore = global::GameApp.Instance?.State?.Edges;
                 if (edgeStore != null && edgeStore.TryGetValue(army.CurrentEdgeId, out var edge))
                 {
                     if (nodes.TryGetValue(edge.SourceNodeId, out var src) &&
@@ -240,7 +240,7 @@ namespace Rendering
 
         private List<int> GetOtherArmiesAtNode(string nodeId, int excludeEntityId)
         {
-            var store = FindObjectOfType<Networking.StateStore>();
+            var store = global::GameApp.Instance?.State;
             if (store?.Armies == null) return new List<int>();
 
             var result = new List<int>();

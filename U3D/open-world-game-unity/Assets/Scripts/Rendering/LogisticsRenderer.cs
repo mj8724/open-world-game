@@ -65,7 +65,7 @@ namespace Rendering
         {
             var root = new GameObject($"Logistics_{route.EntityId}");
 
-            var nodes = FindObjectOfType<Networking.StateStore>()?.Nodes;
+            var nodes = global::GameApp.Instance?.State?.Nodes;
             var pathPoints = new List<Vector3>();
 
             if (route.PathNodeIds != null && nodes != null)
@@ -168,7 +168,7 @@ namespace Rendering
         {
             if (cart == null || _terrain == null) return;
 
-            var store = FindObjectOfType<Networking.StateStore>();
+            var store = global::GameApp.Instance?.State;
             var nodes = store?.Nodes;
             var edges = store?.Edges;
 

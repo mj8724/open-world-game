@@ -61,9 +61,7 @@ namespace Rendering
             RenderSettings.ambientEquatorColor = new Color(0x4a / 255f, 0x7c / 255f, 0x3f / 255f) * _ambientIntensity;
             RenderSettings.ambientGroundColor = new Color(0x4a / 255f, 0x7c / 255f, 0x3f / 255f) * (_ambientIntensity * 0.6f);
 
-            // URP 额外环境光强度
-            if (RenderSettings.ambientIntensity != null)
-                RenderSettings.ambientIntensity = _ambientIntensity;
+            RenderSettings.ambientIntensity = _ambientIntensity;
         }
 
         private void SetupLighting()
@@ -75,9 +73,9 @@ namespace Rendering
             _directionalLight.shadowNormalBias = 0.001f;
 
             // 阴影设置
-            _directionalLight.shadowSettings.direction = LightShadowResolution.VeryHigh;
+            _directionalLight.shadows = LightShadows.Soft;
+            _directionalLight.shadowResolution = LightShadowResolution.VeryHigh;
             _directionalLight.shadowNearPlane = 0.5f;
-            _directionalLight.shadowFarPlane = 100f;
 
             // 方向光位置模拟 Three.js sun position (20, 30, 15)
             if (_sunPivot != null)
