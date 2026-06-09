@@ -6,3 +6,22 @@ obj/
 .playwright-mcp/
 client/dist/
 .claude/build-check/
+
+# Unity 生成文件（递归匹配）
+U3D/**/[Ll]ibrary/
+U3D/**/[Tt]emp/
+U3D/**/[Oo]bj/
+U3D/**/[Bb]uild/
+U3D/**/[Bb]uilds/
+U3D/**/[Ll]ogs/
+U3D/**/[Uu]ser[Ss]ettings/
+U3D/**/[Cc]ommon[Ss]ettings/
+U3D/**/*.csproj
+U3D/**/*.sln
+U3D/**/*.slnx
+U3D/**/*.user
+U3D/**/*.userprefs
+U3D/**/.vscode/
+
+# Unity StreamAssets 在提交时不包含数据文件
+U3D/**/StreamingAssets/
