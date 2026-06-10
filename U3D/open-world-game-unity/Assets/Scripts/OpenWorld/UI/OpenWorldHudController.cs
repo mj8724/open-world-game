@@ -14,6 +14,7 @@ namespace OpenWorld
         private WorldKnowledgeSystem _knowledge;
         private OpenWorldLogisticsSystem _logistics;
         private OpenWorldSimulationSystem _simulation;
+        private OpenWorldGeologySystem _geology;
         private OpenWorldCommandSystem _commands;
 
         private Label _fpsLabel;
@@ -42,13 +43,27 @@ namespace OpenWorld
         private VisualElement _productionList;
         private VisualElement _transportList;
         private VisualElement _blueprintList;
+        private VisualElement _geologyList;
+        private VisualElement _populationList;
+        private VisualElement _militaryList;
+        private VisualElement _diplomacyList;
+
+        private Button _tabCivilian;
+        private Button _tabIndustry;
+        private Button _tabLogistics;
+        private Button _tabMilitary;
+        private Button _tabInfrastructure;
+        private ScrollView _buildContent;
+        private string _currentBuildTab = "Civilian";
 
         private float _fps;
         private float _accum;
         private int _frames;
         private float _timeLeft = 0.5f;
+        private float _refreshTimer;
+        private const float RefreshInterval = 0.25f;
 
-        public void Initialize(OpenWorldState world, OpenWorldInputController input, UnitSystem units, VehicleSystem vehicles, WorldKnowledgeSystem knowledge, OpenWorldLogisticsSystem logistics, OpenWorldSimulationSystem simulation, OpenWorldCommandSystem commands)
+        public void Initialize(OpenWorldState world, OpenWorldInputController input, UnitSystem units, VehicleSystem vehicles, WorldKnowledgeSystem knowledge, OpenWorldLogisticsSystem logistics, OpenWorldSimulationSystem simulation, OpenWorldGeologySystem geology, OpenWorldCommandSystem commands)
         {
             _world = world;
             _input = input;
@@ -57,8 +72,33 @@ namespace OpenWorld
             _knowledge = knowledge;
             _logistics = logistics;
             _simulation = simulation;
+            _geology = geology;
             _commands = commands;
             BindDocument();
+            Refresh();
+
+            I18nSystem.OnLanguageChanged -= OnLanguageChanged;
+            I18nSystem.OnLanguageChanged += OnLanguageChanged;
+        }
+
+        private void OnDestroy()
+        {
+            I18nSystem.OnLanguageChanged -= OnLanguageChanged;
+        }
+
+        private void OnLanguageChanged()
+        {
+            // Rebind text for tabs
+            if (_tabCivilian != null) _tabCivilian.text = I18nSystem.Get("Civilian");
+            if (_tabIndustry != null) _tabIndustry.text = I18nSystem.Get("Industry");
+            if (_tabLogistics != null) _tabLogistics.text = I18nSystem.Get("Logistics");
+            if (_tabMilitary != null) _tabMilitary.text = I18nSystem.Get("Military");
+            if (_tabInfrastructure != null) _tabInfrastructure.text = I18nSystem.Get("Infrastructure");
+
+            if (_saveButton != null) _saveButton.text = I18nSystem.Get("Save");
+            if (_cancelAllBlueprintsButton != null) _cancelAllBlueprintsButton.text = I18nSystem.Get("Cancel All Blueprints");
+
+            PopulateBuildMenu();
             Refresh();
         }
 
@@ -75,6 +115,9 @@ namespace OpenWorld
             if (keyboard != null && OpenWorldInput.Pressed(keyboard.f9Key) && _world != null)
                 OpenWorldSaveService.Save(_world);
 
+            _refreshTimer += Time.unscaledDeltaTime;
+            if (_refreshTimer < RefreshInterval) return;
+            _refreshTimer = 0f;
             Refresh();
         }
 
@@ -119,6 +162,26 @@ namespace OpenWorld
                 _cancelAllBlueprintsButton.clicked -= CancelAllBlueprints;
                 _cancelAllBlueprintsButton.clicked += CancelAllBlueprints;
             }
+
+            BindBuildMenu(root);
+        }
+
+        private void BindBuildMenu(VisualElement root)
+        {
+            _tabCivilian = root.Q<Button>("tab-civilian");
+            _tabIndustry = root.Q<Button>("tab-industry");
+            _tabLogistics = root.Q<Button>("tab-logistics");
+            _tabMilitary = root.Q<Button>("tab-military");
+            _tabInfrastructure = root.Q<Button>("tab-infrastructure");
+            _buildContent = root.Q<ScrollView>("build-content");
+
+            if (_tabCivilian != null) _tabCivilian.clicked += () => SwitchBuildTab("Civilian");
+            if (_tabIndustry != null) _tabIndustry.clicked += () => SwitchBuildTab("Industry");
+            if (_tabLogistics != null) _tabLogistics.clicked += () => SwitchBuildTab("Logistics");
+            if (_tabMilitary != null) _tabMilitary.clicked += () => SwitchBuildTab("Military");
+            if (_tabInfrastructure != null) _tabInfrastructure.clicked += () => SwitchBuildTab("Infrastructure");
+
+            SwitchBuildTab("Civilian");
         }
 
         private void EnsureSaveButton()
@@ -165,12 +228,24 @@ namespace OpenWorld
             if (_statusPanel == null) return;
             _productionList = _statusPanel.Q<VisualElement>("production-list");
             _transportList = _statusPanel.Q<VisualElement>("transport-list");
-            if (_productionList != null && _transportList != null) return;
+            _geologyList = _statusPanel.Q<VisualElement>("geology-list");
+            _populationList = _statusPanel.Q<VisualElement>("population-list");
+            _militaryList = _statusPanel.Q<VisualElement>("military-list");
+            _diplomacyList = _statusPanel.Q<VisualElement>("diplomacy-list");
+            if (_productionList != null && _transportList != null && _geologyList != null && _populationList != null && _militaryList != null && _diplomacyList != null) return;
 
             if (_productionList == null)
                 _productionList = CreateStatusPanel("production-panel", "Production", "production-list");
             if (_transportList == null)
                 _transportList = CreateStatusPanel("transport-panel", "Transport", "transport-list");
+            if (_geologyList == null)
+                _geologyList = CreateStatusPanel("geology-panel", "Geology & Mining", "geology-list");
+            if (_populationList == null)
+                _populationList = CreateStatusPanel("population-panel", "Population & Medical", "population-list");
+            if (_militaryList == null)
+                _militaryList = CreateStatusPanel("military-panel", "Military & Intel", "military-list");
+            if (_diplomacyList == null)
+                _diplomacyList = CreateStatusPanel("diplomacy-panel", "Diplomacy & Trade", "diplomacy-list");
         }
 
         private VisualElement CreateStatusPanel(string panelName, string title, string listName)
@@ -208,30 +283,142 @@ namespace OpenWorld
             _frames = 0;
         }
 
+        private void SwitchBuildTab(string tabName)
+        {
+            _currentBuildTab = tabName;
+            if (_tabCivilian != null) _tabCivilian.EnableInClassList("build-tab-active", tabName == "Civilian");
+            if (_tabIndustry != null) _tabIndustry.EnableInClassList("build-tab-active", tabName == "Industry");
+            if (_tabLogistics != null) _tabLogistics.EnableInClassList("build-tab-active", tabName == "Logistics");
+            if (_tabMilitary != null) _tabMilitary.EnableInClassList("build-tab-active", tabName == "Military");
+            if (_tabInfrastructure != null) _tabInfrastructure.EnableInClassList("build-tab-active", tabName == "Infrastructure");
+
+            PopulateBuildMenu();
+        }
+
+        private void PopulateBuildMenu()
+        {
+            if (_buildContent == null || _world == null) return;
+            _buildContent.Clear();
+
+            if (_currentBuildTab == "Infrastructure")
+            {
+                AddTerrainToolButton(TerrainTool.Road, "Road", new Color(0.76f, 0.61f, 0.34f));
+                AddTerrainToolButton(TerrainTool.Rail, "Rail", new Color(0.45f, 0.45f, 0.50f));
+                AddTerrainToolButton(TerrainTool.Bridge, "Bridge", new Color(0.75f, 0.43f, 0.22f));
+                AddTerrainToolButton(TerrainTool.Dig, "Dig", new Color(0.6f, 0.5f, 0.4f));
+                AddTerrainToolButton(TerrainTool.Fill, "Fill", new Color(0.6f, 0.5f, 0.4f));
+                AddTerrainToolButton(TerrainTool.Flatten, "Flatten", new Color(0.6f, 0.5f, 0.4f));
+                AddTerrainToolButton(TerrainTool.Trench, "Trench", new Color(0.3f, 0.25f, 0.2f));
+                AddTerrainToolButton(TerrainTool.Mine, "Mine", new Color(0.40f, 0.48f, 0.55f));
+            }
+            else
+            {
+                var defs = BuildableDef.Defaults();
+                foreach (var def in defs)
+                {
+                    bool match = false;
+                    if (_currentBuildTab == "Industry" && def.IsIndustrial) match = true;
+                    else if (_currentBuildTab == "Logistics" && def.IsTransport) match = true;
+                    else if (_currentBuildTab == "Military" && def.IsDefense) match = true;
+                    else if (_currentBuildTab == "Civilian" && !def.IsIndustrial && !def.IsTransport && !def.IsDefense) match = true;
+
+                    if (match)
+                    {
+                        AddBuildableButton(def);
+                    }
+                }
+            }
+        }
+
+        private void AddBuildableButton(BuildableDef def)
+        {
+            var btn = new Button { name = $"build-item-{def.Kind}" };
+            btn.AddToClassList("build-item-btn");
+
+            var colorBox = new VisualElement();
+            colorBox.AddToClassList("build-item-color");
+            colorBox.style.backgroundColor = def.Color;
+            btn.Add(colorBox);
+
+            var nameLabel = new Label { text = I18nSystem.Get(def.DisplayName) };
+            nameLabel.AddToClassList("build-item-name");
+            btn.Add(nameLabel);
+
+            string costText = "";
+            if (def.Cost.Wood > 0) costText += $"{I18nSystem.Get("W:")}{def.Cost.Wood} ";
+            if (def.Cost.Stone > 0) costText += $"{I18nSystem.Get("S:")}{def.Cost.Stone} ";
+            if (def.Cost.IronOre > 0) costText += $"{I18nSystem.Get("Ore:")}{def.Cost.IronOre} ";
+            if (def.Cost.Food > 0) costText += $"{I18nSystem.Get("F:")}{def.Cost.Food} ";
+            if (def.Cost.Dirt > 0) costText += $"{I18nSystem.Get("D:")}{def.Cost.Dirt} ";
+
+            var costLabel = new Label { text = costText.Trim() };
+            costLabel.AddToClassList("build-item-cost");
+            btn.Add(costLabel);
+
+            btn.clicked += () =>
+            {
+                if (_input != null) _input.SetBuildable(def.Kind);
+            };
+
+            _buildContent.Add(btn);
+        }
+
+        private void AddTerrainToolButton(TerrainTool tool, string displayName, Color color)
+        {
+            var btn = new Button { name = $"build-tool-{tool}" };
+            btn.AddToClassList("build-item-btn");
+
+            var colorBox = new VisualElement();
+            colorBox.AddToClassList("build-item-color");
+            colorBox.style.backgroundColor = color;
+            btn.Add(colorBox);
+
+            var nameLabel = new Label { text = I18nSystem.Get(displayName) };
+            nameLabel.AddToClassList("build-item-name");
+            btn.Add(nameLabel);
+
+            btn.clicked += () =>
+            {
+                if (_input != null) _input.SetTerrainTool(tool);
+            };
+
+            _buildContent.Add(btn);
+        }
+
         private void Refresh()
         {
             if (_world == null || _input == null) return;
 
             SetText(_fpsLabel, $"{_fps:0}");
             SetText(_mapLabel, $"{_world.MapSize} x {_world.MapSize} / chunk {_world.ChunkSize} / overlay {_knowledge?.CurrentOverlay}");
-            SetText(_resFood, _world.Inventory.Food.ToString());
-            SetText(_resWood, _world.Inventory.Wood.ToString());
-            SetText(_resStone, _world.Inventory.Stone.ToString());
-            SetText(_resOre, _world.Inventory.IronOre.ToString());
-            SetText(_resCoal, _world.Inventory.Coal.ToString());
-            SetText(_resIron, _world.Inventory.IronIngot.ToString());
-            SetText(_resSteel, _world.Inventory.Steel.ToString());
-            SetText(_resParts, _world.Inventory.MachineParts.ToString());
-            SetText(_resRail, _world.Inventory.RailParts.ToString());
-            SetText(_resPowder, _world.Inventory.Gunpowder.ToString());
-            SetText(_resFuel, _world.Inventory.Fuel.ToString());
-            SetText(_resAmmo, _world.Inventory.Ammo.ToString());
-            SetText(_entityLabel, $"Buildings {_world.Buildings.Count}  Units {_world.Units.Count}  Vehicles {_world.Vehicles.Count}  Blueprints {_world.Blueprints.Count}  Routes {_world.LogisticsRoutes.Count}  Selected {_units?.SelectedUnits.Count ?? 0}/{_vehicles?.SelectedVehicles.Count ?? 0}");
-            SetText(_toolLabel, $"{_input.CurrentTool} / brush {_input.BrushRadius} / build {_input.CurrentBuildable} / vehicle {_input.CurrentVehicle}");
-            SetText(_systemsLabel, $"Pop {_world.Population.Residents}  Workers {_world.Population.Workers}  Soldiers {_world.Population.Soldiers}  Wounded {_world.Population.Wounded}  Morale {_world.Population.CityMorale:0}  Era {_world.Tech.Era}  Research {_simulation?.ResearchSummary ?? _world.Tech.CurrentResearch}  Production {_simulation?.ProductionSummary ?? "-"}");
-            SetText(_logisticsLabel, $"{_logistics?.LastStatus ?? "-"}  Explored {_knowledge?.ExploredCells ?? 0:n0}  Visible {_knowledge?.VisibleCells ?? 0:n0}");
-            SetText(_goalLabel, $"Unification {((_simulation?.UnityProgress ?? 0f) * 100f):0}%  Pressure {_simulation?.PressureSummary ?? "Stable"}  Diplomacy {_simulation?.DiplomacySummary ?? "-"}");
-            SetText(_controlsLabel, "1-9 tools  B build  F1-F8 buildings  V cycle vehicle  V+click produce  L/U load-unload selected vehicle  M map  O overlay  X+click cancel  +/- priority  Shift+click queue  F9 save");
+            SetText(_resFood, _world.TotalResource(ResourceKind.Food).ToString());
+            SetText(_resWood, _world.TotalResource(ResourceKind.Wood).ToString());
+            SetText(_resStone, _world.TotalResource(ResourceKind.Stone).ToString());
+            SetText(_resOre, _world.TotalResource(ResourceKind.IronOre).ToString());
+            SetText(_resCoal, _world.TotalResource(ResourceKind.Coal).ToString());
+            SetText(_resIron, _world.TotalResource(ResourceKind.IronIngot).ToString());
+            SetText(_resSteel, _world.TotalResource(ResourceKind.Steel).ToString());
+            SetText(_resParts, _world.TotalResource(ResourceKind.MachineParts).ToString());
+            SetText(_resRail, _world.TotalResource(ResourceKind.RailParts).ToString());
+            SetText(_resPowder, _world.TotalResource(ResourceKind.Gunpowder).ToString());
+            SetText(_resFuel, _world.TotalResource(ResourceKind.Fuel).ToString());
+            SetText(_resAmmo, _world.TotalResource(ResourceKind.Ammo).ToString());
+
+            SetText(_entityLabel, $"{I18nSystem.Get("Buildings")} {_world.Buildings.Count}  {I18nSystem.Get("Units")} {_world.Units.Count}  {I18nSystem.Get("Vehicles")} {_world.Vehicles.Count}  {I18nSystem.Get("Blueprints")} {_world.Blueprints.Count}  {I18nSystem.Get("Routes")} {_world.LogisticsRoutes.Count}  {I18nSystem.Get("Selected")} {_units?.SelectedUnits.Count ?? 0}/{_vehicles?.SelectedVehicles.Count ?? 0}");
+            SetText(_toolLabel, $"{_input.CurrentTool} / {I18nSystem.Get("brush")} {_input.BrushRadius} / {I18nSystem.Get("build")} {_input.CurrentBuildable} / {I18nSystem.Get("vehicle")} {_input.CurrentVehicle}");
+
+            string researchText = _simulation?.ResearchSummary ?? _world.Tech.CurrentResearch;
+            if (_simulation != null && _simulation.ResearchSummary != null)
+            {
+                // Translate the tech name part if we can split it. For now just show it.
+            }
+
+            SetText(_systemsLabel, $"{I18nSystem.Get("Pop")} {_world.Population.Residents}  {I18nSystem.Get("Workers")} {_world.Population.Workers}  {I18nSystem.Get("Soldiers")} {_world.Population.Soldiers}  {I18nSystem.Get("Wounded")} {_world.Population.Wounded}  {I18nSystem.Get("Morale")} {_world.Population.CityMorale:0}  {I18nSystem.Get("Era")} {_world.Tech.Era}  {I18nSystem.Get("Research")} {researchText}  {I18nSystem.Get("Production")} {_simulation?.ProductionSummary ?? "-"}");
+            SetText(_logisticsLabel, $"{_logistics?.LastStatus ?? "-"}  {_geology?.StatusSummary ?? "-"}  {I18nSystem.Get("Explored")} {_knowledge?.ExploredCells ?? 0:n0}  {I18nSystem.Get("Visible")} {_knowledge?.VisibleCells ?? 0:n0}");
+            SetText(_goalLabel, $"{I18nSystem.Get("Unification")} {((_simulation?.UnityProgress ?? 0f) * 100f):0}%  {I18nSystem.Get("Pressure")} {_simulation?.PressureSummary ?? I18nSystem.Get("Stable")}  {I18nSystem.Get("Diplomacy")} {_simulation?.DiplomacySummary ?? "-"}");
+
+            // Keep controls English for now or add localized string later
+            SetText(_controlsLabel, "1-9 tools  B build  F1-F8 buildings  V cycle vehicle  G+click survey  K+click drill  A/P/D+right-click combat orders  L/U load-unload  M map  O overlay  X+click cancel  +/- priority  Shift+click queue  F9 save  T language");
             RefreshOperationalPanels();
             RefreshBlueprintPanel();
         }
@@ -244,15 +431,190 @@ namespace OpenWorld
             {
                 _productionList.Clear();
                 AddStatusLine(_productionList, _simulation?.ProductionSummary ?? "Production idle", "status-summary");
-                AddStatusLines(_productionList, _simulation?.ProductionLines, 4);
+                AddStatusLines(_productionList, _simulation?.ProductionLines, 5);
+                AddProductionControls(_productionList, 4);
+                AddResearchControls(_productionList);
+                AddStorageLines(_productionList, 4);
             }
 
             if (_transportList != null)
             {
                 _transportList.Clear();
                 AddStatusLine(_transportList, _vehicles?.LastProductionStatus ?? "No vehicle production", "status-summary");
-                AddStatusLines(_transportList, _logistics?.RouteLines, 3);
+                var serviceRow = new VisualElement();
+                serviceRow.AddToClassList("queue-row");
+                serviceRow.Add(new Label { text = $"Selected vehicles {_vehicles?.SelectedVehicles.Count ?? 0}" });
+                serviceRow.Add(MakeRouteButton("Refuel", () => _commands?.SubmitVehicleService(true, false)));
+                serviceRow.Add(MakeRouteButton("Repair", () => _commands?.SubmitVehicleService(false, true)));
+                serviceRow.Add(MakeRouteButton("Full service", () => _commands?.SubmitVehicleService(true, true)));
+                _transportList.Add(serviceRow);
+                AddRouteRows(_transportList, 4);
                 AddStatusLines(_transportList, _logistics?.VehicleLines, 4);
+            }
+
+            if (_geologyList != null)
+            {
+                _geologyList.Clear();
+                AddStatusLine(_geologyList, _geology?.StatusSummary ?? "Geology idle", "status-summary");
+                int shown = 0;
+                for (int i = _world.DrillReports.Count - 1; i >= 0 && shown < 3; i--, shown++)
+                {
+                    var report = _world.DrillReports[i];
+                    var material = report.Layers.Count > 0 ? report.Layers[report.Layers.Count - 1].Material.ToString() : "Unknown";
+                    AddStatusLine(_geologyList, $"Drill #{report.Id} {report.Cell.x},{report.Cell.y}: {material} layers {report.Layers.Count}", "status-line");
+                }
+                foreach (var zone in _world.MiningZones)
+                {
+                    AddStatusLine(_geologyList, $"Mine #{zone.Id} {zone.TargetMaterial} P{zone.Priority}: {zone.Status} / extracted {zone.ExtractedAmount}", "status-line");
+                    if (++shown >= 6) break;
+                }
+            }
+
+            RefreshPopulationPanel();
+            RefreshMilitaryPanel();
+            RefreshDiplomacyPanel();
+        }
+
+        private void RefreshPopulationPanel()
+        {
+            if (_populationList == null) return;
+            _populationList.Clear();
+            var population = _world.Population;
+            AddStatusLine(_populationList, $"Residents {population.Residents} Workers {population.Workers} Soldiers {population.Soldiers}", "status-summary");
+            AddStatusLine(_populationList, $"Engineers {population.Engineers} Drivers {population.Drivers} Doctors {population.Doctors}", "status-line");
+            AddStatusLine(_populationList, $"Morale {population.CityMorale:0} Medical pressure {population.MedicalPressure:0} Wounded {population.Wounded}", "status-line");
+        }
+
+        private void RefreshMilitaryPanel()
+        {
+            if (_militaryList == null) return;
+            _militaryList.Clear();
+            AddStatusLine(_militaryList, $"Known enemy contacts {_world.IntelSnapshots.Count}", "status-summary");
+            int shown = 0;
+            foreach (var unit in _world.Units.Values)
+            {
+                if (unit.FactionId != OpenWorldConstants.PlayerFactionId) continue;
+                AddStatusLine(_militaryList, $"#{unit.Id} {unit.Kind} HP {unit.Hp}/{unit.MaxHp} ammo {unit.Ammo:0} morale {unit.Morale:0} fatigue {unit.Fatigue:0} {unit.Task}", "status-line");
+                if (++shown >= 4) break;
+            }
+        }
+
+        private void RefreshDiplomacyPanel()
+        {
+            if (_diplomacyList == null) return;
+            _diplomacyList.Clear();
+            foreach (var relation in _world.Diplomacy)
+            {
+                if (relation.FactionA != OpenWorldConstants.PlayerFactionId) continue;
+                var row = new VisualElement();
+                row.AddToClassList("queue-row");
+                row.Add(new Label { text = $"Faction {relation.FactionB}: {relation.Stance} trust {relation.Trust}" });
+                int factionId = relation.FactionB;
+                row.Add(MakeRouteButton("Trade", () => _commands?.SubmitDiplomacy(factionId, DiplomacyStance.Trade)));
+                row.Add(MakeRouteButton("Ally", () => _commands?.SubmitDiplomacy(factionId, DiplomacyStance.Allied)));
+                row.Add(MakeRouteButton("Hostile", () => _commands?.SubmitDiplomacy(factionId, DiplomacyStance.Hostile)));
+                row.Add(MakeRouteButton("Food->Med", () => _commands?.SubmitTrade(factionId, ResourceKind.Food, ResourceKind.Medicine, 5)));
+                _diplomacyList.Add(row);
+            }
+            foreach (var trade in _world.TradeContracts)
+                AddStatusLine(_diplomacyList, $"Trade #{trade.Id} {trade.ExportKind}->{trade.ImportKind} x{trade.Amount}: {trade.Status}", "status-line");
+        }
+
+        private void AddProductionControls(VisualElement parent, int limit)
+        {
+            int shown = 0;
+            foreach (var building in _world.Buildings.Values)
+            {
+                if (building.FactionId != OpenWorldConstants.PlayerFactionId) continue;
+                foreach (var recipe in OpenWorldDataCatalog.ProductionRecipes)
+                {
+                    if (recipe.Building != building.Kind) continue;
+                    var row = new VisualElement();
+                    row.AddToClassList("queue-row");
+                    var label = new Label { text = $"#{building.Id} {recipe.Id} W{building.AssignedWorkers}/{recipe.Workers}" };
+                    label.AddToClassList("queue-label");
+                    row.Add(label);
+                    int buildingId = building.Id;
+                    string recipeId = recipe.Id;
+                    row.Add(MakeRouteButton("Queue", () => _commands?.SubmitProduction(buildingId, recipeId, 5)));
+                    row.Add(MakeRouteButton("W+", () => _commands?.SubmitAssignWorkers(buildingId, building.AssignedWorkers + 1)));
+                    row.Add(MakeRouteButton("W-", () => _commands?.SubmitAssignWorkers(buildingId, building.AssignedWorkers - 1)));
+                    parent.Add(row);
+                    if (++shown >= limit) return;
+                }
+                if (building.Kind == BuildableKind.Barracks && shown < limit)
+                {
+                    var row = new VisualElement();
+                    row.AddToClassList("queue-row");
+                    row.Add(new Label { text = $"#{building.Id} Barracks" });
+                    int barracksId = building.Id;
+                    row.Add(MakeRouteButton("Militia", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Militia)));
+                    row.Add(MakeRouteButton("Rifle", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Rifleman)));
+                    parent.Add(row);
+                    shown++;
+                }
+            }
+        }
+
+        private void AddResearchControls(VisualElement parent)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("queue-row");
+            row.Add(new Label { text = _simulation?.ResearchSummary ?? "Research" });
+            foreach (var tech in OpenWorldDataCatalog.Techs)
+            {
+                if (_world.Tech.CompletedResearch.Contains(tech.Id)) continue;
+                string techId = tech.Id;
+                row.Add(MakeRouteButton(tech.DisplayName, () => _commands?.SubmitResearch(techId)));
+                break;
+            }
+            parent.Add(row);
+        }
+
+        private void AddRouteRows(VisualElement parent, int limit)
+        {
+            if (parent == null || _world == null) return;
+            int shown = 0;
+            var routes = new List<LogisticsRoute>(_world.LogisticsRoutes);
+            routes.Sort((a, b) => b.Priority.CompareTo(a.Priority));
+            foreach (var route in routes)
+            {
+                if (shown++ >= limit) break;
+
+                var row = new VisualElement();
+                row.AddToClassList("queue-row");
+                row.AddToClassList("route-row");
+
+                var label = new Label { text = _logistics != null ? _logistics.RouteLine(route) : route.Status };
+                label.AddToClassList("queue-label");
+                label.AddToClassList("route-label");
+                label.style.color = new Color(0.93f, 0.95f, 0.90f);
+                label.style.fontSize = 10;
+                label.style.whiteSpace = WhiteSpace.Normal;
+                row.Add(label);
+
+                row.Add(MakeRouteButton("Mode", () => _commands?.SubmitToggleRouteMode(route.Id)));
+                row.Add(MakeRouteButton("Cargo", () => _commands?.SubmitCycleRouteCargo(route.Id)));
+                row.Add(MakeRouteButton("P+", () => _commands?.SubmitRoutePriority(route.Id, 1)));
+                row.Add(MakeRouteButton("P-", () => _commands?.SubmitRoutePriority(route.Id, -1)));
+                row.Add(MakeRouteButton("S+", () => _commands?.SubmitRouteTargetStock(route.Id, 10)));
+                row.Add(MakeRouteButton("S-", () => _commands?.SubmitRouteTargetStock(route.Id, -10)));
+                parent.Add(row);
+            }
+
+            if (shown == 0)
+                AddStatusLine(parent, "No logistics routes configured", "status-line");
+        }
+
+        private void AddStorageLines(VisualElement parent, int limit)
+        {
+            int shown = 0;
+            foreach (var building in _world.Buildings.Values)
+            {
+                _world.EnsureBuildingStorage(building);
+                if (building.FactionId != OpenWorldConstants.PlayerFactionId || building.StorageCapacity <= 0) continue;
+                AddStatusLine(parent, $"Store #{building.Id} {building.Kind} {building.Storage.Total}/{building.StorageCapacity}: {building.LastStorageStatus}", "status-line");
+                if (++shown >= limit) break;
             }
         }
 
@@ -317,6 +679,18 @@ namespace OpenWorld
         {
             var button = new Button(action) { text = text };
             button.AddToClassList("queue-button");
+            return button;
+        }
+
+        private static Button MakeRouteButton(string text, System.Action action)
+        {
+            var button = MakeBlueprintButton(text, action);
+            button.AddToClassList("route-button");
+            button.style.height = 22;
+            button.style.minWidth = 44;
+            button.style.fontSize = 11;
+            button.style.color = new Color(0.93f, 0.96f, 0.93f);
+            button.style.backgroundColor = new Color(0.23f, 0.30f, 0.33f, 0.92f);
             return button;
         }
 

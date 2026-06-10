@@ -8,17 +8,19 @@ namespace OpenWorld
         private readonly OpenWorldState _world;
         private readonly SurfaceTerrainSystem _terrain;
         private readonly float _maxStep;
+        private readonly bool _railOnly;
         private readonly List<Vector2Int> _neighbors = new()
         {
             Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right,
             new Vector2Int(1, 1), new Vector2Int(-1, 1), new Vector2Int(1, -1), new Vector2Int(-1, -1)
         };
 
-        public SurfacePathfinder(OpenWorldState world, SurfaceTerrainSystem terrain, float maxStep)
+        public SurfacePathfinder(OpenWorldState world, SurfaceTerrainSystem terrain, float maxStep, bool railOnly = false)
         {
             _world = world;
             _terrain = terrain;
             _maxStep = maxStep;
+            _railOnly = railOnly;
         }
 
         public List<Vector2Int> FindPath(Vector2Int start, Vector2Int goal, int maxIterations = 12000)
@@ -45,9 +47,11 @@ namespace OpenWorld
                     if (closed.Contains(next) || !_terrain.IsReachableStep(current, next, _maxStep)) continue;
 
                     var nextCell = _world.GetCell(next);
+                    if (_railOnly && !nextCell.HasRail) continue;
                     float diagonal = Mathf.Abs(offset.x) + Mathf.Abs(offset.y) == 2 ? 1.414f : 1f;
                     float slopePenalty = Mathf.Abs(_world.GetHeight(next) - _world.GetHeight(current)) * 0.7f;
-                    float tentative = gScore[current] + nextCell.MoveCost * diagonal + slopePenalty;
+                    float networkCost = _railOnly ? 0.45f : nextCell.HasRoad ? 0.65f : nextCell.MoveCost;
+                    float tentative = gScore[current] + networkCost * diagonal + slopePenalty;
 
                     if (!gScore.TryGetValue(next, out float old) || tentative < old)
                     {

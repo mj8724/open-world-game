@@ -10,14 +10,16 @@ namespace OpenWorld
         private OpenWorldState _world;
         private SurfaceTerrainSystem _terrain;
         private BuildingSystem _buildings;
+        private UnitSystem _units;
         private readonly Dictionary<int, GameObject> _objects = new();
         private float _tickTimer;
 
-        public void Initialize(OpenWorldState world, SurfaceTerrainSystem terrain, BuildingSystem buildings)
+        public void Initialize(OpenWorldState world, SurfaceTerrainSystem terrain, BuildingSystem buildings, UnitSystem units)
         {
             _world = world;
             _terrain = terrain;
             _buildings = buildings;
+            _units = units;
         }
 
         private void Update()
@@ -179,10 +181,51 @@ namespace OpenWorld
             }
 
             if (best == null) return;
-            best.WorkRemaining -= Mathf.Max(0.15f, _world.Population.Workers * 0.02f) * delta * 4f;
+
+            if (best.Kind == BlueprintKind.Building && !OpenWorldDataCatalog.EraUnlocked(_world.Tech.Era, OpenWorldDataCatalog.RequiredEraFor(best.BuildKind)))
+            {
+                best.Status = BlueprintStatus.Blocked;
+                best.BlockedReason = $"Technology locked: {OpenWorldDataCatalog.RequiredEraFor(best.BuildKind)}";
+                UpdateVisualState(best);
+                return;
+            }
+
+            float workRate = 1f;
+            if (best.FactionId == OpenWorldConstants.PlayerFactionId)
+            {
+                var engineer = _units.GetAgent(best.AssignedUnitId);
+                if (engineer == null)
+                {
+                    engineer = _units.GetIdleEngineer();
+                    if (engineer == null)
+                    {
+                        best.BlockedReason = "No idle engineer";
+                        UpdateVisualState(best);
+                        return;
+                    }
+                    best.AssignedUnitId = engineer.Entity.Id;
+                    engineer.Entity.Task = UnitTask.Building;
+                    engineer.MoveTo(best.Cell);
+                }
+
+                if (!engineer.IsAt(best.Cell))
+                {
+                    best.BlockedReason = "Engineer travelling";
+                    return;
+                }
+
+                engineer.Entity.Task = UnitTask.Building;
+                best.BlockedReason = "";
+                workRate = Mathf.Clamp(engineer.Entity.Morale / 100f, 0.3f, 1f) * Mathf.Clamp(1f - engineer.Entity.Fatigue / 130f, 0.3f, 1f);
+                engineer.Entity.Fatigue = Mathf.Min(100f, engineer.Entity.Fatigue + delta * 0.5f);
+            }
+
+            best.WorkRemaining -= workRate * delta;
             if (best.WorkRemaining > 0f) return;
 
             Complete(best);
+            var assigned = _units.GetAgent(best.AssignedUnitId);
+            if (assigned != null) assigned.Entity.Task = UnitTask.Idle;
         }
 
         private void Complete(BlueprintJob blueprint)

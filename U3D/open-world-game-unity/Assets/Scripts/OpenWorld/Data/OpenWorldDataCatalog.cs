@@ -59,7 +59,6 @@ namespace OpenWorld
             Recipe("farm-food", BuildableKind.Farm, TechEra.WoodStone, Array.Empty<ResourceAmount>(), Amounts((ResourceKind.Food, 3)), 1, "needs workers"),
             Recipe("lumber-wood", BuildableKind.LumberCamp, TechEra.WoodStone, Array.Empty<ResourceAmount>(), Amounts((ResourceKind.Wood, 2), (ResourceKind.Lumber, 1)), 1, "needs workers"),
             Recipe("quarry-stone", BuildableKind.Quarry, TechEra.WoodStone, Array.Empty<ResourceAmount>(), Amounts((ResourceKind.Stone, 3)), 1, "needs workers"),
-            Recipe("mine-ore-coal", BuildableKind.MinePost, TechEra.WoodStone, Array.Empty<ResourceAmount>(), Amounts((ResourceKind.IronOre, 2), (ResourceKind.Coal, 1)), 2, "needs miners"),
             Recipe("market-medicine", BuildableKind.Market, TechEra.WoodStone, Amounts((ResourceKind.Food, 2)), Amounts((ResourceKind.Medicine, 1)), 1, "needs food"),
             Recipe("smelt-iron", BuildableKind.Smelter, TechEra.Iron, Amounts((ResourceKind.IronOre, 2), (ResourceKind.Coal, 1)), Amounts((ResourceKind.IronIngot, 1)), 2, "needs ore/coal"),
             Recipe("make-steel", BuildableKind.Steelworks, TechEra.Iron, Amounts((ResourceKind.IronIngot, 2), (ResourceKind.Coal, 2)), Amounts((ResourceKind.Steel, 1)), 2, "needs iron/coal"),
@@ -67,7 +66,7 @@ namespace OpenWorld
             Recipe("gunpowder", BuildableKind.Armory, TechEra.Gunpowder, Amounts((ResourceKind.Sulfur, 1), (ResourceKind.Nitrate, 1), (ResourceKind.Coal, 1)), Amounts((ResourceKind.Gunpowder, 2)), 1, "needs sulfur/nitrate/coal"),
             Recipe("ammo", BuildableKind.Armory, TechEra.Gunpowder, Amounts((ResourceKind.Gunpowder, 1), (ResourceKind.IronIngot, 1)), Amounts((ResourceKind.Ammo, 8)), 1, "needs powder/iron"),
             Recipe("weapons", BuildableKind.Armory, TechEra.Iron, Amounts((ResourceKind.IronIngot, 1)), Amounts((ResourceKind.Weapons, 1)), 1, "needs iron"),
-            Recipe("oil-fuel", BuildableKind.OilDerrick, TechEra.Industrial, Amounts((ResourceKind.Oil, 1)), Amounts((ResourceKind.Fuel, 3)), 1, "needs oil"),
+            Recipe("oil-fuel", BuildableKind.Refinery, TechEra.Industrial, Amounts((ResourceKind.Oil, 1)), Amounts((ResourceKind.Fuel, 3)), 2, "needs oil"),
             Recipe("coal-power", BuildableKind.PowerPlant, TechEra.Industrial, Amounts((ResourceKind.Coal, 2)), Amounts((ResourceKind.Power, 4)), 2, "needs coal"),
             Recipe("rail-parts", BuildableKind.TrainFactory, TechEra.Industrial, Amounts((ResourceKind.Steel, 4), (ResourceKind.MachineParts, 2)), Amounts((ResourceKind.RailParts, 4)), 3, "needs steel/parts")
         };
@@ -95,7 +94,45 @@ namespace OpenWorld
 
         public static VehicleDef GetVehicle(VehicleKind kind) => _vehicles.Find(v => v.Kind == kind);
 
+        public static ProductionRecipeDef GetRecipe(string id) => _productionRecipes.Find(r => r.Id == id);
+
         public static TechDef GetTech(string id) => _techs.Find(t => t.Id == id);
+
+        public static int StorageCapacityFor(BuildableKind kind) => kind switch
+        {
+            BuildableKind.TownCenter => 500,
+            BuildableKind.Warehouse => 900,
+            BuildableKind.Station => 650,
+            BuildableKind.Market => 400,
+            BuildableKind.Dock => 500,
+            BuildableKind.Garage => 300,
+            BuildableKind.VehicleFactory => 320,
+            BuildableKind.TrainFactory => 420,
+            BuildableKind.Farm => 180,
+            BuildableKind.MinePost => 220,
+            BuildableKind.LumberCamp => 180,
+            BuildableKind.Quarry => 220,
+            BuildableKind.Smelter => 180,
+            BuildableKind.Steelworks => 200,
+            BuildableKind.MachineShop => 200,
+            BuildableKind.Armory => 220,
+            BuildableKind.OilDerrick => 220,
+            BuildableKind.PowerPlant => 240,
+            BuildableKind.Clinic => 120,
+            BuildableKind.DrillRig => 80,
+            BuildableKind.Refinery => 260,
+            _ => 0
+        };
+
+        public static TechEra RequiredEraFor(BuildableKind kind) => kind switch
+        {
+            BuildableKind.Smelter or BuildableKind.Steelworks or BuildableKind.DrillRig => TechEra.Iron,
+            BuildableKind.Armory => TechEra.Gunpowder,
+            BuildableKind.MachineShop or BuildableKind.VehicleFactory or BuildableKind.TrainFactory or BuildableKind.Station or BuildableKind.OilDerrick or BuildableKind.PowerPlant or BuildableKind.Refinery => TechEra.Industrial,
+            _ => TechEra.WoodStone
+        };
+
+        public static bool IsStorageNode(BuildableKind kind) => StorageCapacityFor(kind) > 0;
 
         public static bool EraUnlocked(TechEra current, TechEra required) => current >= required;
 

@@ -5,7 +5,7 @@ namespace OpenWorld
     public class OpenWorldBootstrap : MonoBehaviour
     {
         [Header("World")]
-        [SerializeField] private int _mapSize = 1024;
+        [SerializeField] private int _mapSize = 512;
         [SerializeField] private int _chunkSize = 64;
         [SerializeField] private int _seed = 8724;
         [SerializeField] private int _visibleChunkRadius = 2;
@@ -20,6 +20,8 @@ namespace OpenWorld
         public WorldKnowledgeSystem Knowledge { get; private set; }
         public OpenWorldLogisticsSystem Logistics { get; private set; }
         public OpenWorldSimulationSystem Simulation { get; private set; }
+        public OpenWorldGeologySystem Geology { get; private set; }
+        public OpenWorldPerformanceSystem Performance { get; private set; }
         public OpenWorldCommandSystem Commands { get; private set; }
         public OpenWorldInputController Input { get; private set; }
         public OpenWorldHudController Hud { get; private set; }
@@ -35,6 +37,7 @@ namespace OpenWorld
 
         private void Awake()
         {
+            Application.runInBackground = true;
             if (FindObjectsOfType<OpenWorldBootstrap>().Length > 1)
             {
                 Destroy(gameObject);
@@ -62,6 +65,7 @@ namespace OpenWorld
                 : new OpenWorldState(_mapSize, _chunkSize, _seed);
             if (loaded)
                 World.RestoreFrom(saveData);
+            PositionCamera(camera, World.MapSize);
 
             Terrain = CreateSystem<SurfaceTerrainSystem>("SurfaceTerrainSystem");
             Terrain.Initialize(World, _visibleChunkRadius);
@@ -79,7 +83,11 @@ namespace OpenWorld
             Jobs.Initialize(World, Terrain, Buildings, Units);
 
             Blueprints = CreateSystem<BlueprintSystem>("BlueprintSystem");
-            Blueprints.Initialize(World, Terrain, Buildings);
+            Blueprints.Initialize(World, Terrain, Buildings, Units);
+
+            Geology = CreateSystem<OpenWorldGeologySystem>("OpenWorldGeologySystem");
+            Geology.Initialize(World, Units, Buildings, Blueprints);
+            Terrain.SetGeology(Geology);
 
             Knowledge = CreateSystem<WorldKnowledgeSystem>("WorldKnowledgeSystem");
             Knowledge.Initialize(World);
@@ -90,8 +98,11 @@ namespace OpenWorld
             Simulation = CreateSystem<OpenWorldSimulationSystem>("OpenWorldSimulationSystem");
             Simulation.Initialize(World, Terrain, Buildings, Units, Blueprints);
 
+            Performance = CreateSystem<OpenWorldPerformanceSystem>("OpenWorldPerformanceSystem");
+            Performance.Initialize(World, camera, Units, Vehicles);
+
             Commands = CreateSystem<OpenWorldCommandSystem>("OpenWorldCommandSystem");
-            Commands.Initialize(World, Terrain, Units, Vehicles, Blueprints);
+            Commands.Initialize(World, Terrain, Units, Vehicles, Blueprints, Logistics, Geology, Simulation);
 
             StrategicMap = FindObjectOfType<OpenWorldStrategicMapController>();
 
@@ -123,15 +134,20 @@ namespace OpenWorld
                 cam = go.AddComponent<Camera>();
             }
 
-            float center = _mapSize * 0.5f;
-            cam.transform.position = new Vector3(center - 30f, 55f, center - 45f);
-            cam.transform.rotation = Quaternion.Euler(55f, 38f, 0f);
             cam.fieldOfView = 55f;
             cam.nearClipPlane = 0.1f;
             cam.farClipPlane = 2500f;
             if (cam.GetComponent<OpenWorldCameraController>() == null)
                 cam.gameObject.AddComponent<OpenWorldCameraController>();
             return cam;
+        }
+
+        private static void PositionCamera(Camera camera, int mapSize)
+        {
+            if (camera == null) return;
+            float center = mapSize * 0.5f;
+            camera.transform.position = new Vector3(center - 30f, 55f, center - 45f);
+            camera.transform.rotation = Quaternion.Euler(55f, 38f, 0f);
         }
 
         private void EnsureLight()
@@ -167,11 +183,16 @@ namespace OpenWorld
             Buildings.TryPlace(BuildableKind.Smelter, center + new Vector2Int(26, -6), 0, 1, spendCost: false);
             Buildings.TryPlace(BuildableKind.Steelworks, center + new Vector2Int(30, -6), 0, 1, spendCost: false);
             Buildings.TryPlace(BuildableKind.MachineShop, center + new Vector2Int(35, -6), 0, 1, spendCost: false);
+            Buildings.TryPlace(BuildableKind.VehicleFactory, center + new Vector2Int(34, -12), 0, 1, spendCost: false);
+            Buildings.TryPlace(BuildableKind.Garage, center + new Vector2Int(29, -12), 0, 1, spendCost: false);
+            Buildings.TryPlace(BuildableKind.Barracks, center + new Vector2Int(-10, 6), 0, 1, spendCost: false);
+            Buildings.TryPlace(BuildableKind.Clinic, center + new Vector2Int(-5, 8), 0, 1, spendCost: false);
             Buildings.TryPlace(BuildableKind.ControlPoint, center + new Vector2Int(-12, 10), 0, 1, spendCost: false);
 
             Units.Spawn(UnitKind.Worker, center + new Vector2Int(2, 4), 1);
             Units.Spawn(UnitKind.Worker, center + new Vector2Int(4, 4), 1);
             Units.Spawn(UnitKind.Worker, center + new Vector2Int(6, 4), 1);
+            Units.Spawn(UnitKind.Engineer, center + new Vector2Int(7, 6), 1);
             Units.Spawn(UnitKind.Melee, center + new Vector2Int(-4, 5), 1);
             Units.Spawn(UnitKind.Scout, center + new Vector2Int(-6, 7), 1);
             Units.Spawn(UnitKind.Medic, center + new Vector2Int(-2, 7), 1);
@@ -182,15 +203,119 @@ namespace OpenWorld
             var warehouse = center + new Vector2Int(5, -2);
             var supplyDepot = center + new Vector2Int(28, -12);
             Terrain.ApplyBrush(TerrainTool.Flatten, supplyDepot, 4, 32f);
+            Buildings.TryPlace(BuildableKind.Warehouse, supplyDepot, 0, OpenWorldConstants.PlayerFactionId, spendCost: false);
             ApplyRoadLine(warehouse, center + new Vector2Int(28, -2));
             ApplyRoadLine(center + new Vector2Int(28, -2), supplyDepot);
             Terrain.ApplyBrush(TerrainTool.Bridge, center + new Vector2Int(18, -2), 1, 0.5f);
-            for (int i = 0; i < 10; i++)
-                Terrain.ApplyBrush(TerrainTool.Rail, center + new Vector2Int(12 + i, -7), 0, 0.5f);
+            var westStationCell = center + new Vector2Int(12, -7);
+            var eastStationCell = center + new Vector2Int(44, -7);
+            Terrain.ApplyBrush(TerrainTool.Flatten, westStationCell, 4, 32f);
+            Terrain.ApplyBrush(TerrainTool.Flatten, eastStationCell, 4, 32f);
+            Buildings.TryPlace(BuildableKind.Station, westStationCell, 0, OpenWorldConstants.PlayerFactionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.Station, eastStationCell, 0, OpenWorldConstants.PlayerFactionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.TrainFactory, center + new Vector2Int(44, -13), 0, OpenWorldConstants.PlayerFactionId, spendCost: false);
+            for (int x = westStationCell.x - 2; x <= eastStationCell.x + 6; x++)
+                Terrain.ApplyBrush(TerrainTool.Rail, new Vector2Int(x, westStationCell.y - 2), 0, 0.5f);
+
+            var westStation = FindBuilding(BuildableKind.Station, westStationCell);
+            var eastStation = FindBuilding(BuildableKind.Station, eastStationCell);
+            if (westStation != null && eastStation != null)
+            {
+                var westAccess = World.FindBuildingAccessCell(westStation, eastStation.Origin);
+                var eastAccess = World.FindBuildingAccessCell(eastStation, westStation.Origin);
+                ApplyRailLine(westAccess, eastAccess);
+                World.AddToStorage(westStation, ResourceKind.IronOre, 60);
+                var locomotive = Vehicles.SpawnScenarioVehicle(VehicleKind.Locomotive, westAccess, OpenWorldConstants.PlayerFactionId);
+                var wagon = Vehicles.SpawnScenarioVehicle(VehicleKind.CargoWagon, westAccess + Vector2Int.left, OpenWorldConstants.PlayerFactionId);
+                var railRoute = World.AddRoute(westStation.Id, eastStation.Id, westAccess, eastAccess, ResourceKind.IronOre, VehicleKind.Locomotive, 5, LogisticsMode.Automatic);
+                railRoute.Name = "Foundry Rail Shuttle";
+                railRoute.TargetStock = 40;
+                if (locomotive != null && wagon != null)
+                    World.RailSchedules.Add(new RailSchedule { Id = 1, LocomotiveId = locomotive.Entity.Id, WagonIds = new System.Collections.Generic.List<int> { wagon.Entity.Id }, StationBuildingIds = new System.Collections.Generic.List<int> { westStation.Id, eastStation.Id }, CargoKind = ResourceKind.IronOre, Status = "Ready" });
+            }
 
             SeedWorldSites(center);
-            Logistics.EnsureStarterRoute(warehouse, supplyDepot);
+            var sourceBuilding = World.FindNearestStorage(warehouse, OpenWorldConstants.PlayerFactionId, 8);
+            var targetBuilding = World.FindNearestStorage(supplyDepot, OpenWorldConstants.PlayerFactionId, 8);
+            SeedStartingStorage(sourceBuilding);
+            SeedStarterRoutes(center, sourceBuilding, targetBuilding);
             Knowledge.RevealCircle(center, 38);
+        }
+
+        private BuildingEntity FindBuilding(BuildableKind kind, Vector2Int origin)
+        {
+            foreach (var building in World.Buildings.Values)
+                if (building.Kind == kind && building.Origin == origin) return building;
+            return null;
+        }
+
+        private void ApplyRailLine(Vector2Int from, Vector2Int to)
+        {
+            var current = from;
+            Terrain.ApplyBrush(TerrainTool.Rail, current, 0, 0.5f);
+            while (current.x != to.x)
+            {
+                current.x += current.x < to.x ? 1 : -1;
+                Terrain.ApplyBrush(TerrainTool.Rail, current, 0, 0.5f);
+            }
+            while (current.y != to.y)
+            {
+                current.y += current.y < to.y ? 1 : -1;
+                Terrain.ApplyBrush(TerrainTool.Rail, current, 0, 0.5f);
+            }
+        }
+
+        private void SeedStartingStorage(BuildingEntity warehouse)
+        {
+            if (warehouse == null) return;
+            foreach (ResourceKind kind in System.Enum.GetValues(typeof(ResourceKind)))
+            {
+                int available = World.Inventory.Get(kind);
+                if (available <= 0) continue;
+                int move = Mathf.Max(1, Mathf.FloorToInt(available * 0.6f));
+                int accepted = World.AddToStorage(warehouse, kind, move);
+                World.Inventory.Add(kind, -accepted);
+            }
+            warehouse.LastStorageStatus = "Starter stock ready";
+        }
+
+        private void SeedStarterRoutes(Vector2Int center, BuildingEntity mainWarehouse, BuildingEntity supplyWarehouse)
+        {
+            if (World.LogisticsRoutes.Count > 0) return;
+            var farm = FindNearestBuilding(center + new Vector2Int(-12, -8), BuildableKind.Farm);
+            var mine = FindNearestBuilding(center + new Vector2Int(24, -8), BuildableKind.MinePost);
+            var smelter = FindNearestBuilding(center + new Vector2Int(26, -6), BuildableKind.Smelter);
+            var steelworks = FindNearestBuilding(center + new Vector2Int(30, -6), BuildableKind.Steelworks);
+            var machineShop = FindNearestBuilding(center + new Vector2Int(35, -6), BuildableKind.MachineShop);
+
+            AddStarterRoute(farm, mainWarehouse, ResourceKind.Food, 150, 7);
+            AddStarterRoute(mainWarehouse, supplyWarehouse, ResourceKind.Food, 60, 4);
+            AddStarterRoute(mine, smelter, ResourceKind.IronOre, 60, 8);
+            AddStarterRoute(mine, smelter, ResourceKind.Coal, 40, 8);
+            AddStarterRoute(smelter, steelworks, ResourceKind.IronIngot, 40, 6);
+            AddStarterRoute(steelworks, machineShop, ResourceKind.Steel, 30, 5);
+        }
+
+        private BuildingEntity FindNearestBuilding(Vector2Int cell, BuildableKind kind)
+        {
+            BuildingEntity best = null;
+            int bestDistance = int.MaxValue;
+            foreach (var building in World.Buildings.Values)
+            {
+                if (building.FactionId != OpenWorldConstants.PlayerFactionId || building.Kind != kind) continue;
+                int distance = (building.Origin - cell).sqrMagnitude;
+                if (distance >= bestDistance) continue;
+                best = building;
+                bestDistance = distance;
+            }
+            return best;
+        }
+
+        private void AddStarterRoute(BuildingEntity source, BuildingEntity target, ResourceKind cargo, int targetStock, int priority)
+        {
+            if (source == null || target == null) return;
+            var route = World.AddRoute(source.Id, target.Id, source.Origin, target.Origin, cargo, VehicleKind.HandCart, priority, LogisticsMode.Automatic);
+            route.TargetStock = targetStock;
         }
 
         private void ApplyRoadLine(Vector2Int from, Vector2Int to)
@@ -210,11 +335,25 @@ namespace OpenWorld
 
         private void RebuildLoadedWorld()
         {
+            NormalizeLoadedEnemyOrders();
             Buildings.RebuildFromWorld();
             Units.RebuildFromWorld();
             Vehicles.RebuildFromWorld();
             Blueprints.RebuildFromWorld();
             Knowledge.RefreshVisibilityNow();
+        }
+
+        private void NormalizeLoadedEnemyOrders()
+        {
+            int activeRaiders = 0;
+            foreach (var unit in World.Units.Values)
+            {
+                if (unit.FactionId != OpenWorldConstants.EnemyFactionId || unit.CurrentOrder?.Kind != UnitOrderKind.Attack) continue;
+                activeRaiders++;
+                if (activeRaiders <= 2) continue;
+                unit.CurrentOrder = new UnitOrder();
+                unit.Task = UnitTask.Idle;
+            }
         }
 
         private void SeedWorldSites(Vector2Int center)
@@ -270,7 +409,7 @@ namespace OpenWorld
                 StrategicMap.Initialize(World, Knowledge, Camera.main, Commands);
             Input.SetStrategicMap(StrategicMap);
 
-            Hud.Initialize(World, Input, Units, Vehicles, Knowledge, Logistics, Simulation, Commands);
+            Hud.Initialize(World, Input, Units, Vehicles, Knowledge, Logistics, Simulation, Geology, Commands);
         }
     }
 }

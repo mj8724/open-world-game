@@ -23,6 +23,9 @@ namespace OpenWorld
         private Button _roadButton;
         private Button _railButton;
         private Button _bridgeButton;
+        private Button _surveyButton;
+        private Button _drillButton;
+        private Button _mineButton;
         private Texture2D _mapTexture;
         private float _refreshTimer;
         private bool _open;
@@ -42,7 +45,10 @@ namespace OpenWorld
             Scout,
             Road,
             Rail,
-            Bridge
+            Bridge,
+            Survey,
+            Drill,
+            Mine
         }
 
         public void Initialize(OpenWorldState world, WorldKnowledgeSystem knowledge, Camera camera, OpenWorldCommandSystem commands = null)
@@ -96,6 +102,9 @@ namespace OpenWorld
             _roadButton = root.Q<Button>("map-road-button");
             _railButton = root.Q<Button>("map-rail-button");
             _bridgeButton = root.Q<Button>("map-bridge-button");
+            _surveyButton = root.Q<Button>("map-survey-button");
+            _drillButton = root.Q<Button>("map-drill-button");
+            _mineButton = root.Q<Button>("map-mine-button");
             EnsureControls(root);
             if (_overlayButton != null)
             {
@@ -119,6 +128,9 @@ namespace OpenWorld
                 BindModeButton(_roadButton, MapClickMode.Road);
                 BindModeButton(_railButton, MapClickMode.Rail);
                 BindModeButton(_bridgeButton, MapClickMode.Bridge);
+                BindModeButton(_surveyButton, MapClickMode.Survey);
+                BindModeButton(_drillButton, MapClickMode.Drill);
+                BindModeButton(_mineButton, MapClickMode.Mine);
                 _modeButtonsBound = _cameraButton != null || _scoutButton != null || _roadButton != null || _railButton != null || _bridgeButton != null;
             }
             if (_mapImage != null && !_callbacksBound)
@@ -305,6 +317,18 @@ namespace OpenWorld
                 case MapClickMode.Bridge:
                     _commands?.SubmitTerrain(TerrainTool.Bridge, cell, 1, queue: true);
                     break;
+                case MapClickMode.Survey:
+                    _commands?.SubmitGeologicalSurvey(cell, 6);
+                    JumpCameraTo(cell);
+                    break;
+                case MapClickMode.Drill:
+                    _commands?.SubmitCoreDrill(cell);
+                    JumpCameraTo(cell);
+                    break;
+                case MapClickMode.Mine:
+                    _commands?.SubmitMiningZone(cell, 3, GroundMaterial.IronOre);
+                    _commands?.SubmitTerrain(TerrainTool.Mine, cell, 3, queue: true);
+                    break;
                 default:
                     JumpCameraTo(cell);
                     break;
@@ -332,6 +356,9 @@ namespace OpenWorld
             _roadButton ??= CreateButton(actionRow, "Road", "map-road-button", "hud-button");
             _railButton ??= CreateButton(actionRow, "Rail", "map-rail-button", "hud-button");
             _bridgeButton ??= CreateButton(actionRow, "Bridge", "map-bridge-button", "hud-button");
+            _surveyButton ??= CreateButton(actionRow, "Survey", "map-survey-button", "hud-button");
+            _drillButton ??= CreateButton(actionRow, "Drill", "map-drill-button", "hud-button");
+            _mineButton ??= CreateButton(actionRow, "Mine", "map-mine-button", "hud-button");
 
             if (_legend == null)
             {
@@ -362,6 +389,7 @@ namespace OpenWorld
             return _knowledge.CurrentOverlay switch
             {
                 StrategicOverlay.Territory => "Legend: blue player / red enemy / yellow neutral / green ally. Click mode sets camera, scout, or blueprint marks.",
+                StrategicOverlay.Geology => "Legend: dim suspected / colored surveyed / bright drilled / gray exhausted. Survey, drill and mine modes create geology commands.",
                 StrategicOverlay.Resources => "Legend: orange iron / dark coal-oil / green food-wood / gray stone. Icons show known sites and units.",
                 StrategicOverlay.RoadsRails => "Legend: tan road / bright rail / brown bridge / yellow supply route. Vehicles use roads and rails faster.",
                 StrategicOverlay.Supply => "Legend: route lines show active logistics; route status and bottlenecks are listed in HUD Logistics.",
@@ -376,9 +404,11 @@ namespace OpenWorld
         private void DrawStrategicOverlays(RectInt bounds)
         {
             DrawRoutes(bounds);
+            DrawGeology(bounds);
             DrawSites(bounds);
             DrawBuildings(bounds);
             DrawUnits(bounds);
+            DrawIntel(bounds);
             DrawVehicles(bounds);
             DrawCameraFrame(bounds);
             _mapTexture.Apply(false);
@@ -388,6 +418,15 @@ namespace OpenWorld
         {
             foreach (var route in _world.LogisticsRoutes)
                 DrawLine(route.Source, route.Target, bounds, new Color(1f, 0.86f, 0.30f, 1f), 1);
+        }
+
+        private void DrawGeology(RectInt bounds)
+        {
+            if (_knowledge.CurrentOverlay != StrategicOverlay.Geology) return;
+            foreach (var report in _world.DrillReports)
+                DrawDiamond(report.Cell, bounds, new Color(1f, 1f, 1f, 1f), 3);
+            foreach (var zone in _world.MiningZones)
+                DrawBox(zone.Center, bounds, zone.Active ? new Color(0.20f, 0.90f, 0.90f, 1f) : new Color(0.4f, 0.4f, 0.4f, 1f), Mathf.Clamp(zone.Radius, 2, 5));
         }
 
         private void DrawSites(RectInt bounds)
@@ -428,8 +467,21 @@ namespace OpenWorld
             foreach (var unit in _world.Units.Values)
             {
                 if (!CanShow(unit.Cell)) continue;
+                if (unit.FactionId != OpenWorldConstants.PlayerFactionId && _knowledge.GetState(unit.Cell) != KnowledgeState.Visible) continue;
                 var color = unit.FactionId == OpenWorldConstants.PlayerFactionId ? new Color(0.25f, 0.95f, 1f, 1f) : new Color(1f, 0.24f, 0.18f, 1f);
                 DrawBox(unit.Cell, bounds, color, 2);
+            }
+        }
+
+        private void DrawIntel(RectInt bounds)
+        {
+            if (_knowledge.CurrentOverlay != StrategicOverlay.EnemyIntel) return;
+            foreach (var intel in _world.IntelSnapshots)
+            {
+                if (!CanShow(intel.Cell)) continue;
+                float age = Mathf.Max(0f, Time.time - intel.SeenAt);
+                float fade = Mathf.Clamp01(1f - age / 300f);
+                DrawDiamond(intel.Cell, bounds, new Color(1f, 0.18f, 0.12f, Mathf.Lerp(0.35f, 1f, fade)), 3);
             }
         }
 

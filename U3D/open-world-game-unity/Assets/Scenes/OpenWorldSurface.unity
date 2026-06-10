@@ -392,7 +392,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4309b5a4a6e814d76a39ebc3fe40bf3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::OpenWorld.OpenWorldBootstrap
-  _mapSize: 1024
+  _mapSize: 512
   _chunkSize: 64
   _seed: 8724
   _visibleChunkRadius: 2

@@ -47,6 +47,7 @@ namespace OpenWorld
         {
             foreach (var job in _world.Jobs)
             {
+                if (job.Task is not (UnitTask.Digging or UnitTask.Building)) continue;
                 if (job.AssignedUnitId != 0) continue;
                 var worker = _units.GetIdleWorker();
                 if (worker == null) return;
@@ -61,6 +62,7 @@ namespace OpenWorld
             for (int i = _world.Jobs.Count - 1; i >= 0; i--)
             {
                 var job = _world.Jobs[i];
+                if (job.Task is not (UnitTask.Digging or UnitTask.Building)) continue;
                 var worker = FindWorker(job.AssignedUnitId);
                 if (worker == null)
                 {

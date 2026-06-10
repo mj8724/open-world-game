@@ -13,6 +13,7 @@ namespace OpenWorld
         private readonly List<Vector2Int> _path = new();
         private int _pathIndex;
         private float _speed = 4.0f;
+        private float _simulationAccumulator;
         private GameObject _selectionRing;
 
         public void Initialize(OpenWorldState world, SurfacePathfinder pathfinder, UnitEntity entity)
@@ -27,7 +28,17 @@ namespace OpenWorld
         private void Update()
         {
             if (_world == null || Entity == null) return;
-            FollowPath();
+            _simulationAccumulator += Time.deltaTime;
+            float interval = Entity.SimulationTier switch
+            {
+                SimulationTier.LowFrequency => 0.2f,
+                SimulationTier.Dormant => 1.0f,
+                _ => 0f
+            };
+            if (_simulationAccumulator < interval) return;
+            float step = Mathf.Max(Time.deltaTime, _simulationAccumulator);
+            _simulationAccumulator = 0f;
+            FollowPath(step);
             Entity.WorldPosition = transform.position;
             Entity.Cell = _world.WorldToCell(transform.position);
         }
@@ -35,10 +46,44 @@ namespace OpenWorld
         public void MoveTo(Vector2Int target)
         {
             if (_world == null || _pathfinder == null || Entity == null) return;
+            Entity.CurrentOrder ??= new UnitOrder();
+            Entity.CurrentOrder.Kind = UnitOrderKind.Move;
+            Entity.CurrentOrder.TargetCell = target;
+            BuildPath(target, UnitTask.Moving);
+        }
+
+        public void IssueOrder(UnitOrder order)
+        {
+            if (order == null || Entity == null) return;
+            Entity.CurrentOrder = order;
+            UnitTask task = order.Kind switch
+            {
+                UnitOrderKind.Attack => UnitTask.Attacking,
+                UnitOrderKind.Patrol => UnitTask.Patrolling,
+                UnitOrderKind.Defend => UnitTask.Defending,
+                UnitOrderKind.Escort => UnitTask.Transporting,
+                UnitOrderKind.Survey => UnitTask.Surveying,
+                UnitOrderKind.Drill => UnitTask.Drilling,
+                _ => UnitTask.Moving
+            };
+            BuildPath(order.TargetCell, task);
+        }
+
+        public void ClearOrder()
+        {
+            _path.Clear();
+            _pathIndex = 0;
+            if (Entity == null) return;
+            Entity.CurrentOrder = new UnitOrder { Kind = UnitOrderKind.Move, TargetCell = Entity.Cell };
+            Entity.Task = UnitTask.Idle;
+        }
+
+        private void BuildPath(Vector2Int target, UnitTask task)
+        {
             _path.Clear();
             _path.AddRange(_pathfinder.FindPath(Entity.Cell, target));
             _pathIndex = _path.Count > 1 ? 1 : 0;
-            Entity.Task = _path.Count > 1 ? UnitTask.Moving : UnitTask.Idle;
+            Entity.Task = _path.Count > 1 ? task : UnitTask.Idle;
         }
 
         public bool IsAt(Vector2Int target) => (Entity.Cell - target).sqrMagnitude <= 2;
@@ -49,17 +94,29 @@ namespace OpenWorld
             if (_selectionRing != null) _selectionRing.SetActive(selected);
         }
 
-        private void FollowPath()
+        private void FollowPath(float deltaTime)
         {
             if (_pathIndex <= 0 || _pathIndex >= _path.Count)
             {
-                if (Entity.Task == UnitTask.Moving) Entity.Task = UnitTask.Idle;
+                if (Entity.CurrentOrder != null && Entity.CurrentOrder.Kind == UnitOrderKind.Patrol && Entity.Task == UnitTask.Patrolling)
+                {
+                    var order = Entity.CurrentOrder;
+                    var next = order.SecondaryCell;
+                    order.SecondaryCell = order.TargetCell;
+                    order.TargetCell = next;
+                    BuildPath(order.TargetCell, UnitTask.Patrolling);
+                    return;
+                }
+                if (Entity.Task is UnitTask.Moving or UnitTask.Attacking or UnitTask.Defending or UnitTask.Transporting)
+                    Entity.Task = UnitTask.Idle;
                 return;
             }
 
             var nextCell = _path[_pathIndex];
             var target = _world.CellToWorld(nextCell) + Vector3.up * 0.12f;
-            transform.position = Vector3.MoveTowards(transform.position, target, _speed * Time.deltaTime);
+            float condition = Mathf.Clamp(Entity.Morale / 100f, 0.35f, 1f) * Mathf.Clamp(1f - Entity.Fatigue / 130f, 0.35f, 1f);
+            if (Entity.Wounded) condition *= 0.6f;
+            transform.position = Vector3.MoveTowards(transform.position, target, _speed * condition * deltaTime);
             if ((transform.position - target).sqrMagnitude < 0.04f)
                 _pathIndex++;
         }

@@ -43,6 +43,17 @@ namespace OpenWorld
                 _strategicMap.SetOpen(StrategicMapOpen);
         }
 
+        public void SetBuildable(BuildableKind kind)
+        {
+            CurrentTool = TerrainTool.None;
+            CurrentBuildable = kind;
+        }
+
+        public void SetTerrainTool(TerrainTool tool)
+        {
+            CurrentTool = tool;
+        }
+
         private void Update()
         {
             HandleHotkeys();
@@ -81,6 +92,8 @@ namespace OpenWorld
             if (OpenWorldInput.Pressed(keyboard.vKey)) CurrentVehicle = NextVehicle(CurrentVehicle);
             if (OpenWorldInput.Pressed(keyboard.lKey)) _commands.SubmitLoadSelected(ResourceKind.Food);
             if (OpenWorldInput.Pressed(keyboard.uKey)) _commands.SubmitUnloadSelected();
+
+            if (OpenWorldInput.Pressed(keyboard.tKey)) I18nSystem.ToggleLanguage();
         }
 
         private void HandleMouse()
@@ -108,6 +121,16 @@ namespace OpenWorld
                 if (_terrain.TryRaycastCell(_camera, pointerPosition, out var cell))
                 {
                     var keyboard = OpenWorldInput.Keyboard;
+                    if (keyboard != null && OpenWorldInput.Held(keyboard.gKey))
+                    {
+                        _commands.SubmitGeologicalSurvey(cell, 6);
+                        return;
+                    }
+                    if (keyboard != null && OpenWorldInput.Held(keyboard.kKey))
+                    {
+                        _commands.SubmitCoreDrill(cell);
+                        return;
+                    }
                     if (keyboard != null && OpenWorldInput.Held(keyboard.xKey))
                     {
                         _commands.SubmitCancelBlueprint(cell);
@@ -147,7 +170,13 @@ namespace OpenWorld
             if (OpenWorldInput.Pressed(mouse.rightButton))
             {
                 if (_terrain.TryRaycastCell(_camera, pointerPosition, out var cell))
-                    _commands.SubmitMoveSelected(cell);
+                {
+                    var keyboard = OpenWorldInput.Keyboard;
+                    if (keyboard != null && OpenWorldInput.Held(keyboard.aKey)) _commands.SubmitAttackSelected(cell);
+                    else if (keyboard != null && OpenWorldInput.Held(keyboard.pKey)) _commands.SubmitPatrolSelected(cell);
+                    else if (keyboard != null && OpenWorldInput.Held(keyboard.dKey)) _commands.SubmitDefenseArea(cell, BrushRadius);
+                    else _commands.SubmitMoveSelected(cell);
+                }
             }
         }
 

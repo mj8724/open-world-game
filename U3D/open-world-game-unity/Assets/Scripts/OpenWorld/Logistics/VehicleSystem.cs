@@ -7,6 +7,7 @@ namespace OpenWorld
     {
         public IReadOnlyList<VehicleAgent> SelectedVehicles => _selected;
         public SurfacePathfinder Pathfinder { get; private set; }
+        public SurfacePathfinder RailPathfinder { get; private set; }
         public string LastProductionStatus { get; private set; } = "No vehicle production";
 
         private OpenWorldState _world;
@@ -17,6 +18,7 @@ namespace OpenWorld
         {
             _world = world;
             Pathfinder = new SurfacePathfinder(world, terrain, 1.1f);
+            RailPathfinder = new SurfacePathfinder(world, terrain, 0.65f, true);
         }
 
         public VehicleAgent Spawn(VehicleKind kind, Vector2Int cell, int factionId)
@@ -29,6 +31,13 @@ namespace OpenWorld
 
             var entity = _world.AddVehicle(kind, cell, factionId);
             LastProductionStatus = $"Vehicle produced: #{entity.Id} {kind}";
+            return CreateAgent(entity);
+        }
+
+        public VehicleAgent SpawnScenarioVehicle(VehicleKind kind, Vector2Int cell, int factionId)
+        {
+            var entity = _world.AddVehicle(kind, cell, factionId);
+            LastProductionStatus = $"Scenario vehicle ready: #{entity.Id} {kind}";
             return CreateAgent(entity);
         }
 
@@ -45,7 +54,7 @@ namespace OpenWorld
             var go = new GameObject($"Vehicle_{entity.Id}_{entity.Kind}");
             go.transform.SetParent(transform, false);
             var agent = go.AddComponent<VehicleAgent>();
-            agent.Initialize(_world, Pathfinder, entity);
+            agent.Initialize(_world, Pathfinder, RailPathfinder, entity);
             _agents[entity.Id] = agent;
             return agent;
         }
@@ -71,17 +80,24 @@ namespace OpenWorld
                     agent.Entity.StatusText = "Cargo full";
                     continue;
                 }
-                int amount = Mathf.Min(space, _world.Inventory.Get(cargo));
-                if (amount <= 0)
+                var source = _world.FindNearestStorage(agent.Entity.Cell, agent.Entity.FactionId, 8);
+                if (source == null)
                 {
-                    agent.Entity.StatusText = $"No {cargo}";
+                    agent.Entity.StatusText = "No nearby storage";
                     continue;
                 }
-                if (!_world.Inventory.Spend(cargo, amount)) continue;
+                int amount = Mathf.Min(space, source.Storage.Get(cargo));
+                if (amount <= 0)
+                {
+                    agent.Entity.StatusText = $"No {cargo} at #{source.Id}";
+                    continue;
+                }
+                if (!source.Storage.Spend(cargo, amount)) continue;
                 agent.Entity.CargoKind = cargo;
                 agent.Entity.CargoAmount += amount;
                 agent.Entity.Task = VehicleTask.Loading;
-                agent.Entity.StatusText = $"Loaded {amount} {cargo}";
+                agent.Entity.StatusText = $"Loaded {amount} {cargo} from #{source.Id}";
+                source.LastStorageStatus = agent.Entity.StatusText;
                 loadedTotal += amount;
             }
             return loadedTotal;
@@ -98,12 +114,21 @@ namespace OpenWorld
                     agent.Entity.StatusText = "No cargo";
                     continue;
                 }
-                _world.Inventory.Add(agent.Entity.CargoKind, agent.Entity.CargoAmount);
-                unloadedTotal += agent.Entity.CargoAmount;
-                agent.Entity.CargoAmount = 0;
+                var target = _world.FindNearestStorage(agent.Entity.Cell, agent.Entity.FactionId, 8);
+                if (target == null)
+                {
+                    agent.Entity.StatusText = "No nearby storage";
+                    continue;
+                }
+                int unloaded = _world.AddToStorage(target, agent.Entity.CargoKind, agent.Entity.CargoAmount);
+                unloadedTotal += unloaded;
+                agent.Entity.CargoAmount -= unloaded;
                 agent.Entity.AssignedRouteId = 0;
                 agent.Entity.Task = VehicleTask.Unloading;
-                agent.Entity.StatusText = "Unloaded";
+                agent.Entity.StatusText = unloaded > 0
+                    ? $"Unloaded {unloaded} {agent.Entity.CargoKind} to #{target.Id}"
+                    : "Target storage full";
+                target.LastStorageStatus = agent.Entity.StatusText;
             }
             return unloadedTotal;
         }
@@ -130,6 +155,39 @@ namespace OpenWorld
 
         public IEnumerable<VehicleAgent> AllAgents() => _agents.Values;
 
+        public VehicleAgent GetAgent(int vehicleId) => _agents.TryGetValue(vehicleId, out var agent) ? agent : null;
+
+        public void QueueServiceForSelected(bool refuel, bool repair)
+        {
+            foreach (var agent in _selected)
+            {
+                if (agent?.Entity == null) continue;
+                var service = FindServiceBuilding(agent.Entity.Cell, agent.Entity.FactionId);
+                var order = new RepairRefuelOrder
+                {
+                    Id = NextServiceOrderId(),
+                    VehicleId = agent.Entity.Id,
+                    Refuel = refuel,
+                    Repair = repair,
+                    ServiceBuildingId = service?.Id ?? 0,
+                    Status = service == null ? "No garage or station" : "Travelling to service"
+                };
+                _world.ServiceOrders.Add(order);
+                if (service == null)
+                {
+                    agent.Entity.StatusText = order.Status;
+                    continue;
+                }
+                agent.Entity.Task = repair ? VehicleTask.Repair : VehicleTask.Refuel;
+                agent.Entity.StatusText = order.Status;
+                if (!agent.MoveTo(service.Origin))
+                {
+                    order.Status = "No path to service";
+                    agent.Entity.StatusText = order.Status;
+                }
+            }
+        }
+
         public VehicleAgent FirstIdleFor(VehicleKind preferred)
         {
             foreach (var agent in _agents.Values)
@@ -152,6 +210,14 @@ namespace OpenWorld
 
             var def = OpenWorldDataCatalog.GetVehicle(kind);
             if (def == null) return true;
+            var requiredFactory = kind is VehicleKind.Locomotive or VehicleKind.CargoWagon
+                ? BuildableKind.TrainFactory
+                : BuildableKind.VehicleFactory;
+            if (!HasOperationalBuilding(requiredFactory, factionId))
+            {
+                reason = $"needs {requiredFactory}";
+                return false;
+            }
             if (!OpenWorldDataCatalog.EraUnlocked(_world.Tech.Era, def.RequiredEra))
             {
                 reason = $"needs {def.RequiredEra}";
@@ -164,6 +230,38 @@ namespace OpenWorld
             }
             OpenWorldDataCatalog.Spend(_world.Inventory, def.Cost);
             return true;
+        }
+
+        private bool HasOperationalBuilding(BuildableKind kind, int factionId)
+        {
+            foreach (var building in _world.Buildings.Values)
+                if (building.Kind == kind && building.FactionId == factionId && !building.UnderConstruction && building.Hp > 0)
+                    return true;
+            return false;
+        }
+
+        private BuildingEntity FindServiceBuilding(Vector2Int cell, int factionId)
+        {
+            BuildingEntity best = null;
+            int bestDistance = int.MaxValue;
+            foreach (var building in _world.Buildings.Values)
+            {
+                if (building.FactionId != factionId || building.UnderConstruction) continue;
+                if (building.Kind is not (BuildableKind.Garage or BuildableKind.Station)) continue;
+                int distance = Mathf.Abs(building.Origin.x - cell.x) + Mathf.Abs(building.Origin.y - cell.y);
+                if (distance >= bestDistance) continue;
+                bestDistance = distance;
+                best = building;
+            }
+            return best;
+        }
+
+        private int NextServiceOrderId()
+        {
+            int next = 1;
+            foreach (var order in _world.ServiceOrders)
+                next = Mathf.Max(next, order.Id + 1);
+            return next;
         }
 
         private static Vector2Int FormationOffset(int index)

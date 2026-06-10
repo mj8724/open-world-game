@@ -75,7 +75,9 @@ namespace OpenWorld
         Bridge,
         Dock,
         OilDerrick,
-        PowerPlant
+        PowerPlant,
+        DrillRig,
+        Refinery
     }
 
     public enum UnitKind
@@ -109,7 +111,9 @@ namespace OpenWorld
         Healing,
         Transporting,
         Refueling,
-        Repairing
+        Repairing,
+        Surveying,
+        Drilling
     }
 
     public enum FactionKind
@@ -138,6 +142,7 @@ namespace OpenWorld
     public enum StrategicOverlay
     {
         Exploration,
+        Geology,
         Territory,
         Resources,
         Supply,
@@ -236,6 +241,33 @@ namespace OpenWorld
         Manual
     }
 
+    public enum SurveyState
+    {
+        Unknown,
+        Suspected,
+        Surveyed,
+        Drilled,
+        Exhausted
+    }
+
+    public enum UnitOrderKind
+    {
+        Move,
+        Attack,
+        Patrol,
+        Defend,
+        Escort,
+        Survey,
+        Drill
+    }
+
+    public enum SimulationTier
+    {
+        HighFrequency,
+        LowFrequency,
+        Dormant
+    }
+
     public enum CommandKind
     {
         BuildBlueprint,
@@ -252,12 +284,25 @@ namespace OpenWorld
         Patrol,
         SetDefenseArea,
         SetTransportPolicy,
+        ToggleRouteMode,
+        AdjustRoutePriority,
+        AdjustRouteTargetStock,
+        CycleRouteCargo,
         ProduceVehicle,
         LoadCargo,
         UnloadCargo,
         Diplomacy,
         Scout,
-        AssignWorkers
+        AssignWorkers,
+        GeologicalSurvey,
+        CoreDrill,
+        AssignMiningZone,
+        TrainUnit,
+        CreateRoute,
+        RepairVehicle,
+        RefuelVehicle,
+        SetRailSchedule,
+        Trade
     }
 
     [Serializable]
@@ -265,11 +310,54 @@ namespace OpenWorld
     {
         public GroundMaterial Material;
         public int Thickness;
+        public float Grade;
+        public float Hardness;
+        public float WaterRisk;
+        public int RemainingAmount;
 
         public MaterialLayer(GroundMaterial material, int thickness)
+            : this(material, thickness, DefaultGrade(material), DefaultHardness(material), DefaultWaterRisk(material), DefaultReserve(material, thickness))
+        {
+        }
+
+        public MaterialLayer(GroundMaterial material, int thickness, float grade, float hardness, float waterRisk, int remainingAmount)
         {
             Material = material;
             Thickness = thickness;
+            Grade = grade;
+            Hardness = hardness;
+            WaterRisk = waterRisk;
+            RemainingAmount = remainingAmount;
+        }
+
+        public static float DefaultGrade(GroundMaterial material) => material switch
+        {
+            GroundMaterial.IronOre => 0.65f,
+            GroundMaterial.Coal => 0.72f,
+            GroundMaterial.Sulfur => 0.55f,
+            GroundMaterial.Nitrate => 0.50f,
+            GroundMaterial.Oil => 0.78f,
+            GroundMaterial.Stone => 0.85f,
+            GroundMaterial.Clay => 0.80f,
+            _ => 1f
+        };
+
+        public static float DefaultHardness(GroundMaterial material) => material switch
+        {
+            GroundMaterial.Stone => 1.35f,
+            GroundMaterial.IronOre => 1.55f,
+            GroundMaterial.Coal => 1.15f,
+            GroundMaterial.Sulfur => 1.25f,
+            GroundMaterial.Nitrate => 1.10f,
+            _ => 0.75f
+        };
+
+        public static float DefaultWaterRisk(GroundMaterial material) => material is GroundMaterial.Clay or GroundMaterial.Oil ? 0.35f : 0.08f;
+
+        public static int DefaultReserve(GroundMaterial material, int thickness)
+        {
+            int multiplier = material is GroundMaterial.IronOre or GroundMaterial.Coal or GroundMaterial.Sulfur or GroundMaterial.Nitrate or GroundMaterial.Oil ? 12 : 6;
+            return Mathf.Max(1, thickness * multiplier);
         }
     }
 
@@ -346,6 +434,10 @@ namespace OpenWorld
         public int Power;
         public int Weapons;
         public int RailParts;
+
+        public int Total => Dirt + Stone + IronOre + Coal + Clay + Wood + Food + Sulfur + Nitrate + Oil
+            + Lumber + Brick + IronIngot + Steel + MachineParts + Medicine + Ammo + Gunpowder + Fuel
+            + Power + Weapons + RailParts;
 
         public void Add(GroundMaterial material, int amount)
         {
@@ -425,6 +517,14 @@ namespace OpenWorld
             if (Get(kind) < amount) return false;
             Add(kind, -amount);
             return true;
+        }
+
+        public int AddLimited(ResourceKind kind, int amount, int capacity)
+        {
+            if (amount <= 0 || capacity <= Total) return 0;
+            int accepted = Mathf.Min(amount, capacity - Total);
+            Add(kind, accepted);
+            return accepted;
         }
 
         public bool Spend(BuildCost cost)
@@ -507,7 +607,9 @@ namespace OpenWorld
             new BuildableDef { Kind = BuildableKind.Bridge, DisplayName = "Bridge", Size = new Vector2Int(3, 1), Cost = new BuildCost(0, 10, 8, 16, 0), MaxHp = 260, BlocksMovement = false, IsTransport = true, RequiresFlatGround = false, Color = new Color(0.50f, 0.36f, 0.22f) },
             new BuildableDef { Kind = BuildableKind.Dock, DisplayName = "Dock", Size = new Vector2Int(3, 2), Cost = new BuildCost(0, 10, 5, 20, 0), MaxHp = 320, IsTransport = true, RequiresFlatGround = false, Color = new Color(0.42f, 0.32f, 0.20f) },
             new BuildableDef { Kind = BuildableKind.OilDerrick, DisplayName = "Oil Derrick", Size = new Vector2Int(3, 3), Cost = new BuildCost(0, 30, 35, 18, 0), MaxHp = 400, IsIndustrial = true, Color = new Color(0.12f, 0.12f, 0.10f) },
-            new BuildableDef { Kind = BuildableKind.PowerPlant, DisplayName = "Power Plant", Size = new Vector2Int(4, 4), Cost = new BuildCost(0, 40, 35, 20, 0), MaxHp = 560, IsIndustrial = true, Color = new Color(0.18f, 0.26f, 0.30f) }
+            new BuildableDef { Kind = BuildableKind.PowerPlant, DisplayName = "Power Plant", Size = new Vector2Int(4, 4), Cost = new BuildCost(0, 40, 35, 20, 0), MaxHp = 560, IsIndustrial = true, Color = new Color(0.18f, 0.26f, 0.30f) },
+            new BuildableDef { Kind = BuildableKind.DrillRig, DisplayName = "Core Drill Rig", Size = new Vector2Int(2, 2), Cost = new BuildCost(0, 12, 8, 8, 0), MaxHp = 260, IsIndustrial = true, Color = new Color(0.82f, 0.56f, 0.18f) },
+            new BuildableDef { Kind = BuildableKind.Refinery, DisplayName = "Refinery", Size = new Vector2Int(4, 4), Cost = new BuildCost(0, 42, 40, 20, 0), MaxHp = 540, IsIndustrial = true, Color = new Color(0.28f, 0.24f, 0.18f) }
         };
     }
 
@@ -524,6 +626,13 @@ namespace OpenWorld
         public bool UnderConstruction;
         public float WorkProgress;
         public int RegionId;
+        public ResourceInventory Storage = new();
+        public int StorageCapacity;
+        public string LastStorageStatus = "Empty";
+        public string ActiveRecipeId = "";
+        public int AssignedWorkers;
+        public float ProductionProgress;
+        public string ProductionStatus = "Idle";
     }
 
     [Serializable]
@@ -546,6 +655,12 @@ namespace OpenWorld
         public float Ammo = 20f;
         public bool Wounded;
         public int VisionRange = 12;
+        public float Armor;
+        public float AttackRange = 1.5f;
+        public float Accuracy = 0.65f;
+        public float Suppression;
+        public SimulationTier SimulationTier = SimulationTier.HighFrequency;
+        public UnitOrder CurrentOrder = new();
     }
 
     [Serializable]
@@ -559,6 +674,10 @@ namespace OpenWorld
         public float WorkRemaining = 1f;
         public int Priority = 3;
         public BlueprintStatus Status = BlueprintStatus.Active;
+        public int Radius;
+        public GroundMaterial TargetMaterial;
+        public int RelatedEntityId;
+        public string BlockedReason = "";
     }
 
     [Serializable]
@@ -621,6 +740,8 @@ namespace OpenWorld
         public float WorkRemaining = 2f;
         public int FactionId;
         public string BlockedReason = "";
+        public int AssignedUnitId;
+        public bool MaterialsReserved;
     }
 
     [Serializable]
@@ -643,6 +764,8 @@ namespace OpenWorld
         public int VisionRange = 10;
         public int AssignedRouteId;
         public string StatusText = "Idle";
+        public SimulationTier SimulationTier = SimulationTier.HighFrequency;
+        public int EscortUnitId;
     }
 
     [Serializable]
@@ -653,11 +776,15 @@ namespace OpenWorld
         public LogisticsMode Mode = LogisticsMode.Automatic;
         public Vector2Int Source;
         public Vector2Int Target;
+        public int SourceBuildingId;
+        public int TargetBuildingId;
         public ResourceKind CargoKind = ResourceKind.Food;
         public int TargetStock = 50;
         public int Priority = 3;
         public VehicleKind PreferredVehicle = VehicleKind.HandCart;
         public string Status = "Waiting";
+        public float Risk;
+        public int AssignedVehicleId;
     }
 
     [Serializable]
@@ -681,6 +808,151 @@ namespace OpenWorld
         public TechEra Era = TechEra.WoodStone;
         public int ResearchProgress;
         public string CurrentResearch = "Iron Working";
+        public List<string> CompletedResearch = new();
+    }
+
+    [Serializable]
+    public class UnitOrder
+    {
+        public UnitOrderKind Kind = UnitOrderKind.Move;
+        public Vector2Int TargetCell;
+        public Vector2Int SecondaryCell;
+        public int TargetEntityId;
+        public int Priority = 3;
+        public bool Queued;
+    }
+
+    [Serializable]
+    public class ProductionOrder
+    {
+        public int Id;
+        public int BuildingId;
+        public string RecipeId = "";
+        public int RemainingCycles = 1;
+        public int Priority = 3;
+        public bool Paused;
+        public string Status = "Waiting";
+    }
+
+    [Serializable]
+    public class ResearchOrder
+    {
+        public int Id;
+        public string TechId = "";
+        public int Priority = 3;
+        public float Progress;
+        public bool Paused;
+        public string Status = "Waiting";
+    }
+
+    [Serializable]
+    public class WorkerAssignment
+    {
+        public int BuildingId;
+        public int Workers;
+        public int Engineers;
+        public int Doctors;
+        public int Drivers;
+    }
+
+    [Serializable]
+    public class TradeContract
+    {
+        public int Id;
+        public int PartnerFactionId;
+        public ResourceKind ExportKind;
+        public ResourceKind ImportKind;
+        public int Amount = 10;
+        public int Priority = 3;
+        public bool Active = true;
+        public string Status = "Waiting";
+    }
+
+    [Serializable]
+    public class IntelSnapshot
+    {
+        public int EntityId;
+        public int FactionId;
+        public Vector2Int Cell;
+        public float SeenAt;
+        public string EntityType = "";
+    }
+
+    [Serializable]
+    public class RailSchedule
+    {
+        public int Id;
+        public int LocomotiveId;
+        public List<int> WagonIds = new();
+        public List<int> StationBuildingIds = new();
+        public ResourceKind CargoKind;
+        public int CurrentStop;
+        public bool Active = true;
+        public string Status = "Waiting";
+    }
+
+    [Serializable]
+    public class RepairRefuelOrder
+    {
+        public int Id;
+        public int VehicleId;
+        public bool Refuel;
+        public bool Repair;
+        public int ServiceBuildingId;
+        public int Priority = 3;
+        public string Status = "Waiting";
+    }
+
+    [Serializable]
+    public class SurveyRecord
+    {
+        public Vector2Int Cell;
+        public SurveyState State;
+        public float Confidence;
+        public GroundMaterial EstimatedMaterial;
+        public int MinDepth;
+        public int MaxDepth;
+        public float MinGrade;
+        public float MaxGrade;
+        public int MinReserve;
+        public int MaxReserve;
+        public float SurveyedAt;
+    }
+
+    [Serializable]
+    public class DrillLayerReport
+    {
+        public GroundMaterial Material;
+        public int StartDepth;
+        public int EndDepth;
+        public float Grade;
+        public float Hardness;
+        public float WaterRisk;
+        public int RemainingAmount;
+    }
+
+    [Serializable]
+    public class DrillReport
+    {
+        public int Id;
+        public Vector2Int Cell;
+        public int DrillRigBuildingId;
+        public float CompletedAt;
+        public List<DrillLayerReport> Layers = new();
+    }
+
+    [Serializable]
+    public class MiningZoneRecord
+    {
+        public int Id;
+        public Vector2Int Center;
+        public int Radius = 2;
+        public GroundMaterial TargetMaterial = GroundMaterial.IronOre;
+        public int MineBuildingId;
+        public int Priority = 3;
+        public bool Active = true;
+        public int ExtractedAmount;
+        public string Status = "Waiting";
     }
 
     [Serializable]
@@ -694,9 +966,14 @@ namespace OpenWorld
         public TerrainTool TerrainTool;
         public BuildableKind BuildKind;
         public VehicleKind VehicleKind;
+        public UnitKind UnitKind;
         public ResourceKind ResourceKind;
+        public LogisticsMode LogisticsMode;
         public int Priority = 3;
+        public int Amount;
         public int EntityId;
+        public int SecondaryEntityId;
+        public string Text = "";
     }
 
     public static class OpenWorldConstants

@@ -10,6 +10,7 @@ namespace OpenWorld
 
         private readonly Dictionary<Vector2Int, SurfaceChunkView> _views = new();
         private int _visibleRadius;
+        private OpenWorldGeologySystem _geology;
         private Vector2Int _lastCenterChunk = new(int.MinValue, int.MinValue);
 
         public void Initialize(OpenWorldState world, int visibleRadius)
@@ -19,6 +20,8 @@ namespace OpenWorld
             TerrainMaterial = CreateTerrainMaterial();
             RefreshVisibleChunks(Vector2Int.one * (world.MapSize / (2 * world.ChunkSize)));
         }
+
+        public void SetGeology(OpenWorldGeologySystem geology) => _geology = geology;
 
         private void LateUpdate()
         {
@@ -83,7 +86,7 @@ namespace OpenWorld
                     switch (tool)
                     {
                         case TerrainTool.Dig:
-                            DigCell(ref cell, Mathf.Max(0.25f, amount));
+                            DigCell(cellPos, ref cell, Mathf.Max(0.25f, amount), 1f);
                             break;
                         case TerrainTool.Fill:
                             if (World.Inventory.Dirt <= 0 && World.Inventory.Stone <= 0) continue;
@@ -116,12 +119,11 @@ namespace OpenWorld
                             cell.Terrain = SurfaceTerrain.Bridge;
                             break;
                         case TerrainTool.Trench:
-                            DigCell(ref cell, Mathf.Max(0.5f, amount));
+                            DigCell(cellPos, ref cell, Mathf.Max(0.5f, amount), 0.75f);
                             cell.HasTrench = true;
                             break;
                         case TerrainTool.Mine:
-                            DigCell(ref cell, Mathf.Max(0.75f, amount));
-                            cell.ResourceRichness = Mathf.Max(0, cell.ResourceRichness - 1);
+                            DigCell(cellPos, ref cell, Mathf.Max(0.75f, amount), 1.8f);
                             break;
                     }
 
@@ -130,21 +132,33 @@ namespace OpenWorld
             }
         }
 
-        private void DigCell(ref SurfaceCell cell, float amount)
+        private void DigCell(Vector2Int cellPos, ref SurfaceCell cell, float amount, float extractionMultiplier)
         {
-            cell.Height -= amount;
-            cell.HasRoad = false;
-
-            if (cell.Layers == null || cell.Layers.Length == 0)
-                cell.Layers = new[] { new MaterialLayer(GroundMaterial.Dirt, 1), new MaterialLayer(GroundMaterial.Stone, 99) };
+            OpenWorldState.NormalizeLayers(ref cell);
 
             int idx = Mathf.Clamp(cell.CurrentLayer, 0, cell.Layers.Length - 1);
             var layer = cell.Layers[idx];
-            World.Inventory.Add(layer.Material, 1);
+            if (layer.Material == GroundMaterial.Oil) return;
+
+            cell.Height -= amount / Mathf.Max(0.5f, layer.Hardness);
+            cell.HasRoad = false;
+
+            int extracted = Mathf.Max(1, Mathf.RoundToInt(Mathf.Max(0.2f, layer.Grade) * extractionMultiplier));
+            extracted = Mathf.Min(extracted, Mathf.Max(0, layer.RemainingAmount));
+            if (extracted > 0)
+            {
+                if (_geology != null) _geology.ReceiveExcavatedMaterial(cellPos, layer.Material, extracted);
+                else World.Inventory.Add(layer.Material, extracted);
+            }
+
+            layer.RemainingAmount = Mathf.Max(0, layer.RemainingAmount - extracted);
             layer.Thickness = Mathf.Max(0, layer.Thickness - 1);
             cell.Layers[idx] = layer;
+            if (layer.RemainingAmount == 0)
+                _geology?.MarkExhausted(cellPos, layer.Material);
             if (layer.Thickness == 0 && cell.CurrentLayer < cell.Layers.Length - 1)
                 cell.CurrentLayer++;
+            cell.ResourceRichness = Mathf.Clamp(Mathf.CeilToInt(layer.RemainingAmount / 30f), 0, 4);
         }
 
         public bool IsReachableStep(Vector2Int from, Vector2Int to, float maxStep)

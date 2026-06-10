@@ -10,7 +10,8 @@ namespace OpenWorld
         private OpenWorldState _world;
         private SurfaceTerrainSystem _terrain;
         private readonly List<BuildableDef> _defs = new();
-        private readonly Dictionary<int, GameObject> _objects = new();
+        private Dictionary<int, GameObject> _objects = new Dictionary<int, GameObject>();
+        private Dictionary<int, TextMesh> _labels = new Dictionary<int, TextMesh>();
 
         public void Initialize(OpenWorldState world, SurfaceTerrainSystem terrain)
         {
@@ -18,6 +19,29 @@ namespace OpenWorld
             _terrain = terrain;
             _defs.Clear();
             _defs.AddRange(BuildableDef.Defaults());
+
+            I18nSystem.OnLanguageChanged -= OnLanguageChanged;
+            I18nSystem.OnLanguageChanged += OnLanguageChanged;
+        }
+
+        private void OnDestroy()
+        {
+            I18nSystem.OnLanguageChanged -= OnLanguageChanged;
+        }
+
+        private void OnLanguageChanged()
+        {
+            if (_world == null) return;
+            foreach (var kvp in _labels)
+            {
+                var id = kvp.Key;
+                var textMesh = kvp.Value;
+                if (textMesh != null && _world.Buildings.TryGetValue(id, out var b))
+                {
+                    var def = GetDef(b.Kind);
+                    textMesh.text = I18nSystem.Get(def.DisplayName);
+                }
+            }
         }
 
         public BuildableDef GetDef(BuildableKind kind) => _defs.Find(d => d.Kind == kind) ?? _defs[0];
@@ -108,8 +132,7 @@ namespace OpenWorld
                 }
             }
             _world.Buildings.Remove(buildingId);
-            if (_objects.TryGetValue(buildingId, out var obj)) Destroy(obj);
-            _objects.Remove(buildingId);
+            RemoveBuildingObject(buildingId);
             return true;
         }
 
@@ -162,7 +185,20 @@ namespace OpenWorld
                 marker.GetComponent<MeshRenderer>().sharedMaterial = MaterialFor(new Color(0.85f, 0.16f, 0.12f));
             }
 
+            var textGo = new GameObject("Label");
+            textGo.transform.SetParent(root.transform, false);
+            textGo.transform.localPosition = new Vector3(0, height + 0.5f, 0);
+            textGo.transform.localRotation = Quaternion.Euler(90, 0, 0);
+            var textMesh = textGo.AddComponent<TextMesh>();
+            textMesh.text = I18nSystem.Get(def.DisplayName);
+            textMesh.characterSize = 0.1f;
+            textMesh.fontSize = 64;
+            textMesh.anchor = TextAnchor.MiddleCenter;
+            textMesh.alignment = TextAlignment.Center;
+            textMesh.color = Color.white;
+
             _objects[building.Id] = root;
+            _labels[building.Id] = textMesh;
         }
 
         private bool FootprintInBounds(Vector2Int origin, Vector2Int size)
@@ -180,6 +216,16 @@ namespace OpenWorld
             return mat;
         }
 
+        private void RemoveBuildingObject(int id)
+        {
+            if (_objects.TryGetValue(id, out var go))
+            {
+                Destroy(go);
+                _objects.Remove(id);
+                _labels.Remove(id);
+            }
+        }
+
         private void ClearObjects()
         {
             foreach (var obj in _objects.Values)
@@ -189,6 +235,7 @@ namespace OpenWorld
                 else DestroyImmediate(obj);
             }
             _objects.Clear();
+            _labels.Clear();
         }
     }
 }

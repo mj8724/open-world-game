@@ -135,6 +135,21 @@ namespace OpenWorld
                     site.Revealed = true;
             }
 
+            foreach (var unit in _world.Units.Values)
+            {
+                if (unit.FactionId == OpenWorldConstants.PlayerFactionId || GetState(unit.Cell) != KnowledgeState.Visible) continue;
+                IntelSnapshot snapshot = null;
+                foreach (var intel in _world.IntelSnapshots)
+                    if (intel.EntityId == unit.Id && intel.EntityType == "Unit") { snapshot = intel; break; }
+                if (snapshot == null)
+                {
+                    snapshot = new IntelSnapshot { EntityId = unit.Id, EntityType = "Unit", FactionId = unit.FactionId };
+                    _world.IntelSnapshots.Add(snapshot);
+                }
+                snapshot.Cell = unit.Cell;
+                snapshot.SeenAt = Time.time;
+            }
+
             for (int i = 0; i < _world.KnowledgeCells.Length; i++)
             {
                 if (_world.KnowledgeCells[i] == KnowledgeState.Visible)
@@ -153,6 +168,7 @@ namespace OpenWorld
             var surface = _world.GetCell(cell);
             Color color = CurrentOverlay switch
             {
+                StrategicOverlay.Geology => GeologyColor(cell),
                 StrategicOverlay.Territory => TerritoryColor(surface.RegionId),
                 StrategicOverlay.Resources => ResourceColor(surface.TopMaterial, surface.ResourceRichness),
                 StrategicOverlay.RoadsRails => TransportColor(surface),
@@ -240,6 +256,25 @@ namespace OpenWorld
         {
             float morale = Mathf.Clamp01(_world.Population.CityMorale / 100f);
             return Color.Lerp(new Color(0.65f, 0.10f, 0.12f), new Color(0.12f, 0.58f, 0.30f), morale);
+        }
+
+        private Color GeologyColor(Vector2Int cell)
+        {
+            var survey = _world.GetSurvey(cell);
+            if (survey == null || survey.State == SurveyState.Unknown) return new Color(0.035f, 0.04f, 0.045f);
+            if (survey.State == SurveyState.Exhausted) return new Color(0.22f, 0.22f, 0.22f);
+            Color mineral = survey.EstimatedMaterial switch
+            {
+                GroundMaterial.IronOre => new Color(0.92f, 0.30f, 0.12f),
+                GroundMaterial.Coal => new Color(0.16f, 0.16f, 0.18f),
+                GroundMaterial.Oil => new Color(0.12f, 0.08f, 0.16f),
+                GroundMaterial.Sulfur => new Color(0.92f, 0.78f, 0.12f),
+                GroundMaterial.Nitrate => new Color(0.66f, 0.78f, 0.82f),
+                GroundMaterial.Clay => new Color(0.62f, 0.34f, 0.22f),
+                _ => new Color(0.48f, 0.48f, 0.44f)
+            };
+            float confidence = survey.State == SurveyState.Drilled ? 1f : Mathf.Clamp01(survey.Confidence);
+            return Color.Lerp(new Color(0.08f, 0.09f, 0.10f), mineral, confidence);
         }
 
         private int Index(Vector2Int cell) => cell.y * _mapSize + cell.x;

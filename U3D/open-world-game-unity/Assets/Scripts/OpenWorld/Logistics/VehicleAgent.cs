@@ -10,15 +10,18 @@ namespace OpenWorld
 
         private OpenWorldState _world;
         private SurfacePathfinder _pathfinder;
+        private SurfacePathfinder _railPathfinder;
         private readonly List<Vector2Int> _path = new();
         private int _pathIndex;
         private float _speed = 5.0f;
+        private float _simulationAccumulator;
         private GameObject _selectionRing;
 
-        public void Initialize(OpenWorldState world, SurfacePathfinder pathfinder, VehicleEntity entity)
+        public void Initialize(OpenWorldState world, SurfacePathfinder pathfinder, SurfacePathfinder railPathfinder, VehicleEntity entity)
         {
             _world = world;
             _pathfinder = pathfinder;
+            _railPathfinder = railPathfinder;
             Entity = entity;
             transform.position = entity.WorldPosition;
             _speed = SpeedFor(entity.Kind);
@@ -28,7 +31,17 @@ namespace OpenWorld
         private void Update()
         {
             if (_world == null || Entity == null) return;
-            FollowPath();
+            _simulationAccumulator += Time.deltaTime;
+            float interval = Entity.SimulationTier switch
+            {
+                SimulationTier.LowFrequency => 0.2f,
+                SimulationTier.Dormant => 1.0f,
+                _ => 0f
+            };
+            if (_simulationAccumulator < interval) return;
+            float step = Mathf.Max(Time.deltaTime, _simulationAccumulator);
+            _simulationAccumulator = 0f;
+            FollowPath(step);
             UpdateCondition();
             Entity.WorldPosition = transform.position;
             Entity.Cell = _world.WorldToCell(transform.position);
@@ -44,11 +57,12 @@ namespace OpenWorld
                 return false;
             }
 
+            var activePathfinder = IsRail(Entity.Kind) ? _railPathfinder : _pathfinder;
             _path.Clear();
-            _path.AddRange(_pathfinder.FindPath(Entity.Cell, target));
+            _path.AddRange(activePathfinder.FindPath(Entity.Cell, target));
             _pathIndex = _path.Count > 1 ? 1 : 0;
             Entity.Task = _path.Count > 1 ? VehicleTask.Moving : VehicleTask.Idle;
-            Entity.StatusText = _path.Count > 1 ? "Moving" : "No path";
+            Entity.StatusText = _path.Count > 1 ? "Moving" : IsRail(Entity.Kind) ? "No rail path" : "No path";
             return _path.Count > 1;
         }
 
@@ -58,7 +72,7 @@ namespace OpenWorld
             if (_selectionRing != null) _selectionRing.SetActive(selected);
         }
 
-        private void FollowPath()
+        private void FollowPath(float deltaTime)
         {
             if (_pathIndex <= 0 || _pathIndex >= _path.Count)
             {
@@ -77,9 +91,9 @@ namespace OpenWorld
                 roadBoost *= 0.55f;
 
             var target = _world.CellToWorld(nextCell) + Vector3.up * 0.16f;
-            transform.position = Vector3.MoveTowards(transform.position, target, _speed * roadBoost * Time.deltaTime);
-            if (NeedsFuel(Entity.Kind)) Entity.Fuel = Mathf.Max(0f, Entity.Fuel - Time.deltaTime * (cell.HasRoad ? 0.18f : 0.32f));
-            Entity.Condition = Mathf.Max(0f, Entity.Condition - Time.deltaTime * (cell.HasRoad ? 0.02f : 0.06f));
+            transform.position = Vector3.MoveTowards(transform.position, target, _speed * roadBoost * deltaTime);
+            if (NeedsFuel(Entity.Kind)) Entity.Fuel = Mathf.Max(0f, Entity.Fuel - deltaTime * (cell.HasRoad ? 0.18f : 0.32f));
+            Entity.Condition = Mathf.Max(0f, Entity.Condition - deltaTime * (cell.HasRoad ? 0.02f : 0.06f));
 
             if ((transform.position - target).sqrMagnitude < 0.05f)
                 _pathIndex++;

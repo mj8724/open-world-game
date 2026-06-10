@@ -51,6 +51,50 @@ namespace OpenWorld
             }
         }
 
+        public void AttackSelected(Vector2Int target, int targetEntityId)
+        {
+            for (int i = 0; i < _selected.Count; i++)
+            {
+                _selected[i].IssueOrder(new UnitOrder
+                {
+                    Kind = UnitOrderKind.Attack,
+                    TargetCell = target + FormationOffset(i),
+                    TargetEntityId = targetEntityId,
+                    Priority = 5
+                });
+            }
+        }
+
+        public void PatrolSelected(Vector2Int target)
+        {
+            for (int i = 0; i < _selected.Count; i++)
+            {
+                _selected[i].IssueOrder(new UnitOrder
+                {
+                    Kind = UnitOrderKind.Patrol,
+                    TargetCell = target + FormationOffset(i),
+                    SecondaryCell = _selected[i].Entity.Cell,
+                    Priority = 3
+                });
+            }
+        }
+
+        public void DefendSelected(Vector2Int center, int radius)
+        {
+            int spread = Mathf.Max(1, radius);
+            for (int i = 0; i < _selected.Count; i++)
+            {
+                var offset = FormationOffset(i) * spread;
+                _selected[i].IssueOrder(new UnitOrder
+                {
+                    Kind = UnitOrderKind.Defend,
+                    TargetCell = center + offset,
+                    SecondaryCell = center,
+                    Priority = 4
+                });
+            }
+        }
+
         public bool MoveBestScoutTo(Vector2Int target)
         {
             UnitAgent best = null;
@@ -115,6 +159,32 @@ namespace OpenWorld
                     return agent;
             }
             return null;
+        }
+
+        public UnitAgent GetIdleEngineer()
+        {
+            foreach (var agent in _agents.Values)
+            {
+                if (agent.Entity.FactionId == OpenWorldConstants.PlayerFactionId &&
+                    agent.Entity.Kind == UnitKind.Engineer && agent.Entity.Task == UnitTask.Idle)
+                    return agent;
+            }
+            return null;
+        }
+
+        public UnitAgent GetAgent(int id)
+        {
+            _agents.TryGetValue(id, out var agent);
+            return agent;
+        }
+
+        public void RemoveUnit(int id)
+        {
+            if (!_agents.TryGetValue(id, out var agent)) return;
+            _selected.Remove(agent);
+            _agents.Remove(id);
+            _world.Units.Remove(id);
+            if (agent != null) Destroy(agent.gameObject);
         }
 
         public IEnumerable<UnitAgent> AllAgents() => _agents.Values;
