@@ -56,6 +56,12 @@ namespace OpenWorld
 
         private static readonly List<ProductionRecipeDef> _productionRecipes = new()
         {
+            Recipe("vehicle:HandCart", BuildableKind.VehicleFactory, TechEra.WoodStone, Amounts((ResourceKind.Wood, 10), (ResourceKind.IronIngot, 1)), Array.Empty<ResourceAmount>(), 1, "needs materials"),
+            Recipe("vehicle:Wagon", BuildableKind.VehicleFactory, TechEra.WoodStone, Amounts((ResourceKind.Wood, 18), (ResourceKind.IronIngot, 3)), Array.Empty<ResourceAmount>(), 1, "needs materials"),
+            Recipe("vehicle:Truck", BuildableKind.VehicleFactory, TechEra.Industrial, Amounts((ResourceKind.Steel, 12), (ResourceKind.MachineParts, 5), (ResourceKind.Fuel, 10)), Array.Empty<ResourceAmount>(), 2, "needs steel/parts/fuel"),
+            Recipe("vehicle:ArmoredCar", BuildableKind.VehicleFactory, TechEra.Industrial, Amounts((ResourceKind.Steel, 20), (ResourceKind.MachineParts, 8), (ResourceKind.Weapons, 3), (ResourceKind.Fuel, 15)), Array.Empty<ResourceAmount>(), 2, "needs steel/parts/weapons/fuel"),
+            Recipe("vehicle:Locomotive", BuildableKind.TrainFactory, TechEra.Industrial, Amounts((ResourceKind.Steel, 30), (ResourceKind.MachineParts, 12), (ResourceKind.Fuel, 20)), Array.Empty<ResourceAmount>(), 3, "needs steel/parts/fuel"),
+            Recipe("vehicle:CargoWagon", BuildableKind.TrainFactory, TechEra.Industrial, Amounts((ResourceKind.Steel, 14), (ResourceKind.MachineParts, 4)), Array.Empty<ResourceAmount>(), 1, "needs steel/parts"),
             Recipe("farm-food", BuildableKind.Farm, TechEra.WoodStone, Array.Empty<ResourceAmount>(), Amounts((ResourceKind.Food, 3)), 1, "needs workers"),
             Recipe("lumber-wood", BuildableKind.LumberCamp, TechEra.WoodStone, Array.Empty<ResourceAmount>(), Amounts((ResourceKind.Wood, 2), (ResourceKind.Lumber, 1)), 1, "needs workers"),
             Recipe("quarry-stone", BuildableKind.Quarry, TechEra.WoodStone, Array.Empty<ResourceAmount>(), Amounts((ResourceKind.Stone, 3)), 1, "needs workers"),

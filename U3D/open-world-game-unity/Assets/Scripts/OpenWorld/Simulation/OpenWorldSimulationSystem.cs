@@ -18,6 +18,7 @@ namespace OpenWorld
         private BuildingSystem _buildings;
         private UnitSystem _units;
         private BlueprintSystem _blueprints;
+        private VehicleSystem _vehicles;
         private float _economyTimer;
         private float _aiTimer;
         private float _combatTimer;
@@ -26,13 +27,14 @@ namespace OpenWorld
         private const int EnemyRoadblockBudget = 8;
         private const int EnemyRaidSize = 2;
 
-        public void Initialize(OpenWorldState world, SurfaceTerrainSystem terrain, BuildingSystem buildings, UnitSystem units, BlueprintSystem blueprints)
+        public void Initialize(OpenWorldState world, SurfaceTerrainSystem terrain, BuildingSystem buildings, UnitSystem units, BlueprintSystem blueprints, VehicleSystem vehicles)
         {
             _world = world;
             _terrain = terrain;
             _buildings = buildings;
             _units = units;
             _blueprints = blueprints;
+            _vehicles = vehicles;
         }
 
         private void Update()
@@ -241,9 +243,22 @@ namespace OpenWorld
             building.ProductionProgress += Mathf.Max(0.25f, efficiency);
             if (building.ProductionProgress < 1f) return order.Status = "Working";
             building.ProductionProgress = 0f;
-            foreach (var output in recipe.Outputs) _world.AddToStorage(building, output.Kind, output.Amount);
+            if (recipe.Id.StartsWith("vehicle:") && System.Enum.TryParse(recipe.Id.Substring(8), out VehicleKind vehKind))
+            {
+                var spawnCell = _world.FindBuildingAccessCell(building, building.Origin + Vector2Int.down * 6);
+                var veh = _vehicles?.SpawnScenarioVehicle(vehKind, spawnCell, building.FactionId);
+                if (veh != null) building.ProductionStatus = $"Produced {vehKind} as #{veh.Entity.Id}";
+                else building.ProductionStatus = $"Failed to produce {vehKind} - missing factory?";
+            }
+            else
+            {
+                foreach (var output in recipe.Outputs) _world.AddToStorage(building, output.Kind, output.Amount);
+            }
             order.RemainingCycles--;
-            building.ProductionStatus = order.Status = $"Produced {FormatAmounts(recipe.Outputs)}";
+            string statusText = recipe.Id.StartsWith("vehicle:")
+                ? $"Produced {recipe.Id.Substring(8)}"
+                : $"Produced {FormatAmounts(recipe.Outputs)}";
+            building.ProductionStatus = order.Status = statusText;
             return "";
         }
 
@@ -262,17 +277,29 @@ namespace OpenWorld
             };
             if (!OpenWorldDataCatalog.EraUnlocked(_world.Tech.Era, requiredEra)) { order.Status = $"Locked: {requiredEra}"; return false; }
             if (_world.Population.Residents <= 1) { order.Status = "No recruitable resident"; return false; }
-            int weaponCost = kind is UnitKind.Worker or UnitKind.Medic or UnitKind.Engineer ? 0 : 1;
-            var foodSource = FindInputStorage(barracks, ResourceKind.Food, 3);
+
+            // Resource costs per unit type
+            int foodCost = kind is UnitKind.MachineGunner or UnitKind.Artillery ? 6 :
+                          kind is UnitKind.Rifleman or UnitKind.Musketeer ? 5 :
+                          kind is UnitKind.Melee or UnitKind.Spearman or UnitKind.Ranged ? 4 : 3;
+            int weaponCost = kind is UnitKind.Worker or UnitKind.Medic or UnitKind.Engineer or UnitKind.Hauler ? 0 :
+                            kind is UnitKind.Militia or UnitKind.Scout ? 1 : 2;
+            int ammoGrant = kind is UnitKind.Rifleman ? 20 :
+                           kind is UnitKind.MachineGunner ? 40 :
+                           kind is UnitKind.Musketeer or UnitKind.Ranged or UnitKind.Artillery ? 15 : 0;
+
+            var foodSource = FindInputStorage(barracks, ResourceKind.Food, foodCost);
             var weaponSource = weaponCost > 0 ? FindInputStorage(barracks, ResourceKind.Weapons, weaponCost) : null;
-            if (foodSource == null) { order.Status = "No food"; return false; }
+            if (foodSource == null) { order.Status = $"No food ({foodCost})"; return false; }
             if (weaponCost > 0 && weaponSource == null) { order.Status = "No weapons"; return false; }
-            foodSource.Storage.Spend(ResourceKind.Food, 3);
+            foodSource.Storage.Spend(ResourceKind.Food, foodCost);
             weaponSource?.Storage.Spend(ResourceKind.Weapons, weaponCost);
+
             _world.Population.Residents--;
             _world.Population.Soldiers++;
             var spawn = _world.FindBuildingAccessCell(barracks, barracks.Origin + Vector2Int.down * 4);
-            _units.Spawn(kind, spawn, barracks.FactionId);
+            var unit = _units.Spawn(kind, spawn, barracks.FactionId);
+            if (unit != null && ammoGrant > 0) unit.Entity.Ammo = ammoGrant;
             order.RemainingCycles--;
             order.Status = $"Trained {kind}";
             return true;

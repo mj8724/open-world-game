@@ -548,10 +548,25 @@ namespace OpenWorld
                     row.AddToClassList("queue-row");
                     row.Add(new Label { text = $"#{building.Id} Barracks" });
                     int barracksId = building.Id;
-                    row.Add(MakeRouteButton("Militia", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Militia)));
-                    row.Add(MakeRouteButton("Rifle", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Rifleman)));
+                    row.Add(MakeRouteButton("Mil", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Militia)));
+                    row.Add(MakeRouteButton("Mel", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Melee)));
+                    row.Add(MakeRouteButton("Spear", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Spearman)));
+                    row.Add(MakeRouteButton("Rngd", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Ranged)));
+                    row.Add(MakeRouteButton("Musk", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Musketeer)));
+                    row.Add(MakeRouteButton("Scout", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Scout)));
+                    row.Add(MakeRouteButton("Eng", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Engineer)));
+                    row.Add(MakeRouteButton("Med", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Medic)));
                     parent.Add(row);
-                    shown++;
+                    var row2 = new VisualElement();
+                    row2.AddToClassList("queue-row");
+                    row2.Add(new Label { text = "Advanced:" });
+                    row2.Add(MakeRouteButton("Rifle", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Rifleman)));
+                    row2.Add(MakeRouteButton("MG", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.MachineGunner)));
+                    row2.Add(MakeRouteButton("Art", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Artillery)));
+                    row2.Add(MakeRouteButton("Wkr", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Worker)));
+                    row2.Add(MakeRouteButton("Haul", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Hauler)));
+                    parent.Add(row2);
+                    shown += 2;
                 }
             }
         }

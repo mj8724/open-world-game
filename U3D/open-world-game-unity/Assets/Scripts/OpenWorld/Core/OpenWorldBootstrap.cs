@@ -96,7 +96,7 @@ namespace OpenWorld
             Logistics.Initialize(World, Vehicles);
 
             Simulation = CreateSystem<OpenWorldSimulationSystem>("OpenWorldSimulationSystem");
-            Simulation.Initialize(World, Terrain, Buildings, Units, Blueprints);
+            Simulation.Initialize(World, Terrain, Buildings, Units, Blueprints, Vehicles);
 
             Performance = CreateSystem<OpenWorldPerformanceSystem>("OpenWorldPerformanceSystem");
             Performance.Initialize(World, camera, Units, Vehicles);

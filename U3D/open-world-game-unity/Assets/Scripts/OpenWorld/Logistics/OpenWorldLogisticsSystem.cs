@@ -101,7 +101,84 @@ namespace OpenWorld
             RefreshLines();
         }
 
+        private void TickRailSchedules()
+        {
+            if (_world == null || _world.RailSchedules.Count == 0) return;
+            float delta = Mathf.Max(Time.deltaTime, 0.016f);
+            foreach (var schedule in _world.RailSchedules)
+            {
+                if (!schedule.Active || schedule.StationBuildingIds.Count < 2) continue;
+                if (!_world.Vehicles.TryGetValue(schedule.LocomotiveId, out var locomotive))
+                {
+                    schedule.Status = "Locomotive missing";
+                    continue;
+                }
+                if (locomotive.Task != VehicleTask.Idle && locomotive.Task != VehicleTask.Moving) continue;
+
+                int currentStationId = schedule.StationBuildingIds[schedule.CurrentStop % schedule.StationBuildingIds.Count];
+                if (!_world.Buildings.TryGetValue(currentStationId, out var station))
+                {
+                    schedule.Status = "Station missing";
+                    continue;
+                }
+
+                _world.BindRouteBuildings(_world.LogisticsRoutes.Count > 0 ? _world.LogisticsRoutes[0] : null);
+
+                var stationAccess = _world.FindBuildingAccessCell(station, locomotive.Cell);
+                bool atStation = (locomotive.Cell - stationAccess).sqrMagnitude <= 4;
+
+                if (!atStation)
+                {
+                    var agent = _vehicles?.GetAgent(locomotive.Id);
+                    if (agent != null && agent.MoveTo(stationAccess))
+                    {
+                        locomotive.StatusText = $"To station #{currentStationId}";
+                        schedule.Status = $"Travelling to station #{currentStationId}";
+                    }
+                    else
+                    {
+                        schedule.Status = "No path to station";
+                    }
+                    continue;
+                }
+
+                // Unload any cargo at station
+                if (locomotive.CargoAmount > 0)
+                {
+                    _world.AddToStorage(station, locomotive.CargoKind, locomotive.CargoAmount);
+                    locomotive.CargoAmount = 0;
+                    locomotive.StatusText = $"Unloaded at station #{currentStationId}";
+                }
+
+                // Load cargo from station if available
+                int stationStock = station.Storage.Get(schedule.CargoKind);
+                if (stationStock > 0 && locomotive.CargoAmount < locomotive.CargoCapacity)
+                {
+                    int load = Mathf.Min(locomotive.CargoCapacity, stationStock);
+                    station.Storage.Spend(schedule.CargoKind, load);
+                    locomotive.CargoKind = schedule.CargoKind;
+                    locomotive.CargoAmount = load;
+                    locomotive.StatusText = $"Loaded {load} {schedule.CargoKind} at #{currentStationId}";
+                }
+
+                // Move to next station
+                schedule.CurrentStop = (schedule.CurrentStop + 1) % schedule.StationBuildingIds.Count;
+                int nextStationId = schedule.StationBuildingIds[schedule.CurrentStop % schedule.StationBuildingIds.Count];
+                if (_world.Buildings.TryGetValue(nextStationId, out var nextStation))
+                {
+                    var nextAccess = _world.FindBuildingAccessCell(nextStation, locomotive.Cell);
+                    var agent = _vehicles?.GetAgent(locomotive.Id);
+                    if (agent != null) agent.MoveTo(nextAccess);
+                    schedule.Status = $"Running route: station #{nextStationId}";
+                }
+            }
+        }
+
         private void TickRoutes()
+        {
+            TickRailSchedules();
+            foreach (var vehicle in _vehicles.AllAgents())
+                AdvanceAssignedVehicle(vehicle);
         {
             foreach (var vehicle in _vehicles.AllAgents())
                 AdvanceAssignedVehicle(vehicle);
