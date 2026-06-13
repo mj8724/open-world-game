@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Rendering;
 
 namespace OpenWorld
 {
@@ -208,13 +209,7 @@ namespace OpenWorld
 
         private static Vector2Int RotatedSize(Vector2Int size, int rotation) => Mathf.Abs(rotation / 90) % 2 == 1 ? new Vector2Int(size.y, size.x) : size;
 
-        private static Material MaterialFor(Color color)
-        {
-            var shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            var mat = new Material(shader) { color = color };
-            return mat;
-        }
+        private static Material MaterialFor(Color color) => MaterialCache.GetLit(color);
 
         private void RemoveBuildingObject(int id)
         {

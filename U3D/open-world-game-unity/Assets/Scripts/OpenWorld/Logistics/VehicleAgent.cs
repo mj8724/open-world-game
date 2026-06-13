@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Rendering;
 
 namespace OpenWorld
 {
@@ -174,11 +175,6 @@ namespace OpenWorld
             _ => new Color(0.45f, 0.45f, 0.45f)
         };
 
-        private static Material MaterialFor(Color color)
-        {
-            var shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            return new Material(shader) { color = color };
-        }
+        private static Material MaterialFor(Color color) => MaterialCache.GetLit(color);
     }
 }

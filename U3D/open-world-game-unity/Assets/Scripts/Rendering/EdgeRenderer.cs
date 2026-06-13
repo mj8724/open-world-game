@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using GameState;
 using UnityEngine;
+using Rendering;
 
 /// <summary>
 /// 道路渲染器 — ROAD / TRAIL / RAILWAY 3D 路径
@@ -100,7 +101,8 @@ namespace Rendering
                 var mf = segment.AddComponent<MeshFilter>();
                 var mr = segment.AddComponent<MeshRenderer>();
 
-                var mesh = new Mesh();
+                var mesh = new Mesh { name = $"RoadSeg_{i}" };
+                mesh.MarkDynamic();
                 var verts = new Vector3[]
                 {
                     p0 - right,
@@ -117,10 +119,7 @@ namespace Rendering
                 mesh.RecalculateNormals();
                 mf.sharedMesh = mesh;
 
-                var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                mat.color = color;
-                mat.SetFloat("_Glossiness", 0.1f);
-                mr.sharedMaterial = mat;
+                mr.sharedMaterial = MaterialCache.GetLitWithParams(color, 0.1f, 0f);
             }
         }
 
@@ -161,10 +160,7 @@ namespace Rendering
                     segObj.transform.localScale = new Vector3(railWidth, railWidth, len);
                     segObj.transform.LookAt(mid + dir);
 
-                    var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                    mat.color = railColor;
-                    mat.SetFloat("_Glossiness", 0.2f);
-                    segObj.GetComponent<MeshRenderer>().sharedMaterial = mat;
+                    segObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLitWithParams(railColor, 0.2f, 0f);
                 }
             }
 
@@ -174,8 +170,7 @@ namespace Rendering
                 totalLength += Vector3.Distance(pathPoints[i], pathPoints[i + 1]);
 
             int tieCount = Mathf.FloorToInt(totalLength / tieSpacing);
-            var tieMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            tieMat.color = tieColor;
+            var tieMat = MaterialCache.GetLit(tieColor);
 
             for (int i = 0; i <= tieCount; i++)
             {

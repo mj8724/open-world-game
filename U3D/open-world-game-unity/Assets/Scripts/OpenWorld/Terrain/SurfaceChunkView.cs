@@ -64,12 +64,13 @@ namespace OpenWorld
             }
 
             var mesh = _filter.sharedMesh;
-            if (mesh == null)
+            if (mesh != null && mesh.name.StartsWith("SurfaceChunk_"))
             {
-                mesh = new Mesh { name = $"SurfaceChunk_{Coord.x}_{Coord.y}" };
-                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-                _filter.sharedMesh = mesh;
+                Object.Destroy(mesh);
             }
+            mesh = new Mesh { name = $"SurfaceChunk_{Coord.x}_{Coord.y}" };
+            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            _filter.sharedMesh = mesh;
 
             mesh.Clear();
             mesh.vertices = vertices;
@@ -84,23 +85,25 @@ namespace OpenWorld
             Chunk.DirtyVisual = false;
         }
 
-        private static Color ColorFor(SurfaceCell cell)
+private static Color ColorFor(SurfaceCell cell)
+    {
+        if (cell.HasBridge) return new Color(0.50f, 0.32f, 0.18f);
+        if (cell.HasRoad) return new Color(0.46f, 0.38f, 0.28f);
+        if (cell.HasTrench) return new Color(0.22f, 0.18f, 0.13f);
+        if (cell.Terrain == SurfaceTerrain.Water) return new Color(0.08f, 0.28f, 0.52f);
+        if (cell.Terrain == SurfaceTerrain.Shallows) return new Color(0.12f, 0.36f, 0.48f);
+        return cell.TopMaterial switch
         {
-            if (cell.HasRoad) return new Color(0.46f, 0.38f, 0.28f);
-            if (cell.HasTrench) return new Color(0.22f, 0.18f, 0.13f);
-            return cell.TopMaterial switch
+            GroundMaterial.Stone => new Color(0.42f, 0.42f, 0.40f),
+            GroundMaterial.IronOre => new Color(0.38f, 0.35f, 0.32f),
+            _ => cell.Terrain switch
             {
-                GroundMaterial.Stone => new Color(0.42f, 0.42f, 0.40f),
-                GroundMaterial.IronOre => new Color(0.38f, 0.35f, 0.32f),
-                _ => cell.Terrain switch
-                {
-                    SurfaceTerrain.Forest => new Color(0.16f, 0.36f, 0.15f),
-                    SurfaceTerrain.Hills => new Color(0.34f, 0.50f, 0.24f),
-                    SurfaceTerrain.Mountain => new Color(0.46f, 0.46f, 0.44f),
-                    SurfaceTerrain.Water => new Color(0.10f, 0.33f, 0.62f),
-                    _ => new Color(0.30f, 0.55f, 0.24f)
-                }
-            };
-        }
+                SurfaceTerrain.Forest => new Color(0.16f, 0.36f, 0.15f),
+                SurfaceTerrain.Hills => new Color(0.34f, 0.50f, 0.24f),
+                SurfaceTerrain.Mountain => new Color(0.46f, 0.46f, 0.44f),
+                _ => new Color(0.30f, 0.55f, 0.24f)
+            }
+        };
+    }
     }
 }

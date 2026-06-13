@@ -12,6 +12,7 @@ namespace OpenWorld
         private OpenWorldLogisticsSystem _logistics;
         private OpenWorldGeologySystem _geology;
         private OpenWorldSimulationSystem _simulation;
+        private OpenWorldInputController _input;
 
         public void Initialize(OpenWorldState world, SurfaceTerrainSystem terrain, UnitSystem units, VehicleSystem vehicles, BlueprintSystem blueprints, OpenWorldLogisticsSystem logistics, OpenWorldGeologySystem geology, OpenWorldSimulationSystem simulation)
         {
@@ -24,6 +25,10 @@ namespace OpenWorld
             _geology = geology;
             _simulation = simulation;
         }
+
+        public void SetInput(OpenWorldInputController input) => _input = input;
+
+        private int FactionId => _input != null ? _input.ActiveFactionId : OpenWorldConstants.PlayerFactionId;
 
         private void Update()
         {
@@ -46,7 +51,7 @@ namespace OpenWorld
 
         public void SubmitTerrain(TerrainTool tool, Vector2Int cell, int radius, bool queue)
         {
-            var command = _world.EnqueueCommand(CommandKind.TerrainBrush, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.TerrainBrush, FactionId);
             command.TerrainTool = tool;
             command.Cell = cell;
             command.Priority = queue ? 4 : 3;
@@ -55,7 +60,7 @@ namespace OpenWorld
 
         public void SubmitBuild(BuildableKind kind, Vector2Int cell)
         {
-            var command = _world.EnqueueCommand(CommandKind.BuildBlueprint, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.BuildBlueprint, FactionId);
             command.BuildKind = kind;
             command.Cell = cell;
             command.Priority = 5;
@@ -63,70 +68,70 @@ namespace OpenWorld
 
         public void SubmitMoveSelected(Vector2Int cell)
         {
-            var command = _world.EnqueueCommand(CommandKind.Move, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.Move, FactionId);
             command.TargetCell = cell;
         }
 
         public void SubmitCancelBlueprint(Vector2Int cell)
         {
-            var command = _world.EnqueueCommand(CommandKind.CancelBlueprint, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.CancelBlueprint, FactionId);
             command.Cell = cell;
         }
 
         public void SubmitCancelBlueprint(int blueprintId)
         {
-            var command = _world.EnqueueCommand(CommandKind.CancelBlueprint, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.CancelBlueprint, FactionId);
             command.EntityId = blueprintId;
         }
 
         public void SubmitCancelAllBlueprints()
         {
-            _world.EnqueueCommand(CommandKind.CancelAllBlueprints, OpenWorldConstants.PlayerFactionId);
+            _world.EnqueueCommand(CommandKind.CancelAllBlueprints, FactionId);
         }
 
         public void SubmitBlueprintPriority(Vector2Int cell, int delta)
         {
-            var command = _world.EnqueueCommand(CommandKind.SetBlueprintPriority, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.SetBlueprintPriority, FactionId);
             command.Cell = cell;
             command.Priority = delta;
         }
 
         public void SubmitBlueprintPriority(int blueprintId, int delta)
         {
-            var command = _world.EnqueueCommand(CommandKind.SetBlueprintPriority, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.SetBlueprintPriority, FactionId);
             command.EntityId = blueprintId;
             command.Priority = delta;
         }
 
         public void SubmitPauseBlueprint(int blueprintId)
         {
-            var command = _world.EnqueueCommand(CommandKind.PauseBlueprint, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.PauseBlueprint, FactionId);
             command.EntityId = blueprintId;
         }
 
         public void SubmitResumeBlueprint(int blueprintId)
         {
-            var command = _world.EnqueueCommand(CommandKind.ResumeBlueprint, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.ResumeBlueprint, FactionId);
             command.EntityId = blueprintId;
         }
 
         public void SubmitProduceVehicle(VehicleKind kind, Vector2Int cell)
         {
-            var command = _world.EnqueueCommand(CommandKind.ProduceVehicle, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.ProduceVehicle, FactionId);
             command.VehicleKind = kind;
             command.Cell = cell;
         }
 
         public void SubmitScout(Vector2Int cell)
         {
-            var command = _world.EnqueueCommand(CommandKind.Scout, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.Scout, FactionId);
             command.TargetCell = cell;
             command.Priority = 4;
         }
 
         public void SubmitGeologicalSurvey(Vector2Int cell, int radius = 6)
         {
-            var command = _world.EnqueueCommand(CommandKind.GeologicalSurvey, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.GeologicalSurvey, FactionId);
             command.TargetCell = cell;
             command.Amount = radius;
             command.Priority = 4;
@@ -134,14 +139,14 @@ namespace OpenWorld
 
         public void SubmitCoreDrill(Vector2Int cell)
         {
-            var command = _world.EnqueueCommand(CommandKind.CoreDrill, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.CoreDrill, FactionId);
             command.TargetCell = cell;
             command.Priority = 4;
         }
 
         public void SubmitMiningZone(Vector2Int cell, int radius, GroundMaterial material)
         {
-            var command = _world.EnqueueCommand(CommandKind.AssignMiningZone, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.AssignMiningZone, FactionId);
             command.TargetCell = cell;
             command.Amount = radius;
             command.ResourceKind = ToResource(material);
@@ -150,7 +155,7 @@ namespace OpenWorld
 
         public void SubmitProduction(int buildingId, string recipeId, int cycles = 1)
         {
-            var command = _world.EnqueueCommand(CommandKind.Produce, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.Produce, FactionId);
             command.EntityId = buildingId;
             command.Text = recipeId;
             command.Amount = cycles;
@@ -158,54 +163,54 @@ namespace OpenWorld
 
         public void SubmitResearch(string techId)
         {
-            var command = _world.EnqueueCommand(CommandKind.Research, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.Research, FactionId);
             command.Text = techId;
         }
 
         public void SubmitTrainUnit(int barracksId, UnitKind kind)
         {
-            var command = _world.EnqueueCommand(CommandKind.TrainUnit, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.TrainUnit, FactionId);
             command.EntityId = barracksId;
             command.UnitKind = kind;
         }
 
         public void SubmitAttackSelected(Vector2Int cell, int targetEntityId = 0)
         {
-            var command = _world.EnqueueCommand(CommandKind.Attack, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.Attack, FactionId);
             command.TargetCell = cell;
             command.EntityId = targetEntityId;
         }
 
         public void SubmitPatrolSelected(Vector2Int cell)
         {
-            var command = _world.EnqueueCommand(CommandKind.Patrol, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.Patrol, FactionId);
             command.TargetCell = cell;
         }
 
         public void SubmitDefenseArea(Vector2Int cell, int radius)
         {
-            var command = _world.EnqueueCommand(CommandKind.SetDefenseArea, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.SetDefenseArea, FactionId);
             command.TargetCell = cell;
             command.Amount = radius;
         }
 
         public void SubmitAssignWorkers(int buildingId, int workers)
         {
-            var command = _world.EnqueueCommand(CommandKind.AssignWorkers, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.AssignWorkers, FactionId);
             command.EntityId = buildingId;
             command.Amount = workers;
         }
 
         public void SubmitDiplomacy(int factionId, DiplomacyStance stance)
         {
-            var command = _world.EnqueueCommand(CommandKind.Diplomacy, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.Diplomacy, FactionId);
             command.EntityId = factionId;
             command.Amount = (int)stance;
         }
 
         public void SubmitTrade(int factionId, ResourceKind exportKind, ResourceKind importKind, int amount = 5)
         {
-            var command = _world.EnqueueCommand(CommandKind.Trade, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.Trade, FactionId);
             command.EntityId = factionId;
             command.ResourceKind = exportKind;
             command.Text = importKind.ToString();
@@ -215,50 +220,50 @@ namespace OpenWorld
 
         public void SubmitLoadSelected(ResourceKind cargo)
         {
-            var command = _world.EnqueueCommand(CommandKind.LoadCargo, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.LoadCargo, FactionId);
             command.ResourceKind = cargo;
         }
 
         public void SubmitUnloadSelected()
         {
-            _world.EnqueueCommand(CommandKind.UnloadCargo, OpenWorldConstants.PlayerFactionId);
+            _world.EnqueueCommand(CommandKind.UnloadCargo, FactionId);
         }
 
         public void SubmitVehicleService(bool refuel, bool repair)
         {
-            var command = _world.EnqueueCommand(refuel ? CommandKind.RefuelVehicle : CommandKind.RepairVehicle, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(refuel ? CommandKind.RefuelVehicle : CommandKind.RepairVehicle, FactionId);
             command.Amount = repair ? 1 : 0;
         }
 
         public void SubmitToggleRouteMode(int routeId)
         {
-            var command = _world.EnqueueCommand(CommandKind.ToggleRouteMode, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.ToggleRouteMode, FactionId);
             command.EntityId = routeId;
         }
 
         public void SubmitRoutePriority(int routeId, int delta)
         {
-            var command = _world.EnqueueCommand(CommandKind.AdjustRoutePriority, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.AdjustRoutePriority, FactionId);
             command.EntityId = routeId;
             command.Priority = delta;
         }
 
         public void SubmitRouteTargetStock(int routeId, int delta)
         {
-            var command = _world.EnqueueCommand(CommandKind.AdjustRouteTargetStock, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.AdjustRouteTargetStock, FactionId);
             command.EntityId = routeId;
             command.Amount = delta;
         }
 
         public void SubmitCycleRouteCargo(int routeId)
         {
-            var command = _world.EnqueueCommand(CommandKind.CycleRouteCargo, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.CycleRouteCargo, FactionId);
             command.EntityId = routeId;
         }
 
         public void SubmitCreateRoute(int sourceBuildingId, int targetBuildingId, ResourceKind cargo, VehicleKind vehicleKind, int priority = 3)
         {
-            var command = _world.EnqueueCommand(CommandKind.CreateRoute, OpenWorldConstants.PlayerFactionId);
+            var command = _world.EnqueueCommand(CommandKind.CreateRoute, FactionId);
             command.EntityId = sourceBuildingId;
             command.SecondaryEntityId = targetBuildingId;
             command.ResourceKind = cargo;

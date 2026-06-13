@@ -203,21 +203,21 @@ namespace OpenWorld
             };
         }
 
-        private static Color TerrainColor(SurfaceCell surface)
+private static Color TerrainColor(SurfaceCell surface)
+    {
+        if (surface.HasBridge) return new Color(0.56f, 0.36f, 0.20f);
+        if (surface.HasRail) return new Color(0.16f, 0.16f, 0.16f);
+        if (surface.HasRoad) return new Color(0.52f, 0.44f, 0.32f);
+        return surface.Terrain switch
         {
-            if (surface.HasBridge) return new Color(0.56f, 0.36f, 0.20f);
-            if (surface.HasRail) return new Color(0.16f, 0.16f, 0.16f);
-            if (surface.HasRoad) return new Color(0.52f, 0.44f, 0.32f);
-            return surface.Terrain switch
-            {
-                SurfaceTerrain.Forest => new Color(0.12f, 0.32f, 0.15f),
-                SurfaceTerrain.Hills => new Color(0.36f, 0.42f, 0.24f),
-                SurfaceTerrain.Mountain => new Color(0.46f, 0.47f, 0.44f),
-                SurfaceTerrain.Water => new Color(0.06f, 0.18f, 0.35f),
-                SurfaceTerrain.Shallows => new Color(0.10f, 0.30f, 0.42f),
-                _ => new Color(0.20f, 0.42f, 0.18f)
-            };
-        }
+            SurfaceTerrain.Forest => new Color(0.12f, 0.32f, 0.15f),
+            SurfaceTerrain.Hills => new Color(0.36f, 0.42f, 0.24f),
+            SurfaceTerrain.Mountain => new Color(0.46f, 0.47f, 0.44f),
+            SurfaceTerrain.Water => new Color(0.08f, 0.28f, 0.52f),
+            SurfaceTerrain.Shallows => new Color(0.10f, 0.35f, 0.42f),
+            _ => new Color(0.20f, 0.42f, 0.18f)
+        };
+    }
 
         private static Color ResourceColor(GroundMaterial material, int richness)
         {

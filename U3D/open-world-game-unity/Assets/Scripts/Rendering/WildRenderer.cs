@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using GameState;
 using UnityEngine;
+using Rendering;
 
 /// <summary>
 /// 野外实体渲染器 — 资源点 + 中立建筑
@@ -94,11 +95,7 @@ namespace Rendering
             rock.transform.SetParent(root.transform, false);
             rock.transform.localScale = Vector3.one * 0.8f;
             rock.transform.localPosition = new Vector3(0, 0.4f, 0);
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.color = new Color(0.5f, 0.5f, 0.5f);
-            mat.SetFloat("_Glossiness", 0.3f);
-            mat.SetFloat("_Metallic", 0.5f);
-            rock.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            rock.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLitWithParams(new Color(0.5f, 0.5f, 0.5f), 0.3f, 0.5f);
         }
 
         private static void CreateFoodField(GameObject root)
@@ -117,9 +114,7 @@ namespace Rendering
                     0.08f,
                     Mathf.Sin(angle) * radius
                 );
-                var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                mat.color = new Color(0.56f, 0.93f, 0.56f);
-                plant.GetComponent<MeshRenderer>().sharedMaterial = mat;
+                plant.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(new Color(0.56f, 0.93f, 0.56f));
             }
         }
 
@@ -131,9 +126,7 @@ namespace Rendering
             box.transform.SetParent(root.transform, false);
             box.transform.localScale = new Vector3(0.4f, 0.3f, 0.3f);
             box.transform.localPosition = new Vector3(0, 0.15f, 0);
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.color = new Color(0.54f, 0.27f, 0.07f);
-            box.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            box.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(new Color(0.54f, 0.27f, 0.07f));
         }
 
         private static void CreateGenericResource(GameObject root, string resourceType)
@@ -144,9 +137,7 @@ namespace Rendering
             marker.transform.SetParent(root.transform, false);
             marker.transform.localScale = Vector3.one * 0.3f;
             marker.transform.localPosition = new Vector3(0, 0.2f, 0);
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.color = Color.yellow;
-            marker.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            marker.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(Color.yellow);
         }
 
         /// <summary>创建单个中立建筑</summary>
@@ -189,10 +180,7 @@ namespace Rendering
                 pillar.transform.SetParent(root.transform, false);
                 pillar.transform.localScale = new Vector3(0.1f, 1.5f, 0.1f);
                 pillar.transform.localPosition = new Vector3(Mathf.Cos(angle) * 0.5f, 0.75f, Mathf.Sin(angle) * 0.5f);
-                var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                mat.color = new Color(0.42f, 0.36f, 0.31f);
-                mat.SetFloat("_Glossiness", 0.1f);
-                pillar.GetComponent<MeshRenderer>().sharedMaterial = mat;
+                pillar.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLitWithParams(new Color(0.42f, 0.36f, 0.31f), 0.1f, 0f);
             }
         }
 
@@ -204,9 +192,7 @@ namespace Rendering
             tower.transform.SetParent(root.transform, false);
             tower.transform.localScale = new Vector3(0.4f, 2.0f, 0.4f);
             tower.transform.localPosition = new Vector3(0, 1.0f, 0);
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.color = new Color(0.54f, 0.45f, 0.33f);
-            tower.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            tower.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(new Color(0.54f, 0.45f, 0.33f));
 
             // 顶部平台
             var platform = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -215,9 +201,7 @@ namespace Rendering
             platform.transform.SetParent(root.transform, false);
             platform.transform.localScale = new Vector3(0.6f, 0.1f, 0.6f);
             platform.transform.localPosition = new Vector3(0, 2.05f, 0);
-            var roofMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            roofMat.color = new Color(0.42f, 0.36f, 0.31f);
-            platform.GetComponent<MeshRenderer>().sharedMaterial = roofMat;
+            platform.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(new Color(0.42f, 0.36f, 0.31f));
         }
 
         private static void CreateShrine(GameObject root)
@@ -228,9 +212,7 @@ namespace Rendering
             baseObj.transform.SetParent(root.transform, false);
             baseObj.transform.localScale = new Vector3(0.5f, 0.2f, 0.5f);
             baseObj.transform.localPosition = new Vector3(0, 0.1f, 0);
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.color = new Color(0.85f, 0.65f, 0.13f);
-            baseObj.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            baseObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(new Color(0.85f, 0.65f, 0.13f));
 
             // 发光柱
             var beam = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -239,11 +221,7 @@ namespace Rendering
             beam.transform.SetParent(root.transform, false);
             beam.transform.localScale = new Vector3(0.1f, 1.0f, 0.1f);
             beam.transform.localPosition = new Vector3(0, 0.7f, 0);
-            var beamMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            beamMat.color = new Color(1f, 0.84f, 0f);
-            beamMat.EnableKeyword("_EMISSION");
-            beamMat.SetColor("_EmissionColor", new Color(1f, 0.84f, 0f) * 0.3f);
-            beam.GetComponent<MeshRenderer>().sharedMaterial = beamMat;
+            beam.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLitWithEmission(new Color(1f, 0.84f, 0f), 0.3f);
         }
 
         /// <summary>清理所有野外资源</summary>

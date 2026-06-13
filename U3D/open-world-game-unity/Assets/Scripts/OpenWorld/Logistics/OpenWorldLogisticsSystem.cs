@@ -179,7 +179,7 @@ namespace OpenWorld
             TickRailSchedules();
             foreach (var vehicle in _vehicles.AllAgents())
                 AdvanceAssignedVehicle(vehicle);
-        {
+        
             foreach (var vehicle in _vehicles.AllAgents())
                 AdvanceAssignedVehicle(vehicle);
 

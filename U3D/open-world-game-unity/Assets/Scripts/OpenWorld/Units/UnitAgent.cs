@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Rendering;
 
 namespace OpenWorld
 {
@@ -15,6 +16,7 @@ namespace OpenWorld
         private float _speed = 4.0f;
         private float _simulationAccumulator;
         private GameObject _selectionRing;
+        private GameObject _hpBar;
 
         public void Initialize(OpenWorldState world, SurfacePathfinder pathfinder, UnitEntity entity)
         {
@@ -41,6 +43,7 @@ namespace OpenWorld
             FollowPath(step);
             Entity.WorldPosition = transform.position;
             Entity.Cell = _world.WorldToCell(transform.position);
+            UpdateHpBar();
         }
 
         public void MoveTo(Vector2Int target)
@@ -94,32 +97,39 @@ namespace OpenWorld
             if (_selectionRing != null) _selectionRing.SetActive(selected);
         }
 
-        private void FollowPath(float deltaTime)
+private void FollowPath(float deltaTime)
+    {
+        if (_pathIndex <= 0 || _pathIndex >= _path.Count)
         {
-            if (_pathIndex <= 0 || _pathIndex >= _path.Count)
+            // Patrol: automatically reverse direction for continuous back-and-forth
+            if (Entity.CurrentOrder != null && Entity.CurrentOrder.Kind == UnitOrderKind.Patrol)
             {
-                if (Entity.CurrentOrder != null && Entity.CurrentOrder.Kind == UnitOrderKind.Patrol && Entity.Task == UnitTask.Patrolling)
-                {
-                    var order = Entity.CurrentOrder;
-                    var next = order.SecondaryCell;
-                    order.SecondaryCell = order.TargetCell;
-                    order.TargetCell = next;
-                    BuildPath(order.TargetCell, UnitTask.Patrolling);
-                    return;
-                }
-                if (Entity.Task is UnitTask.Moving or UnitTask.Attacking or UnitTask.Defending or UnitTask.Transporting)
-                    Entity.Task = UnitTask.Idle;
+                var order = Entity.CurrentOrder;
+                var next = order.SecondaryCell;
+                order.SecondaryCell = order.TargetCell;
+                order.TargetCell = next;
+                BuildPath(order.TargetCell, UnitTask.Patrolling);
                 return;
             }
-
-            var nextCell = _path[_pathIndex];
-            var target = _world.CellToWorld(nextCell) + Vector3.up * 0.12f;
-            float condition = Mathf.Clamp(Entity.Morale / 100f, 0.35f, 1f) * Mathf.Clamp(1f - Entity.Fatigue / 130f, 0.35f, 1f);
-            if (Entity.Wounded) condition *= 0.6f;
-            transform.position = Vector3.MoveTowards(transform.position, target, _speed * condition * deltaTime);
-            if ((transform.position - target).sqrMagnitude < 0.04f)
-                _pathIndex++;
+            // Defend: when reaching defend position, keep defending task active
+            if (Entity.CurrentOrder != null && Entity.CurrentOrder.Kind == UnitOrderKind.Defend)
+            {
+                Entity.Task = UnitTask.Defending;
+                return;
+            }
+            if (Entity.Task is UnitTask.Moving or UnitTask.Attacking or UnitTask.Defending or UnitTask.Transporting)
+                Entity.Task = UnitTask.Idle;
+            return;
         }
+
+        var nextCell = _path[_pathIndex];
+        var target = _world.CellToWorld(nextCell) + Vector3.up * 0.12f;
+        float condition = Mathf.Clamp(Entity.Morale / 100f, 0.35f, 1f) * Mathf.Clamp(1f - Entity.Fatigue / 130f, 0.35f, 1f);
+        if (Entity.Wounded) condition *= 0.6f;
+        transform.position = Vector3.MoveTowards(transform.position, target, _speed * condition * deltaTime);
+        if ((transform.position - target).sqrMagnitude < 0.04f)
+            _pathIndex++;
+    }
 
         private void CreateVisual()
         {
@@ -129,7 +139,14 @@ namespace OpenWorld
             body.transform.localScale = new Vector3(0.55f, 0.7f, 0.55f);
             body.transform.localPosition = Vector3.up * 0.45f;
             var renderer = body.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = MaterialFor(Entity.Kind == UnitKind.Worker ? new Color(0.15f, 0.35f, 0.85f) : new Color(0.85f, 0.2f, 0.12f));
+            Color color = Entity.FactionId switch
+            {
+                1 => new Color(0.25f, 0.54f, 0.92f),
+                2 => new Color(0.85f, 0.20f, 0.12f),
+                3 => new Color(0.85f, 0.75f, 0.15f),
+                _ => new Color(0.45f, 0.65f, 0.35f),
+            };
+            renderer.sharedMaterial = MaterialFor(color);
 
             _selectionRing = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             _selectionRing.name = "SelectionRing";
@@ -138,13 +155,36 @@ namespace OpenWorld
             _selectionRing.transform.localPosition = Vector3.up * 0.03f;
             _selectionRing.GetComponent<MeshRenderer>().sharedMaterial = MaterialFor(new Color(1f, 0.9f, 0.15f));
             _selectionRing.SetActive(false);
+
+            // HP bar background
+            var hpBg = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            hpBg.name = "HpBarBg";
+            hpBg.transform.SetParent(transform, false);
+            hpBg.transform.localScale = new Vector3(0.6f, 0.06f, 0.06f);
+            hpBg.transform.localPosition = Vector3.up * 1.15f;
+            hpBg.GetComponent<MeshRenderer>().sharedMaterial = MaterialFor(new Color(0.2f, 0.2f, 0.2f));
+
+            // HP bar fill
+            _hpBar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            _hpBar.name = "HpBarFill";
+            _hpBar.transform.SetParent(transform, false);
+            _hpBar.transform.localScale = new Vector3(0.58f, 0.04f, 0.04f);
+            _hpBar.transform.localPosition = Vector3.up * 1.15f + Vector3.forward * 0.01f;
+            _hpBar.GetComponent<MeshRenderer>().sharedMaterial = MaterialFor(new Color(0.15f, 0.85f, 0.15f));
         }
 
-        private static Material MaterialFor(Color color)
+        private void UpdateHpBar()
         {
-            var shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            return new Material(shader) { color = color };
+            if (_hpBar == null || Entity == null) return;
+            float ratio = Mathf.Clamp01((float)Entity.Hp / Entity.MaxHp);
+            _hpBar.transform.localScale = new Vector3(0.58f * ratio, 0.04f, 0.04f);
+            _hpBar.transform.localPosition = Vector3.up * 1.15f + Vector3.forward * 0.01f + Vector3.right * (0.58f * (ratio - 1f) * 0.5f);
+            Color barColor = ratio > 0.5f
+                ? Color.Lerp(new Color(0.85f, 0.85f, 0.15f), new Color(0.15f, 0.85f, 0.15f), (ratio - 0.5f) * 2f)
+                : Color.Lerp(new Color(0.85f, 0.15f, 0.15f), new Color(0.85f, 0.85f, 0.15f), ratio * 2f);
+            _hpBar.GetComponent<MeshRenderer>().sharedMaterial = MaterialFor(barColor);
         }
+
+        private static Material MaterialFor(Color color) => MaterialCache.GetLit(color);
     }
 }

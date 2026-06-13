@@ -9,11 +9,19 @@ namespace OpenWorld
         private readonly SurfaceTerrainSystem _terrain;
         private readonly float _maxStep;
         private readonly bool _railOnly;
+        private readonly Dictionary<long, List<Vector2Int>> _pathCache = new();
+        private int _cacheHits;
+        private int _cacheMisses;
+        private const int MaxCacheSize = 256;
         private readonly List<Vector2Int> _neighbors = new()
         {
             Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right,
             new Vector2Int(1, 1), new Vector2Int(-1, 1), new Vector2Int(1, -1), new Vector2Int(-1, -1)
         };
+
+        public bool CacheEnabled { get; set; } = true;
+        public int CacheHits => _cacheHits;
+        public int CacheMisses => _cacheMisses;
 
         public SurfacePathfinder(OpenWorldState world, SurfaceTerrainSystem terrain, float maxStep, bool railOnly = false)
         {

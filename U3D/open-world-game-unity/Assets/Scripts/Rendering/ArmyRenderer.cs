@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using GameState;
 using UnityEngine;
+using Rendering;
 
 /// <summary>
 /// 军队渲染器 — 士兵模型 + 方阵 + 血条 + 移动插值
@@ -85,9 +86,7 @@ namespace Rendering
             bodyObj.transform.SetParent(soldier.transform, false);
             bodyObj.transform.localScale = new Vector3(r * 2f, h * 0.6f, r * 2f);
             bodyObj.transform.localPosition = new Vector3(0, h * 0.3f, 0);
-            var bodyMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            bodyMat.color = factionColor;
-            bodyObj.GetComponent<MeshRenderer>().sharedMaterial = bodyMat;
+            bodyObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(factionColor);
 
             // 头
             var headObj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -96,9 +95,7 @@ namespace Rendering
             headObj.transform.SetParent(soldier.transform, false);
             headObj.transform.localScale = Vector3.one * r * 1.6f;
             headObj.transform.localPosition = new Vector3(0, h * 0.7f, 0);
-            var headMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            headMat.color = new Color(0.96f, 0.82f, 0.66f);
-            headObj.GetComponent<MeshRenderer>().sharedMaterial = headMat;
+            headObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(new Color(0.96f, 0.82f, 0.66f));
 
             // 武器
             if (unitDefId == "MUSKETEER" || unitDefId == "MAXIM_GUN")
@@ -110,9 +107,7 @@ namespace Rendering
                 gunObj.transform.SetParent(soldier.transform, false);
                 gunObj.transform.localScale = new Vector3(0.04f, h * 0.5f, 0.04f);
                 gunObj.transform.localPosition = new Vector3(r * 1.5f, h * 0.4f, 0);
-                var gunMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                gunMat.color = new Color(0.29f, 0.29f, 0.29f);
-                gunObj.GetComponent<MeshRenderer>().sharedMaterial = gunMat;
+                gunObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(new Color(0.29f, 0.29f, 0.29f));
             }
             else
             {
@@ -123,10 +118,7 @@ namespace Rendering
                 swordObj.transform.SetParent(soldier.transform, false);
                 swordObj.transform.localScale = new Vector3(0.04f, h * 0.4f, 0.08f);
                 swordObj.transform.localPosition = new Vector3(r * 1.5f, h * 0.3f, 0);
-                var swordMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                swordMat.color = new Color(0.75f, 0.75f, 0.75f);
-                swordMat.SetFloat("_Glossiness", 0.8f);
-                swordObj.GetComponent<MeshRenderer>().sharedMaterial = swordMat;
+                swordObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLitWithParams(new Color(0.75f, 0.75f, 0.75f), 0.8f, 0f);
             }
 
             return soldier;
@@ -148,10 +140,7 @@ namespace Rendering
             bgObj.transform.localScale = new Vector3(w / 10f, 1, h / 10f);
             bgObj.transform.localPosition = new Vector3(0, y, 0);
             bgObj.transform.localRotation = Quaternion.Euler(0, 0, 0);
-            var bgMat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            bgMat.color = new Color(0.2f, 0.2f, 0.2f);
-            bgMat.SetFloat("_Cull", 0f);
-            bgObj.GetComponent<MeshRenderer>().sharedMaterial = bgMat;
+            bgObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetUnlit(new Color(0.2f, 0.2f, 0.2f));
 
             // 前景（HP 比例）
             float hpRatio = Mathf.Clamp01(army.Morale > 0 ? army.Morale : 1f);
@@ -162,10 +151,7 @@ namespace Rendering
             fgObj.transform.localScale = new Vector3(w * hpRatio / 10f, 1, h / 10f);
             fgObj.transform.localPosition = new Vector3(-(w * (1 - hpRatio)) / 2f, y, 0.001f);
             fgObj.transform.localRotation = Quaternion.Euler(0, 0, 0);
-            var fgMat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            fgMat.color = hpRatio > 0.5f ? Color.green : Color.red;
-            fgMat.SetFloat("_Cull", 0f);
-            fgObj.GetComponent<MeshRenderer>().sharedMaterial = fgMat;
+            fgObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetUnlit(hpRatio > 0.5f ? Color.green : Color.red);
 
             return root;
         }

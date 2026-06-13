@@ -128,13 +128,7 @@ namespace Rendering
             platform.transform.localPosition = new Vector3(0, height / 2f, 0);
 
             var renderer = platform.GetComponent<MeshRenderer>();
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.color = GetFactionColor(node.FactionId);
-            mat.SetFloat("_Surface", 1f); // Transparent
-            var color = mat.color;
-            color.a = 0.15f;
-            mat.color = color;
-            renderer.sharedMaterial = mat;
+            renderer.sharedMaterial = MaterialCache.GetLitTransparent(GetFactionColor(node.FactionId), 0.15f);
         }
 
         /// <summary>创建单个建筑网格</summary>
@@ -155,10 +149,7 @@ namespace Rendering
             baseObj.transform.SetParent(root.transform, false);
             baseObj.transform.localScale = new Vector3(model.Value.Width, h, model.Value.Depth);
             baseObj.transform.localPosition = new Vector3(0, h / 2f, 0);
-            var baseMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            baseMat.color = ColorFromInt(model.Value.Color);
-            baseMat.SetFloat("_Glossiness", 0.2f);
-            baseObj.GetComponent<MeshRenderer>().sharedMaterial = baseMat;
+            baseObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLitWithParams(ColorFromInt(model.Value.Color), 0.2f, 0f);
 
             // 屋顶（四棱锥）
             if (model.Value.RoofColor != 0)
@@ -171,10 +162,7 @@ namespace Rendering
                 roofObj.transform.SetParent(root.transform, false);
                 roofObj.transform.localPosition = new Vector3(0, h + h * 0.2f, 0);
                 roofObj.transform.localRotation = Quaternion.Euler(0, 45f, 0);
-                var roofMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                roofMat.color = ColorFromInt(model.Value.RoofColor);
-                roofMat.SetFloat("_Glossiness", 0.3f);
-                roofObj.GetComponent<MeshRenderer>().sharedMaterial = roofMat;
+                roofObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLitWithParams(ColorFromInt(model.Value.RoofColor), 0.3f, 0f);
             }
 
             // 特殊装饰
@@ -186,11 +174,7 @@ namespace Rendering
                 glowObj.transform.SetParent(root.transform, false);
                 glowObj.transform.localScale = Vector3.one * 0.3f;
                 glowObj.transform.localPosition = new Vector3(0, h + 0.3f, 0);
-                var glowMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                glowMat.color = ColorFromInt(0xFFD700);
-                glowMat.EnableKeyword("_EMISSION");
-                glowMat.SetColor("_EmissionColor", ColorFromInt(0xFFD700) * 0.5f);
-                glowObj.GetComponent<MeshRenderer>().sharedMaterial = glowMat;
+                glowObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLitWithEmission(ColorFromInt(0xFFD700), 0.5f);
             }
 
             if (bld.BuildingType == "ARSENAL")
@@ -201,9 +185,7 @@ namespace Rendering
                 chimneyObj.transform.SetParent(root.transform, false);
                 chimneyObj.transform.localScale = new Vector3(0.1f, 0.3f, 0.1f);
                 chimneyObj.transform.localPosition = new Vector3(model.Value.Width * 0.3f, h + 0.15f, 0);
-                var chimneyMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                chimneyMat.color = new Color(0.2f, 0.2f, 0.2f);
-                chimneyObj.GetComponent<MeshRenderer>().sharedMaterial = chimneyMat;
+                chimneyObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(new Color(0.2f, 0.2f, 0.2f));
             }
 
             // 放置位置
@@ -262,10 +244,7 @@ namespace Rendering
             wallObj.transform.SetParent(root.transform, false);
             wallObj.transform.localScale = new Vector3(Constants.WallConfig.Thickness, h, length);
             wallObj.transform.localPosition = new Vector3(0, h / 2f, 0);
-            var wallMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            wallMat.color = new Color(0.75f, 0.75f, 0.75f);
-            wallMat.SetFloat("_Glossiness", 0.15f);
-            wallObj.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+            wallObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLitWithParams(new Color(0.75f, 0.75f, 0.75f), 0.15f, 0f);
 
             // 垛口
             int battlementCount = Mathf.FloorToInt(length / Constants.WallConfig.BattlementSpacing);
@@ -282,7 +261,7 @@ namespace Rendering
                 );
                 float z = -length / 2f + (i + 0.5f) * (length / battlementCount);
                 bObj.transform.localPosition = new Vector3(0, h + Constants.WallConfig.BattlementHeight / 2f, z);
-                bObj.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+                bObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(new Color(0.72f, 0.72f, 0.72f));
             }
 
             // 中点位置
@@ -306,9 +285,7 @@ namespace Rendering
             poleObj.transform.SetParent(root.transform, false);
             poleObj.transform.localScale = new Vector3(0.04f, Constants.CityConfig.FlagPoleHeight, 0.04f);
             poleObj.transform.localPosition = new Vector3(0, Constants.CityConfig.FlagPoleHeight / 2f, 0);
-            var poleMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            poleMat.color = new Color(0.54f, 0.27f, 0.07f);
-            poleObj.GetComponent<MeshRenderer>().sharedMaterial = poleMat;
+            poleObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(new Color(0.54f, 0.27f, 0.07f));
 
             // 旗面（使用 Plane）
             var flagObj = GameObject.CreatePrimitive(PrimitiveType.Plane);
@@ -318,10 +295,7 @@ namespace Rendering
             float size = Constants.CityConfig.FlagSize;
             flagObj.transform.localScale = new Vector3(size / 10f, 1f, size * 0.6f / 10f);
             flagObj.transform.localPosition = new Vector3(size / 2f, Constants.CityConfig.FlagPoleHeight - size * 0.3f, 0);
-            var flagMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            flagMat.color = color;
-            flagMat.SetFloat("_Cull", 0f); // Double side
-            flagObj.GetComponent<MeshRenderer>().sharedMaterial = flagMat;
+            flagObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(color);
 
             return root;
         }
@@ -369,10 +343,7 @@ namespace Rendering
             mesh.RecalculateNormals();
             mf.sharedMesh = mesh;
 
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.color = new Color(0.15f, 0.39f, 0.92f, 0.5f);
-            mat.SetFloat("_Surface", 1f); // Transparent
-            mr.sharedMaterial = mat;
+            mr.sharedMaterial = MaterialCache.GetLitTransparent(new Color(0.15f, 0.39f, 0.92f), 0.5f);
 
             ring.transform.localPosition = new Vector3(0, 0.1f, 0);
             return ring;
@@ -439,9 +410,7 @@ namespace Rendering
                 wallObj.transform.localScale = new Vector3(Constants.WallConfig.Thickness, h, len);
                 wallObj.transform.localPosition = new Vector3((x1 + x2) / 2f, h / 2f, (z1 + z2) / 2f);
                 wallObj.transform.localRotation = Quaternion.Euler(0, midAngle * Mathf.Rad2Deg, 0);
-                var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                mat.color = new Color(0.75f, 0.75f, 0.75f);
-                wallObj.GetComponent<MeshRenderer>().sharedMaterial = mat;
+                wallObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(new Color(0.75f, 0.75f, 0.75f));
             }
         }
 

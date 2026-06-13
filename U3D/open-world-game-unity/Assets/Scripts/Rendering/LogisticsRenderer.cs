@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using GameState;
 using UnityEngine;
+using Rendering;
 
 /// <summary>
 /// 物流渲染器 — 运输车模型 + 路线可视化
@@ -97,7 +98,7 @@ namespace Rendering
                     : new Color(0.15f, 0.39f, 0.92f, 0.6f);
                 lr.startColor = lineColor;
                 lr.endColor = lineColor;
-                lr.material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+                lr.material = MaterialCache.GetUnlit(lineColor);
                 lr.material.color = lineColor;
                 lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
@@ -122,9 +123,7 @@ namespace Rendering
             bodyObj.transform.SetParent(cart.transform, false);
             bodyObj.transform.localScale = new Vector3(0.3f, 0.15f, 0.2f);
             bodyObj.transform.localPosition = new Vector3(0, 0.12f, 0);
-            var bodyMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            bodyMat.color = new Color(0.54f, 0.45f, 0.33f);
-            bodyObj.GetComponent<MeshRenderer>().sharedMaterial = bodyMat;
+            bodyObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(new Color(0.54f, 0.45f, 0.33f));
 
             // 车轮
             var wheelObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -133,8 +132,7 @@ namespace Rendering
             wheelObj.transform.SetParent(cart.transform, false);
             wheelObj.transform.localScale = new Vector3(0.06f, 0.02f, 0.06f);
             wheelObj.transform.localRotation = Quaternion.Euler(90, 0, 0);
-            var wheelMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            wheelMat.color = new Color(0.2f, 0.2f, 0.2f);
+            var wheelMat = MaterialCache.GetLit(new Color(0.2f, 0.2f, 0.2f));
 
             foreach (var (wx, wz) in new[] { (-0.1f, -0.12f), (-0.1f, 0.12f), (0.1f, -0.12f), (0.1f, 0.12f) })
             {
@@ -151,14 +149,13 @@ namespace Rendering
             cargoObj.transform.SetParent(cart.transform, false);
             cargoObj.transform.localScale = new Vector3(0.15f, 0.08f, 0.1f);
             cargoObj.transform.localPosition = new Vector3(0, 0.23f, 0);
-            var cargoMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            cargoMat.color = route.CargoType switch
+            Color cargoColor = route.CargoType switch
             {
                 "IRON" => new Color(0.5f, 0.5f, 0.5f),
                 "AMMO" => new Color(0.86f, 0.15f, 0.15f),
                 _ => new Color(0.56f, 0.93f, 0.56f), // FOOD = 绿
             };
-            cargoObj.GetComponent<MeshRenderer>().sharedMaterial = cargoMat;
+            cargoObj.GetComponent<MeshRenderer>().sharedMaterial = MaterialCache.GetLit(cargoColor);
 
             return cart;
         }

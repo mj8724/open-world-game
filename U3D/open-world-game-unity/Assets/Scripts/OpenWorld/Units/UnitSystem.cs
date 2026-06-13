@@ -151,22 +151,34 @@ namespace OpenWorld
             _selected.Clear();
         }
 
-        public UnitAgent GetIdleWorker()
+        public UnitAgent GetIdleWorker(int factionId = 0)
         {
             foreach (var agent in _agents.Values)
             {
-                if (agent.Entity.Kind == UnitKind.Worker && agent.Entity.Task == UnitTask.Idle)
+                if (agent.Entity.Kind == UnitKind.Worker && agent.Entity.Task == UnitTask.Idle
+                    && (factionId == 0 || agent.Entity.FactionId == factionId))
                     return agent;
             }
             return null;
         }
 
-        public UnitAgent GetIdleEngineer()
+        public UnitAgent GetIdleEngineer(int factionId = 0)
         {
             foreach (var agent in _agents.Values)
             {
-                if (agent.Entity.FactionId == OpenWorldConstants.PlayerFactionId &&
-                    agent.Entity.Kind == UnitKind.Engineer && agent.Entity.Task == UnitTask.Idle)
+                if (agent.Entity.Kind == UnitKind.Engineer && agent.Entity.Task == UnitTask.Idle
+                    && (factionId == 0 || agent.Entity.FactionId == factionId))
+                    return agent;
+            }
+            return null;
+        }
+
+        public UnitAgent GetIdleMilitary(int factionId)
+        {
+            foreach (var agent in _agents.Values)
+            {
+                if (agent.Entity.FactionId == factionId && agent.Entity.Task == UnitTask.Idle
+                    && agent.Entity.Kind != UnitKind.Worker && agent.Entity.Kind != UnitKind.Engineer)
                     return agent;
             }
             return null;

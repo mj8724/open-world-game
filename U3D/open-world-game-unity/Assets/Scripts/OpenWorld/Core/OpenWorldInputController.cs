@@ -9,6 +9,15 @@ namespace OpenWorld
         public VehicleKind CurrentVehicle { get; private set; } = VehicleKind.HandCart;
         public int BrushRadius { get; private set; } = 1;
         public bool StrategicMapOpen { get; private set; } = true;
+        public int ActiveFactionId { get; private set; } = OpenWorldConstants.PlayerFactionId;
+        public string ActiveFactionName => ActiveFactionId switch
+        {
+            OpenWorldConstants.PlayerFactionId => "边疆联盟",
+            OpenWorldConstants.EnemyFactionId => "钢铁领主",
+            OpenWorldConstants.NeutralFactionId => "自由城镇",
+            OpenWorldConstants.AllyFactionId => "救援联盟",
+            _ => "未知阵营"
+        };
 
         private Camera _camera;
         private SurfaceTerrainSystem _terrain;
@@ -94,6 +103,12 @@ namespace OpenWorld
             if (OpenWorldInput.Pressed(keyboard.uKey)) _commands.SubmitUnloadSelected();
 
             if (OpenWorldInput.Pressed(keyboard.tKey)) I18nSystem.ToggleLanguage();
+
+            // Faction switching
+            if (OpenWorldInput.Pressed(keyboard.tabKey))
+            {
+                ToggleFaction();
+            }
         }
 
         private void HandleMouse()
@@ -244,6 +259,27 @@ namespace OpenWorld
             VehicleKind.ArmoredCar => VehicleKind.HandCart,
             _ => VehicleKind.HandCart
         };
+
+        private void ToggleFaction()
+        {
+            ActiveFactionId = ActiveFactionId == OpenWorldConstants.PlayerFactionId
+                ? OpenWorldConstants.EnemyFactionId
+                : OpenWorldConstants.PlayerFactionId;
+
+            // Jump camera to active faction's base
+            var center = new Vector2Int(512 / 2, 512 / 2);
+            var targetCenter = ActiveFactionId == OpenWorldConstants.PlayerFactionId
+                ? center + new Vector2Int(-80, 0)
+                : center + new Vector2Int(80, 0);
+
+            if (_camera != null)
+            {
+                var camTarget = new Vector3(targetCenter.x, 55f, targetCenter.y - 15f);
+                _camera.transform.position = camTarget;
+            }
+
+            Debug.Log($"[Input] Faction switched to: {ActiveFactionName} (ID={ActiveFactionId})");
+        }
 
         private void OnGUI()
         {

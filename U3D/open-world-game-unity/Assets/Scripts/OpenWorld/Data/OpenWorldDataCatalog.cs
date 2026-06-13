@@ -48,6 +48,59 @@ namespace OpenWorld
         public string NextResearch = "";
     }
 
+    /// <summary>
+    /// 兵种数据定义。<see cref="OpenWorldDataCatalog.GetUnit"/> 提供按 Kind 的查找，
+    /// 由 <see cref="OpenWorldState.AddUnit"/> 应用到新生成的单位。
+    /// </summary>
+    [Serializable]
+    public class UnitKindDef
+    {
+        public UnitKind Kind;
+        public string DisplayName = "";
+        public int AttackPower = 8;
+        public int Hp = 100;
+        public int MaxHp = 100;
+        public float Morale = 100f;
+        public int VisionRange = 12;
+        public float AttackRange = 1.5f;
+        public float Accuracy = 0.65f;
+        public float Armor;
+        public float Speed = 4f;
+        public float Ammo = 20f;
+        public int MaxAmmo = 35;
+        public bool IsRanged;
+
+        public void ApplyTo(UnitEntity unit)
+        {
+            unit.AttackPower = AttackPower;
+            unit.Hp = Hp;
+            unit.MaxHp = MaxHp;
+            unit.Morale = Morale;
+            unit.VisionRange = VisionRange;
+            unit.AttackRange = AttackRange;
+            unit.Accuracy = Accuracy;
+            unit.Armor = Armor;
+            unit.Ammo = Ammo;
+        }
+
+        public static List<UnitKindDef> Defaults() => new()
+        {
+            new UnitKindDef { Kind = UnitKind.Worker, DisplayName = "Worker", AttackPower = 5, Hp = 80, MaxHp = 80, VisionRange = 12, AttackRange = 1.4f, Accuracy = 0.48f, Speed = 4f },
+            new UnitKindDef { Kind = UnitKind.Engineer, DisplayName = "Engineer", AttackPower = 4, Hp = 90, MaxHp = 90, VisionRange = 15, AttackRange = 1.5f, Accuracy = 0.52f, Speed = 3.8f },
+            new UnitKindDef { Kind = UnitKind.Scout, DisplayName = "Scout", AttackPower = 4, Hp = 70, MaxHp = 70, VisionRange = 26, AttackRange = 5f, Accuracy = 0.65f, Ammo = 5, IsRanged = true, Speed = 5f },
+            new UnitKindDef { Kind = UnitKind.Militia, DisplayName = "Militia", AttackPower = 6, Hp = 80, MaxHp = 80, VisionRange = 10, AttackRange = 1.3f, Accuracy = 0.55f, Speed = 3.5f },
+            new UnitKindDef { Kind = UnitKind.Melee, DisplayName = "Swordsman", AttackPower = 10, Hp = 100, MaxHp = 100, VisionRange = 12, AttackRange = 1.5f, Accuracy = 0.72f, Armor = 1f, Speed = 3.5f },
+            new UnitKindDef { Kind = UnitKind.Spearman, DisplayName = "Spearman", AttackPower = 9, Hp = 100, MaxHp = 100, VisionRange = 12, AttackRange = 1.8f, Accuracy = 0.68f, Speed = 3.5f },
+            new UnitKindDef { Kind = UnitKind.Ranged, DisplayName = "Archer", AttackPower = 8, Hp = 80, MaxHp = 80, VisionRange = 14, AttackRange = 6f, Accuracy = 0.64f, IsRanged = true, Ammo = 30, Speed = 3.5f },
+            new UnitKindDef { Kind = UnitKind.Musketeer, DisplayName = "Musketeer", AttackPower = 14, Hp = 90, MaxHp = 90, VisionRange = 16, AttackRange = 7f, Accuracy = 0.70f, IsRanged = true, Ammo = 35, Speed = 3.2f },
+            new UnitKindDef { Kind = UnitKind.Rifleman, DisplayName = "Rifleman", AttackPower = 14, Hp = 90, MaxHp = 90, VisionRange = 16, AttackRange = 7f, Accuracy = 0.72f, IsRanged = true, Ammo = 35, Speed = 3.2f },
+            new UnitKindDef { Kind = UnitKind.MachineGunner, DisplayName = "Machine Gunner", AttackPower = 22, Hp = 100, MaxHp = 100, VisionRange = 18, AttackRange = 8f, Accuracy = 0.62f, Armor = 2f, IsRanged = true, Ammo = 70, Speed = 2.8f },
+            new UnitKindDef { Kind = UnitKind.Artillery, DisplayName = "Artillery", AttackPower = 35, Hp = 70, MaxHp = 70, VisionRange = 20, AttackRange = 12f, Accuracy = 0.52f, Armor = 3f, IsRanged = true, Ammo = 24, Speed = 2f },
+            new UnitKindDef { Kind = UnitKind.Medic, DisplayName = "Medic", AttackPower = 2, Hp = 60, MaxHp = 60, VisionRange = 14, AttackRange = 1.2f, Accuracy = 0.45f, Speed = 3.8f },
+            new UnitKindDef { Kind = UnitKind.Hauler, DisplayName = "Hauler", AttackPower = 3, Hp = 70, MaxHp = 70, VisionRange = 10, AttackRange = 1.2f, Accuracy = 0.40f, Speed = 3.5f },
+        };
+    }
+
     public static class OpenWorldDataCatalog
     {
         public static IReadOnlyList<ProductionRecipeDef> ProductionRecipes => _productionRecipes;
@@ -97,6 +150,12 @@ namespace OpenWorld
             Tech("Industrialization", "Industrialization", TechEra.Gunpowder, TechEra.Industrial, 14, 2, Amounts((ResourceKind.Steel, 1)), "Aviation"),
             Tech("Aviation", "Aviation", TechEra.Industrial, TechEra.Aviation, 18, 3, Amounts((ResourceKind.Fuel, 1), (ResourceKind.MachineParts, 2)), "")
         };
+
+        private static readonly List<UnitKindDef> _unitKinds = UnitKindDef.Defaults();
+
+        public static IReadOnlyList<UnitKindDef> UnitKinds => _unitKinds;
+
+        public static UnitKindDef GetUnit(UnitKind kind) => _unitKinds.Find(u => u.Kind == kind);
 
         public static VehicleDef GetVehicle(VehicleKind kind) => _vehicles.Find(v => v.Kind == kind);
 

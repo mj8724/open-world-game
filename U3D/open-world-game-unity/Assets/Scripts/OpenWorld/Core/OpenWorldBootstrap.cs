@@ -108,6 +108,7 @@ namespace OpenWorld
 
             Input = CreateSystem<OpenWorldInputController>("OpenWorldInputController");
             Input.Initialize(camera, Terrain, Buildings, Units, Vehicles, Jobs, Commands, StrategicMap, Knowledge);
+            Commands.SetInput(Input);
 
             if (loaded)
                 RebuildLoadedWorld();
@@ -146,7 +147,7 @@ namespace OpenWorld
         {
             if (camera == null) return;
             float center = mapSize * 0.5f;
-            camera.transform.position = new Vector3(center - 30f, 55f, center - 45f);
+            camera.transform.position = new Vector3(center - 80f, 55f, center - 45f);
             camera.transform.rotation = Quaternion.Euler(55f, 38f, 0f);
         }
 
@@ -171,81 +172,137 @@ namespace OpenWorld
         private void SeedStartingBase()
         {
             var center = new Vector2Int(_mapSize / 2, _mapSize / 2);
-            Terrain.ApplyBrush(TerrainTool.Flatten, center, 9, 32f);
-            Terrain.ApplyBrush(TerrainTool.Road, center + new Vector2Int(0, -7), 1, 0.5f);
 
-            Buildings.TryPlace(BuildableKind.TownCenter, center + new Vector2Int(-2, -2), 0, 1, spendCost: false);
-            Buildings.TryPlace(BuildableKind.Warehouse, center + new Vector2Int(5, -2), 0, 1, spendCost: false);
-            Buildings.TryPlace(BuildableKind.House, center + new Vector2Int(-7, 3), 0, 1, spendCost: false);
-            Buildings.TryPlace(BuildableKind.Farm, center + new Vector2Int(-12, -8), 0, 1, spendCost: false);
-            Buildings.TryPlace(BuildableKind.ScoutTower, center + new Vector2Int(10, 4), 0, 1, spendCost: false);
-            Buildings.TryPlace(BuildableKind.MinePost, center + new Vector2Int(24, -8), 0, 1, spendCost: false);
-            Buildings.TryPlace(BuildableKind.Smelter, center + new Vector2Int(26, -6), 0, 1, spendCost: false);
-            Buildings.TryPlace(BuildableKind.Steelworks, center + new Vector2Int(30, -6), 0, 1, spendCost: false);
-            Buildings.TryPlace(BuildableKind.MachineShop, center + new Vector2Int(35, -6), 0, 1, spendCost: false);
-            Buildings.TryPlace(BuildableKind.VehicleFactory, center + new Vector2Int(34, -12), 0, 1, spendCost: false);
-            Buildings.TryPlace(BuildableKind.Garage, center + new Vector2Int(29, -12), 0, 1, spendCost: false);
-            Buildings.TryPlace(BuildableKind.Barracks, center + new Vector2Int(-10, 6), 0, 1, spendCost: false);
-            Buildings.TryPlace(BuildableKind.Clinic, center + new Vector2Int(-5, 8), 0, 1, spendCost: false);
-            Buildings.TryPlace(BuildableKind.ControlPoint, center + new Vector2Int(-12, 10), 0, 1, spendCost: false);
+            // LEFT side: Player (Frontier Union)
+            var playerBase = center + new Vector2Int(-80, 0);
+            SeedFactionBase(playerBase, OpenWorldConstants.PlayerFactionId, "Frontier Union");
 
-            Units.Spawn(UnitKind.Worker, center + new Vector2Int(2, 4), 1);
-            Units.Spawn(UnitKind.Worker, center + new Vector2Int(4, 4), 1);
-            Units.Spawn(UnitKind.Worker, center + new Vector2Int(6, 4), 1);
-            Units.Spawn(UnitKind.Engineer, center + new Vector2Int(7, 6), 1);
-            Units.Spawn(UnitKind.Melee, center + new Vector2Int(-4, 5), 1);
-            Units.Spawn(UnitKind.Scout, center + new Vector2Int(-6, 7), 1);
-            Units.Spawn(UnitKind.Medic, center + new Vector2Int(-2, 7), 1);
+            // RIGHT side: Enemy (Iron Dominion) — mirror layout
+            var enemyBase = center + new Vector2Int(80, 0);
+            SeedFactionBase(enemyBase, OpenWorldConstants.EnemyFactionId, "Iron Dominion");
 
-            Vehicles.Spawn(VehicleKind.HandCart, center + new Vector2Int(7, 3), 1);
-            Vehicles.Spawn(VehicleKind.Wagon, center + new Vector2Int(9, 3), 1);
+            SeedCentralNeutral(center);
+            Knowledge.RevealCircle(playerBase, 38);
+        }
 
-            var warehouse = center + new Vector2Int(5, -2);
-            var supplyDepot = center + new Vector2Int(28, -12);
+        private void SeedFactionBase(Vector2Int origin, int factionId, string label)
+        {
+            // --- Terrain preparation ---
+            Terrain.ApplyBrush(TerrainTool.Flatten, origin, 9, 32f);
+            Terrain.ApplyBrush(TerrainTool.Road, origin + new Vector2Int(0, -7), 1, 0.5f);
+
+            // --- Buildings ---
+            Buildings.TryPlace(BuildableKind.TownCenter, origin + new Vector2Int(-2, -2), 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.Warehouse, origin + new Vector2Int(5, -2), 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.House, origin + new Vector2Int(-7, 3), 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.Farm, origin + new Vector2Int(-12, -8), 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.ScoutTower, origin + new Vector2Int(10, 4), 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.MinePost, origin + new Vector2Int(24, -8), 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.Smelter, origin + new Vector2Int(26, -6), 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.Steelworks, origin + new Vector2Int(30, -6), 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.MachineShop, origin + new Vector2Int(35, -6), 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.VehicleFactory, origin + new Vector2Int(34, -12), 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.Garage, origin + new Vector2Int(29, -12), 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.Barracks, origin + new Vector2Int(-10, 6), 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.Clinic, origin + new Vector2Int(-5, 8), 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.ControlPoint, origin + new Vector2Int(-12, 10), 0, factionId, spendCost: false);
+
+            // --- Units ---
+            Units.Spawn(UnitKind.Worker, origin + new Vector2Int(2, 4), factionId);
+            Units.Spawn(UnitKind.Worker, origin + new Vector2Int(4, 4), factionId);
+            Units.Spawn(UnitKind.Worker, origin + new Vector2Int(6, 4), factionId);
+            Units.Spawn(UnitKind.Engineer, origin + new Vector2Int(7, 6), factionId);
+            Units.Spawn(UnitKind.Melee, origin + new Vector2Int(-4, 5), factionId);
+            Units.Spawn(UnitKind.Melee, origin + new Vector2Int(-6, 3), factionId);
+            Units.Spawn(UnitKind.Ranged, origin + new Vector2Int(-8, 5), factionId);
+            Units.Spawn(UnitKind.Scout, origin + new Vector2Int(-6, 7), factionId);
+            Units.Spawn(UnitKind.Medic, origin + new Vector2Int(-2, 7), factionId);
+
+            // --- Vehicles ---
+            Vehicles.Spawn(VehicleKind.HandCart, origin + new Vector2Int(7, 3), factionId);
+            Vehicles.Spawn(VehicleKind.Wagon, origin + new Vector2Int(9, 3), factionId);
+
+            // --- Supply Depot ---
+            var warehouse = origin + new Vector2Int(5, -2);
+            var supplyDepot = origin + new Vector2Int(28, -12);
             Terrain.ApplyBrush(TerrainTool.Flatten, supplyDepot, 4, 32f);
-            Buildings.TryPlace(BuildableKind.Warehouse, supplyDepot, 0, OpenWorldConstants.PlayerFactionId, spendCost: false);
-            ApplyRoadLine(warehouse, center + new Vector2Int(28, -2));
-            ApplyRoadLine(center + new Vector2Int(28, -2), supplyDepot);
-            Terrain.ApplyBrush(TerrainTool.Bridge, center + new Vector2Int(18, -2), 1, 0.5f);
-            var westStationCell = center + new Vector2Int(12, -7);
-            var eastStationCell = center + new Vector2Int(44, -7);
+            Buildings.TryPlace(BuildableKind.Warehouse, supplyDepot, 0, factionId, spendCost: false);
+            ApplyRoadLine(warehouse, origin + new Vector2Int(28, -2));
+            ApplyRoadLine(origin + new Vector2Int(28, -2), supplyDepot);
+            Terrain.ApplyBrush(TerrainTool.Bridge, origin + new Vector2Int(18, -2), 1, 0.5f);
+
+            // --- Rail System ---
+            var westStationCell = origin + new Vector2Int(12, -7);
+            var eastStationCell = origin + new Vector2Int(44, -7);
             Terrain.ApplyBrush(TerrainTool.Flatten, westStationCell, 4, 32f);
             Terrain.ApplyBrush(TerrainTool.Flatten, eastStationCell, 4, 32f);
-            Buildings.TryPlace(BuildableKind.Station, westStationCell, 0, OpenWorldConstants.PlayerFactionId, spendCost: false);
-            Buildings.TryPlace(BuildableKind.Station, eastStationCell, 0, OpenWorldConstants.PlayerFactionId, spendCost: false);
-            Buildings.TryPlace(BuildableKind.TrainFactory, center + new Vector2Int(44, -13), 0, OpenWorldConstants.PlayerFactionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.Station, westStationCell, 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.Station, eastStationCell, 0, factionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.TrainFactory, origin + new Vector2Int(44, -13), 0, factionId, spendCost: false);
             for (int x = westStationCell.x - 2; x <= eastStationCell.x + 6; x++)
                 Terrain.ApplyBrush(TerrainTool.Rail, new Vector2Int(x, westStationCell.y - 2), 0, 0.5f);
 
-            var westStation = FindBuilding(BuildableKind.Station, westStationCell);
-            var eastStation = FindBuilding(BuildableKind.Station, eastStationCell);
+            var westStation = FindBuilding(BuildableKind.Station, westStationCell, factionId);
+            var eastStation = FindBuilding(BuildableKind.Station, eastStationCell, factionId);
             if (westStation != null && eastStation != null)
             {
                 var westAccess = World.FindBuildingAccessCell(westStation, eastStation.Origin);
                 var eastAccess = World.FindBuildingAccessCell(eastStation, westStation.Origin);
                 ApplyRailLine(westAccess, eastAccess);
                 World.AddToStorage(westStation, ResourceKind.IronOre, 60);
-                var locomotive = Vehicles.SpawnScenarioVehicle(VehicleKind.Locomotive, westAccess, OpenWorldConstants.PlayerFactionId);
-                var wagon = Vehicles.SpawnScenarioVehicle(VehicleKind.CargoWagon, westAccess + Vector2Int.left, OpenWorldConstants.PlayerFactionId);
+                var locomotive = Vehicles.SpawnScenarioVehicle(VehicleKind.Locomotive, westAccess, factionId);
+                var wagon = Vehicles.SpawnScenarioVehicle(VehicleKind.CargoWagon, westAccess + Vector2Int.left, factionId);
                 var railRoute = World.AddRoute(westStation.Id, eastStation.Id, westAccess, eastAccess, ResourceKind.IronOre, VehicleKind.Locomotive, 5, LogisticsMode.Automatic);
-                railRoute.Name = "Foundry Rail Shuttle";
+                railRoute.Name = $"{label} Rail Shuttle";
                 railRoute.TargetStock = 40;
                 if (locomotive != null && wagon != null)
-                    World.RailSchedules.Add(new RailSchedule { Id = 1, LocomotiveId = locomotive.Entity.Id, WagonIds = new System.Collections.Generic.List<int> { wagon.Entity.Id }, StationBuildingIds = new System.Collections.Generic.List<int> { westStation.Id, eastStation.Id }, CargoKind = ResourceKind.IronOre, Status = "Ready" });
+                {
+                    int scheduleId = World.RailSchedules.Count + 1;
+                    World.RailSchedules.Add(new RailSchedule { Id = scheduleId, LocomotiveId = locomotive.Entity.Id, WagonIds = new System.Collections.Generic.List<int> { wagon.Entity.Id }, StationBuildingIds = new System.Collections.Generic.List<int> { westStation.Id, eastStation.Id }, CargoKind = ResourceKind.IronOre, Status = "Ready" });
+                }
             }
 
-            SeedWorldSites(center);
-            var sourceBuilding = World.FindNearestStorage(warehouse, OpenWorldConstants.PlayerFactionId, 8);
-            var targetBuilding = World.FindNearestStorage(supplyDepot, OpenWorldConstants.PlayerFactionId, 8);
-            SeedStartingStorage(sourceBuilding);
-            SeedStarterRoutes(center, sourceBuilding, targetBuilding);
-            Knowledge.RevealCircle(center, 38);
+            // --- Initial Storage ---
+            var factionWarehouse = World.FindNearestStorage(warehouse, factionId, 8);
+            if (factionWarehouse != null)
+            {
+                World.AddToStorage(factionWarehouse, ResourceKind.Food, 200);
+                World.AddToStorage(factionWarehouse, ResourceKind.Wood, 150);
+                World.AddToStorage(factionWarehouse, ResourceKind.Stone, 100);
+                World.AddToStorage(factionWarehouse, ResourceKind.IronOre, 80);
+                World.AddToStorage(factionWarehouse, ResourceKind.Coal, 60);
+                World.AddToStorage(factionWarehouse, ResourceKind.Weapons, 40);
+            }
+
+            // --- Starter Routes ---
+            var sourceBuilding = World.FindNearestStorage(warehouse, factionId, 8);
+            var targetBuilding = World.FindNearestStorage(supplyDepot, factionId, 8);
+            if (factionId == OpenWorldConstants.PlayerFactionId)
+                SeedStartingStorage(sourceBuilding);
+            SeedStarterRoutes(origin, sourceBuilding, targetBuilding, factionId);
         }
 
-        private BuildingEntity FindBuilding(BuildableKind kind, Vector2Int origin)
+        private void SeedCentralNeutral(Vector2Int center)
+        {
+            var neutral = center + new Vector2Int(0, 4);
+            Terrain.ApplyBrush(TerrainTool.Flatten, neutral, 6, 28f);
+            Buildings.TryPlace(BuildableKind.Market, neutral + new Vector2Int(-2, -2), 0, OpenWorldConstants.NeutralFactionId, spendCost: false);
+            Buildings.TryPlace(BuildableKind.Warehouse, neutral + new Vector2Int(4, -2), 0, OpenWorldConstants.NeutralFactionId, spendCost: false);
+
+            AddSite("Frontier Union HQ", center + new Vector2Int(-80, 0), OpenWorldConstants.PlayerFactionId, BuildableKind.ControlPoint, ResourceKind.Weapons);
+            AddSite("Iron Dominion HQ", center + new Vector2Int(80, 0), OpenWorldConstants.EnemyFactionId, BuildableKind.ControlPoint, ResourceKind.Weapons);
+            AddSite("River Crossing Trading Post", neutral, OpenWorldConstants.NeutralFactionId, BuildableKind.Market, ResourceKind.Food);
+            AddSite("Iron Ridge Left", center + new Vector2Int(-34, -18), OpenWorldConstants.NeutralFactionId, BuildableKind.MinePost, ResourceKind.IronOre);
+            AddSite("Iron Ridge Right", center + new Vector2Int(34, -18), OpenWorldConstants.NeutralFactionId, BuildableKind.MinePost, ResourceKind.IronOre);
+            AddSite("Coal Basin Left", center + new Vector2Int(-60, 28), OpenWorldConstants.NeutralFactionId, BuildableKind.MinePost, ResourceKind.Coal);
+            AddSite("Coal Basin Right", center + new Vector2Int(60, 28), OpenWorldConstants.NeutralFactionId, BuildableKind.MinePost, ResourceKind.Coal);
+        }
+
+        private BuildingEntity FindBuilding(BuildableKind kind, Vector2Int origin, int factionId)
         {
             foreach (var building in World.Buildings.Values)
-                if (building.Kind == kind && building.Origin == origin) return building;
+                if (building.Kind == kind && building.Origin == origin && building.FactionId == factionId)
+                    return building;
             return null;
         }
 
@@ -279,14 +336,13 @@ namespace OpenWorld
             warehouse.LastStorageStatus = "Starter stock ready";
         }
 
-        private void SeedStarterRoutes(Vector2Int center, BuildingEntity mainWarehouse, BuildingEntity supplyWarehouse)
+        private void SeedStarterRoutes(Vector2Int origin, BuildingEntity mainWarehouse, BuildingEntity supplyWarehouse, int factionId)
         {
-            if (World.LogisticsRoutes.Count > 0) return;
-            var farm = FindNearestBuilding(center + new Vector2Int(-12, -8), BuildableKind.Farm);
-            var mine = FindNearestBuilding(center + new Vector2Int(24, -8), BuildableKind.MinePost);
-            var smelter = FindNearestBuilding(center + new Vector2Int(26, -6), BuildableKind.Smelter);
-            var steelworks = FindNearestBuilding(center + new Vector2Int(30, -6), BuildableKind.Steelworks);
-            var machineShop = FindNearestBuilding(center + new Vector2Int(35, -6), BuildableKind.MachineShop);
+            var farm = FindNearestBuilding(origin + new Vector2Int(-12, -8), BuildableKind.Farm, factionId);
+            var mine = FindNearestBuilding(origin + new Vector2Int(24, -8), BuildableKind.MinePost, factionId);
+            var smelter = FindNearestBuilding(origin + new Vector2Int(26, -6), BuildableKind.Smelter, factionId);
+            var steelworks = FindNearestBuilding(origin + new Vector2Int(30, -6), BuildableKind.Steelworks, factionId);
+            var machineShop = FindNearestBuilding(origin + new Vector2Int(35, -6), BuildableKind.MachineShop, factionId);
 
             AddStarterRoute(farm, mainWarehouse, ResourceKind.Food, 150, 7);
             AddStarterRoute(mainWarehouse, supplyWarehouse, ResourceKind.Food, 60, 4);
@@ -296,13 +352,13 @@ namespace OpenWorld
             AddStarterRoute(steelworks, machineShop, ResourceKind.Steel, 30, 5);
         }
 
-        private BuildingEntity FindNearestBuilding(Vector2Int cell, BuildableKind kind)
+        private BuildingEntity FindNearestBuilding(Vector2Int cell, BuildableKind kind, int factionId)
         {
             BuildingEntity best = null;
             int bestDistance = int.MaxValue;
             foreach (var building in World.Buildings.Values)
             {
-                if (building.FactionId != OpenWorldConstants.PlayerFactionId || building.Kind != kind) continue;
+                if (building.FactionId != factionId || building.Kind != kind) continue;
                 int distance = (building.Origin - cell).sqrMagnitude;
                 if (distance >= bestDistance) continue;
                 best = building;
@@ -354,27 +410,6 @@ namespace OpenWorld
                 unit.CurrentOrder = new UnitOrder();
                 unit.Task = UnitTask.Idle;
             }
-        }
-
-        private void SeedWorldSites(Vector2Int center)
-        {
-            var enemy = center + new Vector2Int(95, 90);
-            Terrain.ApplyBrush(TerrainTool.Flatten, enemy, 7, 32f);
-            Buildings.TryPlace(BuildableKind.ControlPoint, enemy + new Vector2Int(-2, -2), 0, OpenWorldConstants.EnemyFactionId, spendCost: false);
-            Buildings.TryPlace(BuildableKind.Barracks, enemy + new Vector2Int(5, -2), 0, OpenWorldConstants.EnemyFactionId, spendCost: false);
-            Buildings.TryPlace(BuildableKind.Tower, enemy + new Vector2Int(-7, 4), 0, OpenWorldConstants.EnemyFactionId, spendCost: false);
-            Units.Spawn(UnitKind.Militia, enemy + new Vector2Int(2, 5), OpenWorldConstants.EnemyFactionId);
-            Units.Spawn(UnitKind.Ranged, enemy + new Vector2Int(4, 5), OpenWorldConstants.EnemyFactionId);
-
-            var neutral = center + new Vector2Int(-80, 54);
-            Terrain.ApplyBrush(TerrainTool.Flatten, neutral, 6, 28f);
-            Buildings.TryPlace(BuildableKind.Market, neutral + new Vector2Int(-2, -2), 0, OpenWorldConstants.NeutralFactionId, spendCost: false);
-            Buildings.TryPlace(BuildableKind.Warehouse, neutral + new Vector2Int(4, -2), 0, OpenWorldConstants.NeutralFactionId, spendCost: false);
-
-            AddSite("Iron Ridge", center + new Vector2Int(34, -18), OpenWorldConstants.NeutralFactionId, BuildableKind.MinePost, ResourceKind.IronOre);
-            AddSite("Coal Basin", center + new Vector2Int(60, 28), OpenWorldConstants.NeutralFactionId, BuildableKind.MinePost, ResourceKind.Coal);
-            AddSite("Free Town Market", neutral, OpenWorldConstants.NeutralFactionId, BuildableKind.Market, ResourceKind.Food);
-            AddSite("Dominion Fort", enemy, OpenWorldConstants.EnemyFactionId, BuildableKind.ControlPoint, ResourceKind.Weapons);
         }
 
         private void AddSite(string name, Vector2Int cell, int factionId, BuildableKind kind, ResourceKind resource)

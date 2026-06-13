@@ -69,18 +69,19 @@ namespace OpenWorld
             MapSize = mapSize;
             ChunkSize = chunkSize;
             Seed = seed;
-            Inventory.Dirt = 200;
-            Inventory.Stone = 160;
-            Inventory.IronOre = 60;
-            Inventory.Coal = 35;
-            Inventory.Wood = 180;
-            Inventory.Food = 100;
-            Inventory.Lumber = 45;
-            Inventory.IronIngot = 8;
-            Inventory.Fuel = 40;
-            Inventory.Medicine = 12;
-            Inventory.Ammo = 20;
-            Inventory.MachineParts = 6;
+            Inventory.Dirt = 300;
+            Inventory.Stone = 250;
+            Inventory.IronOre = 120;
+            Inventory.Coal = 80;
+            Inventory.Wood = 300;
+            Inventory.Food = 250;
+            Inventory.Lumber = 80;
+            Inventory.IronIngot = 20;
+            Inventory.Fuel = 60;
+            Inventory.Medicine = 20;
+            Inventory.Ammo = 40;
+            Inventory.MachineParts = 12;
+            Inventory.Weapons = 20;
             KnowledgeCells = new KnowledgeState[mapSize * mapSize];
             InitializeFactions();
             InitializeRegions();
@@ -115,6 +116,11 @@ namespace OpenWorld
         }
 
         public void SetCell(Vector2Int cell, SurfaceCell value)
+        {
+            SetCell(cell, value, fireEvent: true);
+        }
+
+        public void SetCell(Vector2Int cell, SurfaceCell value, bool fireEvent)
         {
             if (!InBounds(cell)) return;
             var chunk = GetOrCreateChunk(ToChunkCoord(cell));
@@ -653,8 +659,62 @@ namespace OpenWorld
 
         private SurfaceCell GenerateCell(int x, int z)
         {
-            float low = Mathf.PerlinNoise((x + Seed) * 0.010f, (z - Seed) * 0.010f);
-            float high = Mathf.PerlinNoise((x - Seed) * 0.035f, (z + Seed) * 0.035f);
+            const int mapHalfX = 256;
+            const float riverHalfWidth = 4f;
+
+            // === Central River (symmetric barrier at X=256) ===
+            int distFromCenter = Mathf.Abs(x - mapHalfX);
+            if (distFromCenter <= riverHalfWidth)
+            {
+                float edgeFactor = distFromCenter / riverHalfWidth;
+                SurfaceTerrain riverTerrain;
+                float riverHeight;
+
+                if (edgeFactor < 0.4f)
+                {
+                    riverTerrain = SurfaceTerrain.Water;
+                    riverHeight = 1.0f;
+                }
+                else if (edgeFactor < 0.7f)
+                {
+                    riverTerrain = SurfaceTerrain.Water;
+                    riverHeight = 2.0f;
+                }
+                else
+                {
+                    riverTerrain = SurfaceTerrain.Shallows;
+                    riverHeight = 3.0f;
+                }
+
+                // Ford crossing points — shallow passable zones
+                int[] fordZValues = { 80, 190, 300, 410 };
+                foreach (int fordZ in fordZValues)
+                {
+                    if (Mathf.Abs(z - fordZ) <= 3)
+                    {
+                        riverTerrain = SurfaceTerrain.Shallows;
+                        riverHeight = 3.5f;
+                        break;
+                    }
+                }
+
+                return new SurfaceCell
+                {
+                    Height = riverHeight,
+                    Terrain = riverTerrain,
+                    Layers = new[] { new MaterialLayer(GroundMaterial.Dirt, 1), new MaterialLayer(GroundMaterial.Stone, 6) },
+                    CurrentLayer = 0,
+                    BuildingId = 0,
+                    ResourceRichness = 0,
+                    RegionId = RegionIdFor(new Vector2Int(x, z))
+                };
+            }
+
+            // === Symmetric Terrain: mirror right side to left side ===
+            int genX = (x > mapHalfX) ? (mapHalfX * 2 - x) : x;
+
+            float low = Mathf.PerlinNoise((genX + Seed) * 0.010f, (z - Seed) * 0.010f);
+            float high = Mathf.PerlinNoise((genX - Seed) * 0.035f, (z + Seed) * 0.035f);
             float height = Mathf.Round((low * 12f + high * 3f) * 2f) / 2f;
 
             SurfaceTerrain terrain = height switch
@@ -664,15 +724,30 @@ namespace OpenWorld
                 _ => SurfaceTerrain.Mountain
             };
 
-            float forestNoise = Mathf.PerlinNoise((x + 91) * 0.045f, (z + 37) * 0.045f);
+            float forestNoise = Mathf.PerlinNoise((genX + 91) * 0.045f, (z + 37) * 0.045f);
             if (terrain == SurfaceTerrain.Plains && forestNoise > 0.66f) terrain = SurfaceTerrain.Forest;
 
-            bool iron = Mathf.PerlinNoise((x + Seed * 3) * 0.025f, (z - Seed * 5) * 0.025f) > 0.72f && height > 3.5f;
-            bool coal = Mathf.PerlinNoise((x - Seed * 4) * 0.021f, (z + Seed * 2) * 0.021f) > 0.76f && height > 4.0f;
-            bool oil = Mathf.PerlinNoise((x + 444) * 0.015f, (z - 888) * 0.015f) > 0.83f && height < 4.5f;
-            bool sulfur = Mathf.PerlinNoise((x + Seed * 7) * 0.019f, (z + Seed * 11) * 0.019f) > 0.84f && height > 2.5f;
-            bool nitrate = Mathf.PerlinNoise((x - Seed * 9) * 0.018f, (z - Seed * 6) * 0.018f) > 0.85f && height < 6f;
-            bool clay = Mathf.PerlinNoise((x + 51) * 0.032f, (z - 73) * 0.032f) > 0.70f && height < 3.5f;
+            // River generation - winding channels that require bridges (uses genX for symmetry)
+            float riverX = Mathf.PerlinNoise((genX + Seed * 2) * 0.006f, (z - 137) * 0.0042f);
+            float riverZ = Mathf.PerlinNoise((genX + 229) * 0.0042f, (z + Seed * 2) * 0.006f);
+            float riverVal = Mathf.Abs(riverX - 0.5f) * 2f;
+            float riverZVal = Mathf.Abs(riverZ - 0.5f) * 2f;
+            float river = Mathf.Min(riverVal, riverZVal);
+            float riverSecondary = Mathf.PerlinNoise((genX - 401) * 0.0055f, (z + 331) * 0.0055f);
+            bool isRiver = river < 0.13f || (riverSecondary > 0.88f && river < 0.18f);
+            if (isRiver)
+            {
+                float edge = river < 0.06f ? 0f : (river - 0.06f) / 0.07f;
+                terrain = edge < 0.5f ? SurfaceTerrain.Water : SurfaceTerrain.Shallows;
+                height = terrain == SurfaceTerrain.Water ? height - 1.5f : height - 0.8f;
+            }
+
+            bool iron = Mathf.PerlinNoise((genX + Seed * 3) * 0.025f, (z - Seed * 5) * 0.025f) > 0.72f && height > 3.5f;
+            bool coal = Mathf.PerlinNoise((genX - Seed * 4) * 0.021f, (z + Seed * 2) * 0.021f) > 0.76f && height > 4.0f;
+            bool oil = Mathf.PerlinNoise((genX + 444) * 0.015f, (z - 888) * 0.015f) > 0.83f && height < 4.5f;
+            bool sulfur = Mathf.PerlinNoise((genX + Seed * 7) * 0.019f, (z + Seed * 11) * 0.019f) > 0.84f && height > 2.5f;
+            bool nitrate = Mathf.PerlinNoise((genX - Seed * 9) * 0.018f, (z - Seed * 6) * 0.018f) > 0.85f && height < 6f;
+            bool clay = Mathf.PerlinNoise((genX + 51) * 0.032f, (z - 73) * 0.032f) > 0.70f && height < 3.5f;
             var layers = iron
                 ? new[] { new MaterialLayer(GroundMaterial.Dirt, 2), new MaterialLayer(GroundMaterial.Stone, 3), new MaterialLayer(GroundMaterial.IronOre, 8, 0.55f + high * 0.35f, 1.55f, 0.08f, 96) }
                 : coal
@@ -776,63 +851,13 @@ namespace OpenWorld
 
         private static void ApplyUnitDefaults(UnitEntity unit)
         {
-            switch (unit.Kind)
-            {
-                case UnitKind.Worker:
-                    unit.AttackPower = 5;
-                    unit.VisionRange = 12;
-                    unit.AttackRange = 1.4f;
-                    unit.Accuracy = 0.48f;
-                    break;
-                case UnitKind.Engineer:
-                    unit.AttackPower = 4;
-                    unit.VisionRange = 15;
-                    unit.AttackRange = 1.5f;
-                    unit.Accuracy = 0.52f;
-                    break;
-                case UnitKind.Scout:
-                    unit.AttackPower = 4;
-                    unit.VisionRange = 26;
-                    unit.Ammo = 5;
-                    unit.AttackRange = 5f;
-                    unit.Accuracy = 0.65f;
-                    break;
-                case UnitKind.Medic:
-                    unit.AttackPower = 2;
-                    unit.VisionRange = 14;
-                    unit.AttackRange = 1.2f;
-                    unit.Accuracy = 0.45f;
-                    break;
-                case UnitKind.Rifleman:
-                case UnitKind.Musketeer:
-                    unit.AttackPower = 14;
-                    unit.Ammo = 35;
-                    unit.VisionRange = 16;
-                    unit.AttackRange = 7f;
-                    unit.Accuracy = 0.70f;
-                    break;
-                case UnitKind.MachineGunner:
-                    unit.AttackPower = 22;
-                    unit.Ammo = 70;
-                    unit.VisionRange = 18;
-                    unit.AttackRange = 8f;
-                    unit.Accuracy = 0.62f;
-                    unit.Armor = 2f;
-                    break;
-                case UnitKind.Artillery:
-                    unit.AttackPower = 35;
-                    unit.AttackRange = 12f;
-                    unit.Accuracy = 0.52f;
-                    unit.Ammo = 24;
-                    unit.Armor = 3f;
-                    break;
-                default:
-                    unit.AttackPower = 8;
-                    unit.VisionRange = 12;
-                    unit.AttackRange = unit.Kind == UnitKind.Ranged ? 6f : 1.6f;
-                    unit.Accuracy = unit.Kind == UnitKind.Ranged ? 0.64f : 0.70f;
-                    break;
-            }
+            var def = OpenWorldDataCatalog.GetUnit(unit.Kind);
+            if (def != null) { def.ApplyTo(unit); return; }
+            // Fallback defaults for any kind missing from the catalog
+            unit.AttackPower = 8;
+            unit.VisionRange = 12;
+            unit.AttackRange = 1.6f;
+            unit.Accuracy = 0.65f;
         }
 
         private static void ApplyVehicleDefaults(VehicleEntity vehicle)
@@ -888,5 +913,34 @@ namespace OpenWorld
             BuildingId = -1,
             Layers = new[] { new MaterialLayer(GroundMaterial.Stone, 1) }
         };
+        public void TrimExcess()
+        {
+            int maxIntel = Mathf.Max(200, Units.Count + Vehicles.Count + Buildings.Count / 2);
+            while (IntelSnapshots.Count > maxIntel)
+                IntelSnapshots.RemoveAt(0);
+
+            int maxSurveys = Mathf.Max(500, MapSize * MapSize / 64);
+            while (Surveys.Count > maxSurveys)
+                Surveys.RemoveAt(0);
+
+            while (SurveyByCell.Count > maxSurveys)
+            {
+                var enumerator = SurveyByCell.GetEnumerator();
+                if (enumerator.MoveNext())
+                    SurveyByCell.Remove(enumerator.Current.Key);
+            }
+
+            int maxDrillReports = Mathf.Max(200, Buildings.Count / 5);
+            while (DrillReports.Count > maxDrillReports)
+                DrillReports.RemoveAt(0);
+
+            int maxCommands = 512;
+            while (Commands.Count > maxCommands)
+                Commands.TryDequeue(out _);
+
+            int maxModifiedCells = MapSize * MapSize / 16;
+            if (ModifiedCells.Count > maxModifiedCells)
+                ModifiedCells.Clear();
+        }
     }
 }

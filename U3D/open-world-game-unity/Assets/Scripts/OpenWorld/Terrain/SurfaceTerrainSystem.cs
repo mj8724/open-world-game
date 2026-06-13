@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Rendering;
 
 namespace OpenWorld
 {
@@ -182,10 +183,7 @@ namespace OpenWorld
 
         private static Material CreateTerrainMaterial()
         {
-            var shader = Shader.Find("Sprites/Default");
-            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (shader == null) shader = Shader.Find("Standard");
-            var mat = new Material(shader);
+            var mat = MaterialCache.GetNamed("OpenWorld Vertex Terrain");
             mat.name = "OpenWorld Vertex Terrain";
             mat.color = Color.white;
             return mat;

@@ -285,26 +285,20 @@ namespace Rendering
 
         private static Material CreateDefaultTerrainMaterial()
         {
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            if (mat != null)
-            {
-                mat.EnableKeyword("_VERTEX_COLORS");
-                mat.SetFloat("_Glossiness", 0f);
-            }
+            var mat = MaterialCache.GetNamed("Default Terrain");
+            mat.EnableKeyword("_VERTEX_COLORS");
+            mat.SetFloat("_Glossiness", 0f);
             return mat;
         }
 
         private static Material CreateDefaultWaterMaterial()
         {
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            if (mat != null)
-            {
-                mat.color = new Color(0x1E / 255f, 0x90 / 255f, 0xFF / 255f, 0.6f);
-                mat.SetFloat("_Surface", 1f); // Transparent
-                mat.SetFloat("_Blend", 0f);
-                mat.SetFloat("_Glossiness", 0.3f);
-                mat.SetFloat("_Metallic", 0.3f);
-            }
+            var mat = MaterialCache.GetNamed("Default Water");
+            mat.color = new Color(0x1E / 255f, 0x90 / 255f, 0xFF / 255f, 0.6f);
+            mat.SetFloat("_Surface", 1f);
+            mat.SetFloat("_Blend", 0f);
+            mat.SetFloat("_Glossiness", 0.3f);
+            mat.SetFloat("_Metallic", 0.3f);
             return mat;
         }
 

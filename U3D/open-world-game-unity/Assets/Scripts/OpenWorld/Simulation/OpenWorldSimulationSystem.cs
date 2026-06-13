@@ -11,6 +11,9 @@ namespace OpenWorld
         public string ResearchSummary { get; private set; } = "Research idle";
         public string DiplomacySummary { get; private set; } = "Neutral trade open";
         public float UnityProgress { get; private set; }
+        public bool GameOver { get; private set; }
+        public string GameOverText { get; private set; } = "";
+        public bool IsVictory { get; private set; }
 
         private readonly List<string> _productionLines = new();
         private OpenWorldState _world;
@@ -19,13 +22,16 @@ namespace OpenWorld
         private UnitSystem _units;
         private BlueprintSystem _blueprints;
         private VehicleSystem _vehicles;
+        private Dictionary<Vector2Int, List<UnitEntity>> _combatGrid;
+        private const int CombatGridCellSize = 12;
         private float _economyTimer;
+        private float _cleanupTimer;
         private float _aiTimer;
         private float _combatTimer;
         private int _aiStep;
-        private const int EnemyUnitBudget = 48;
-        private const int EnemyRoadblockBudget = 8;
-        private const int EnemyRaidSize = 2;
+        private const int EnemyUnitBudget = 14;
+        private const int EnemyRoadblockBudget = 2;
+        private const int EnemyRaidSize = 3;
 
         public void Initialize(OpenWorldState world, SurfaceTerrainSystem terrain, BuildingSystem buildings, UnitSystem units, BlueprintSystem blueprints, VehicleSystem vehicles)
         {
@@ -43,6 +49,7 @@ namespace OpenWorld
             _economyTimer += Time.deltaTime;
             _aiTimer += Time.deltaTime;
             _combatTimer += Time.deltaTime;
+            _cleanupTimer += Time.deltaTime;
 
             if (_economyTimer >= 1.0f)
             {
@@ -53,7 +60,7 @@ namespace OpenWorld
                 UpdateRegionControl();
             }
 
-            if (_aiTimer >= 4.0f)
+            if (_aiTimer >= 2.0f)
             {
                 _aiTimer = 0f;
                 TickEnemyAi();
@@ -63,6 +70,13 @@ namespace OpenWorld
             {
                 _combatTimer = 0f;
                 TickCombat();
+                CheckWinLose();
+            }
+
+            if (_cleanupTimer >= 15.0f)
+            {
+                _cleanupTimer = 0f;
+                _world.TrimExcess();
             }
         }
 
@@ -573,97 +587,353 @@ namespace OpenWorld
             if (_world.Buildings.Count == 0) return;
             _aiStep++;
             var center = new Vector2Int(_world.MapSize / 2, _world.MapSize / 2);
-            var enemyCenter = center + new Vector2Int(95, 90);
+            var enemyCenter = center + new Vector2Int(80, 0);
             var pressureCell = enemyCenter + new Vector2Int((_aiStep % 5) * 2, (_aiStep % 3) * 2);
 
             int enemyUnits = 0;
             foreach (var unit in _world.Units.Values)
                 if (unit.FactionId == OpenWorldConstants.EnemyFactionId) enemyUnits++;
-
+            int enemyBuildings = 0;
+            foreach (var building in _world.Buildings.Values)
+                if (building.FactionId == OpenWorldConstants.EnemyFactionId) enemyBuildings++;
             int enemyRoadblocks = 0;
             foreach (var building in _world.Buildings.Values)
                 if (building.FactionId == OpenWorldConstants.EnemyFactionId && building.Kind == BuildableKind.Roadblock) enemyRoadblocks++;
             foreach (var blueprint in _world.Blueprints)
                 if (blueprint.FactionId == OpenWorldConstants.EnemyFactionId && blueprint.BuildKind == BuildableKind.Roadblock && blueprint.Status != BlueprintStatus.Cancelled) enemyRoadblocks++;
 
-            if (_aiStep % 2 == 0 && enemyUnits < EnemyUnitBudget)
+            // Phase 0: Scout nearby terrain for resources (early game)
+            if (_aiStep <= 8 && enemyUnits < EnemyUnitBudget * 2 / 5)
+            {
                 _units.Spawn(UnitKind.Militia, pressureCell, OpenWorldConstants.EnemyFactionId);
-
-            if (_aiStep % 3 == 0 && enemyRoadblocks < EnemyRoadblockBudget)
-                _blueprints.QueueBuilding(BuildableKind.Roadblock, pressureCell + new Vector2Int(2, 0), OpenWorldConstants.EnemyFactionId, 2);
-
-            UnitEntity playerTarget = null;
-            foreach (var unit in _world.Units.Values)
-            {
-                if (unit.FactionId != OpenWorldConstants.PlayerFactionId) continue;
-                playerTarget = unit;
-                break;
+                PressureSummary = "Enemy scouting";
             }
-            int activeRaiders = 0;
-            foreach (var agent in _units.AllAgents())
-            {
-                if (agent.Entity.FactionId != OpenWorldConstants.EnemyFactionId || agent.Entity.CurrentOrder?.Kind != UnitOrderKind.Attack) continue;
-                activeRaiders++;
-                if (activeRaiders > EnemyRaidSize) agent.ClearOrder();
-            }
-            activeRaiders = Mathf.Min(activeRaiders, EnemyRaidSize);
 
-            if (playerTarget != null && _aiStep >= 30 && _world.LogisticsRoutes.Count > 0)
+            // Phase 1: Build mines at resource nodes (steps 3-12)
+            if (_aiStep >= 3 && _aiStep <= 12 && _aiStep % 2 == 0)
             {
-                int issued = activeRaiders;
+                var resourceCell = FindEnemyResourceNode(enemyCenter);
+                if (resourceCell.HasValue)
+                {
+                    _terrain.ApplyBrush(TerrainTool.Flatten, resourceCell.Value, 3, 1f);
+                    _blueprints.QueueBuilding(BuildableKind.MinePost, resourceCell.Value, OpenWorldConstants.EnemyFactionId, 3);
+                    _aiStep++;
+                }
+            }
+
+            // Phase 2: Build barracks and defenses (steps 6-16)
+            if (_aiStep >= 6 && _aiStep <= 16)
+            {
+                if (enemyBuildings < 6 && _aiStep % 3 == 0)
+                    _blueprints.QueueBuilding(BuildableKind.Barracks, pressureCell + new Vector2Int(_aiStep % 4, _aiStep / 4 % 2), OpenWorldConstants.EnemyFactionId, 2);
+                if (enemyRoadblocks < EnemyRoadblockBudget && _aiStep % 2 == 0)
+                    _blueprints.QueueBuilding(BuildableKind.Roadblock, pressureCell + new Vector2Int(2, _aiStep % 4), OpenWorldConstants.EnemyFactionId, 2);
+            }
+
+            // Phase 3: Train mixed unit armies (steps 6+)
+            if (_aiStep >= 6 && enemyUnits < EnemyUnitBudget)
+            {
+                UnitKind[] types = { UnitKind.Militia, UnitKind.Melee, UnitKind.Ranged, UnitKind.Scout, UnitKind.Spearman };
+                _units.Spawn(types[_aiStep % types.Length], pressureCell, OpenWorldConstants.EnemyFactionId);
+                if (_aiStep >= 10 && _aiStep % 2 == 0 && enemyUnits < EnemyUnitBudget)
+                    _units.Spawn(UnitKind.Musketeer, pressureCell + new Vector2Int(1, 1), OpenWorldConstants.EnemyFactionId);
+            }
+
+            // Phase 4: Attack player logistics routes (steps 15+)
+            if (_aiStep >= 15)
+            {
+                var routeTarget = FindEnemyRaidTarget();
+                int activeRaiders = 0;
                 foreach (var agent in _units.AllAgents())
                 {
-                    if (agent.Entity.FactionId != OpenWorldConstants.EnemyFactionId || agent.Entity.CurrentOrder?.Kind == UnitOrderKind.Attack) continue;
-                    agent.IssueOrder(new UnitOrder { Kind = UnitOrderKind.Attack, TargetCell = playerTarget.Cell, TargetEntityId = playerTarget.Id, Priority = 4 });
-                    issued++;
-                    if (issued >= EnemyRaidSize) break;
+                    if (agent.Entity.FactionId != OpenWorldConstants.EnemyFactionId) continue;
+                    if (agent.Entity.CurrentOrder?.Kind == UnitOrderKind.Attack) activeRaiders++;
+                }
+                if (routeTarget.HasValue && activeRaiders < EnemyRaidSize)
+                {
+                    foreach (var agent in _units.AllAgents())
+                    {
+                        if (agent.Entity.FactionId != OpenWorldConstants.EnemyFactionId) continue;
+                        if (agent.Entity.CurrentOrder?.Kind == UnitOrderKind.Attack) continue;
+                        if (agent.Entity.Task is UnitTask.Attacking or UnitTask.Moving) continue;
+                        agent.IssueOrder(new UnitOrder { Kind = UnitOrderKind.Attack, TargetCell = routeTarget.Value, Priority = 4 });
+                        if (++activeRaiders >= EnemyRaidSize) break;
+                    }
+                    PressureSummary = "Enemy raiding logistics routes";
                 }
             }
 
-            PressureSummary = _aiStep % 2 == 0 ? "Enemy scouting pressure" : "Logistics stable";
+            // Phase 5: Siege player base (steps 20+) with massed forces
+            if (_aiStep >= 20)
+            {
+                var playerBase = FindNearestPlayerBuilding(enemyCenter);
+                if (playerBase.HasValue)
+                {
+                    int siegers = 0;
+                    int siegeMax = 6;
+                    foreach (var agent in _units.AllAgents())
+                    {
+                        if (agent.Entity.FactionId != OpenWorldConstants.EnemyFactionId) continue;
+                        if (agent.Entity.CurrentOrder?.Kind == UnitOrderKind.Attack && agent.Entity.CurrentOrder.TargetCell == playerBase.Value)
+                            siegers++;
+                    }
+                    if (siegers < siegeMax)
+                    {
+                        foreach (var agent in _units.AllAgents())
+                        {
+                            if (agent.Entity.FactionId != OpenWorldConstants.EnemyFactionId) continue;
+                            if (agent.Entity.CurrentOrder?.Kind == UnitOrderKind.Attack) continue;
+                            if (agent.Entity.Task is UnitTask.Attacking or UnitTask.Moving) continue;
+                            agent.IssueOrder(new UnitOrder { Kind = UnitOrderKind.Attack, TargetCell = playerBase.Value, Priority = 6 });
+                            if (++siegers >= siegeMax) break;
+                        }
+                        PressureSummary = _aiStep % 2 == 0 ? "Enemy forces moving on player base" : $"Siege in progress ({siegers} advancing)";
+                    }
+                }
+            }
+
+            // Ensure enemy capital fort remains stocked
+            EnsureEnemyCapital(enemyCenter);
+            if (PressureSummary == "Enemy scouting")
+                PressureSummary = "Logistics stable";
         }
 
-        private void TickCombat()
+        private void CheckWinLose()
         {
-            var dead = new List<int>();
-            var units = new List<UnitEntity>(_world.Units.Values);
-            foreach (var attacker in units)
+            if (GameOver) return;
+            int playerBuildings = 0, playerUnits = 0;
+            int enemyBuildings = 0, enemyUnits = 0;
+            bool playerHasTownCenter = false, enemyHasTownCenter = false;
+            foreach (var b in _world.Buildings.Values)
             {
-                if (attacker.Hp <= 0) { dead.Add(attacker.Id); continue; }
-                if (attacker.SimulationTier == SimulationTier.Dormant) continue;
-                if (attacker.SimulationTier == SimulationTier.LowFrequency && attacker.CurrentOrder?.Kind != UnitOrderKind.Attack) continue;
-                UnitEntity target = null;
-                if (attacker.CurrentOrder != null && attacker.CurrentOrder.Kind == UnitOrderKind.Attack && attacker.CurrentOrder.TargetEntityId > 0)
-                    _world.Units.TryGetValue(attacker.CurrentOrder.TargetEntityId, out target);
-                if (target == null) target = FindNearestHostile(attacker, Mathf.Max(5f, attacker.VisionRange));
-                if (target == null) continue;
-
-                float distance = Vector2Int.Distance(attacker.Cell, target.Cell);
-                if (distance > attacker.AttackRange)
+                if (b.FactionId == OpenWorldConstants.PlayerFactionId)
                 {
-                    if (attacker.CurrentOrder != null && attacker.CurrentOrder.Kind == UnitOrderKind.Attack)
+                    playerBuildings++;
+                    if (b.Kind == BuildableKind.TownCenter) playerHasTownCenter = true;
+                }
+                if (b.FactionId == OpenWorldConstants.EnemyFactionId)
+                {
+                    enemyBuildings++;
+                    if (b.Kind == BuildableKind.TownCenter) enemyHasTownCenter = true;
+                }
+            }
+            foreach (var u in _world.Units.Values)
+            {
+                if (u.FactionId == OpenWorldConstants.PlayerFactionId) playerUnits++;
+                if (u.FactionId == OpenWorldConstants.EnemyFactionId) enemyUnits++;
+            }
+
+            float totalBuildings = playerBuildings + enemyBuildings;
+            UnityProgress = totalBuildings > 0 ? (float)playerBuildings / totalBuildings : 0.5f;
+
+            if (enemyBuildings == 0 && enemyUnits == 0)
+            {
+                GameOver = true;
+                IsVictory = true;
+                GameOverText = "胜利！钢铁领主已被击败！\n边疆联盟取得了最终胜利！";
+                Debug.Log("[OpenWorld] VICTORY! Enemy faction eliminated.");
+            }
+            else if ((playerBuildings == 0 || !playerHasTownCenter) && playerUnits == 0)
+            {
+                GameOver = true;
+                IsVictory = false;
+                GameOverText = "战败！边疆联盟已被摧毁！\n钢铁领主统治了这片土地！";
+                Debug.Log("[OpenWorld] DEFEAT! Player faction eliminated.");
+            }
+        }
+
+        private Vector2Int? FindEnemyResourceNode(Vector2Int enemyCenter)
+        {
+            Vector2Int? best = null;
+            int bestDist = int.MaxValue;
+            int mapHalfX = _world.MapSize / 2;
+            for (int z = -18; z <= 18; z++)
+            {
+                for (int x = -18; x <= 18; x++)
+                {
+                    var cell = enemyCenter + new Vector2Int(x, z);
+                    if (cell.x < mapHalfX + 10) continue; // restrict to right half
+                    if (!_world.InBounds(cell)) continue;
+                    var surface = _world.GetCell(cell);
+                    if (surface.ResourceRichness < 2) continue;
+                    bool occupied = false;
+                    foreach (var b in _world.Buildings.Values)
+                        if ((b.Origin - cell).sqrMagnitude < 9) { occupied = true; break; }
+                    if (occupied) continue;
+                    int d = Mathf.Abs(x) + Mathf.Abs(z);
+                    if (d >= bestDist) continue;
+                    best = cell;
+                    bestDist = d;
+                }
+            }
+            return best;
+        }
+
+        private Vector2Int? FindNearestPlayerBuilding(Vector2Int from)
+        {
+            Vector2Int? best = null;
+            int bestDist = _world.MapSize * _world.MapSize;
+            foreach (var building in _world.Buildings.Values)
+            {
+                if (building.FactionId != OpenWorldConstants.PlayerFactionId) continue;
+                int d = (building.Origin - from).sqrMagnitude;
+                if (d >= bestDist) continue;
+                best = building.Origin;
+                bestDist = d;
+            }
+            return best;
+        }
+
+        private Vector2Int? FindEnemyRaidTarget()
+        {
+            if (_world.LogisticsRoutes.Count == 0) return FindNearestPlayerBuilding(new Vector2Int(_world.MapSize / 2 + 80, _world.MapSize / 2));
+            var route = _world.LogisticsRoutes[_aiStep % _world.LogisticsRoutes.Count];
+            if (route.Status.Contains("moving") || route.Status.Contains("delivering"))
+                return route.Target;
+            return route.Source;
+        }
+
+        private void EnsureEnemyCapital(Vector2Int enemyCenter)
+        {
+            bool hasTownCenter = false;
+            bool hasBarracks = false;
+            foreach (var b in _world.Buildings.Values)
+            {
+                if (b.FactionId != OpenWorldConstants.EnemyFactionId) continue;
+                if (b.Kind == BuildableKind.TownCenter && (b.Origin - enemyCenter).sqrMagnitude < 25) hasTownCenter = true;
+                if (b.Kind == BuildableKind.Barracks && (b.Origin - enemyCenter).sqrMagnitude < 25) hasBarracks = true;
+            }
+            if (!hasTownCenter)
+                _blueprints.QueueBuilding(BuildableKind.TownCenter, enemyCenter, OpenWorldConstants.EnemyFactionId, 2);
+            if (!hasBarracks && _aiStep > 10)
+                _blueprints.QueueBuilding(BuildableKind.ControlPoint, enemyCenter + new Vector2Int(3, 3), OpenWorldConstants.EnemyFactionId, 2);
+        }
+
+private Vector2Int CombatGridKey(Vector2Int cell) => new(cell.x / CombatGridCellSize, cell.y / CombatGridCellSize);
+
+    private void RebuildCombatGrid()
+    {
+        _combatGrid ??= new Dictionary<Vector2Int, List<UnitEntity>>();
+        foreach (var list in _combatGrid.Values) list.Clear();
+        foreach (var unit in _world.Units.Values)
+        {
+            if (unit.SimulationTier == SimulationTier.Dormant) continue;
+            var key = CombatGridKey(unit.Cell);
+            if (!_combatGrid.TryGetValue(key, out var list)) { list = new List<UnitEntity>(); _combatGrid[key] = list; }
+            list.Add(unit);
+        }
+    }
+
+    private List<UnitEntity> FindHostilesInGrid(Vector2Int center, float radiusSqr, int factionId, int maxResults = 12)
+    {
+        var result = new List<UnitEntity>();
+        int gridR = Mathf.CeilToInt(radiusSqr > 0 ? Mathf.Sqrt(radiusSqr) / CombatGridCellSize + 1 : 1);
+        var centerKey = CombatGridKey(center);
+        for (int z = -gridR; z <= gridR; z++)
+        {
+            for (int x = -gridR; x <= gridR; x++)
+            {
+                if (!_combatGrid.TryGetValue(centerKey + new Vector2Int(x, z), out var list)) continue;
+                foreach (var unit in list)
+                {
+                    if (unit.FactionId == factionId || unit.Hp <= 0) continue;
+                    float dSqr = (unit.Cell - center).sqrMagnitude;
+                    if (dSqr > radiusSqr) continue;
+                    result.Add(unit);
+                    if (result.Count >= maxResults) return result;
+                }
+            }
+        }
+        result.Sort((a, b) => (a.Cell - center).sqrMagnitude.CompareTo((b.Cell - center).sqrMagnitude));
+        if (result.Count > maxResults) result.RemoveRange(maxResults, result.Count - maxResults);
+        return result;
+    }
+
+    private void TickCombat()
+    {
+        RebuildCombatGrid();
+        var dead = new List<int>();
+        var units = new List<UnitEntity>(_world.Units.Values);
+        foreach (var attacker in units)
+        {
+            if (attacker.Hp <= 0) { dead.Add(attacker.Id); continue; }
+            if (attacker.SimulationTier == SimulationTier.Dormant) continue;
+            if (attacker.SimulationTier == SimulationTier.LowFrequency && attacker.CurrentOrder?.Kind != UnitOrderKind.Attack) continue;
+            
+            // Defend: actively scan for hostiles within vision range
+            if (attacker.Task == UnitTask.Defending && attacker.CurrentOrder?.Kind == UnitOrderKind.Defend && attacker.CurrentOrder?.TargetEntityId <= 0)
+            {
+                var defendCenter = attacker.CurrentOrder.SecondaryCell;
+                var hostiles = FindHostilesInGrid(defendCenter, Mathf.Max(36f, attacker.VisionRange * attacker.VisionRange), attacker.FactionId);
+                foreach (var hostile in hostiles)
+                {
+                    if ((attacker.Cell - hostile.Cell).sqrMagnitude <= attacker.AttackRange * attacker.AttackRange)
+                    {
+                        attacker.CurrentOrder.TargetEntityId = hostile.Id;
+                        attacker.CurrentOrder.TargetCell = hostile.Cell;
+                        break;
+                    }
+                    else
                     {
                         var agent = _units.GetAgent(attacker.Id);
-                        if (agent != null && attacker.Task != UnitTask.Moving)
-                            agent.IssueOrder(new UnitOrder { Kind = UnitOrderKind.Attack, TargetCell = target.Cell, TargetEntityId = target.Id, Priority = 5 });
+                        if (agent != null)
+                            agent.IssueOrder(new UnitOrder { Kind = UnitOrderKind.Attack, TargetCell = hostile.Cell, TargetEntityId = hostile.Id, Priority = 5 });
+                        break;
                     }
-                    continue;
                 }
-
-                bool ranged = attacker.AttackRange > 2f;
-                if (ranged && attacker.Ammo < 1f) { attacker.Morale = Mathf.Max(0f, attacker.Morale - 0.5f); continue; }
-                if (ranged) attacker.Ammo -= 1f;
-                float efficiency = Mathf.Clamp(attacker.Morale / 100f, 0.2f, 1f) * Mathf.Clamp(1f - attacker.Fatigue / 120f, 0.25f, 1f);
-                float damage = Mathf.Max(1f, attacker.AttackPower * attacker.Accuracy * efficiency * 0.32f - target.Armor * 0.15f);
-                target.Hp -= Mathf.RoundToInt(damage);
-                target.Suppression = Mathf.Min(100f, target.Suppression + damage * 1.5f);
-                target.Morale = Mathf.Max(0f, target.Morale - damage * 0.35f);
-                if (target.Hp <= 0) dead.Add(target.Id);
-                else if (target.Hp < target.MaxHp * 0.45f) target.Wounded = true;
             }
 
-            foreach (int id in dead) _units.RemoveUnit(id);
+            // Escort: follow assigned vehicle
+            if (attacker.Task == UnitTask.Transporting && attacker.EscortVehicleId > 0 && _world.Vehicles.TryGetValue(attacker.EscortVehicleId, out var escortTarget))
+            {
+                if (Vector2Int.Distance(attacker.Cell, escortTarget.Cell) > 3)
+                {
+                    var escortAgent = _units.GetAgent(attacker.Id);
+                    if (escortAgent != null) escortAgent.MoveTo(escortTarget.Cell);
+                }
+                var escortThreats = FindHostilesInGrid(escortTarget.Cell, Mathf.Max(25f, attacker.VisionRange * attacker.VisionRange), attacker.FactionId, 6);
+                if (escortThreats.Count > 0)
+                {
+                    attacker.CurrentOrder ??= new UnitOrder();
+                    attacker.CurrentOrder.Kind = UnitOrderKind.Attack;
+                    attacker.CurrentOrder.TargetCell = escortThreats[0].Cell;
+                    attacker.CurrentOrder.TargetEntityId = escortThreats[0].Id;
+                    attacker.CurrentOrder.Priority = 5;
+                }
+            }
+
+            UnitEntity target = null;
+            if (attacker.CurrentOrder != null && attacker.CurrentOrder.Kind == UnitOrderKind.Attack && attacker.CurrentOrder.TargetEntityId > 0)
+                _world.Units.TryGetValue(attacker.CurrentOrder.TargetEntityId, out target);
+            if (target == null) target = FindNearestHostile(attacker, Mathf.Max(5f, attacker.VisionRange));
+            if (target == null) continue;
+
+            float distance = Vector2Int.Distance(attacker.Cell, target.Cell);
+            if (distance > attacker.AttackRange)
+            {
+                if (attacker.CurrentOrder != null && attacker.CurrentOrder.Kind == UnitOrderKind.Attack)
+                {
+                    var agent = _units.GetAgent(attacker.Id);
+                    if (agent != null && attacker.Task != UnitTask.Moving)
+                        agent.IssueOrder(new UnitOrder { Kind = UnitOrderKind.Attack, TargetCell = target.Cell, TargetEntityId = target.Id, Priority = 5 });
+                }
+                continue;
+            }
+
+            bool ranged = attacker.AttackRange > 2f;
+            if (ranged && attacker.Ammo < 1f) { attacker.Morale = Mathf.Max(0f, attacker.Morale - 0.5f); continue; }
+            if (ranged) attacker.Ammo -= 1f;
+            float efficiency = Mathf.Clamp(attacker.Morale / 100f, 0.2f, 1f) * Mathf.Clamp(1f - attacker.Fatigue / 120f, 0.25f, 1f);
+            float damage = Mathf.Max(1f, attacker.AttackPower * attacker.Accuracy * efficiency * 0.32f - target.Armor * 0.15f);
+            target.Hp -= Mathf.RoundToInt(damage);
+            target.Suppression = Mathf.Min(100f, target.Suppression + damage * 1.5f);
+            target.Morale = Mathf.Max(0f, target.Morale - damage * 0.35f);
+            if (target.Hp <= 0) dead.Add(target.Id);
+            else if (target.Hp < target.MaxHp * 0.45f) target.Wounded = true;
         }
+
+        foreach (int id in dead) _units.RemoveUnit(id);
+    }
 
         private UnitEntity FindNearestHostile(UnitEntity attacker, float radius)
         {
@@ -671,7 +941,7 @@ namespace OpenWorld
             float bestDistance = radius * radius;
             foreach (var candidate in _world.Units.Values)
             {
-                if (candidate.Id == attacker.Id || candidate.Hp <= 0 || !AreHostile(attacker.FactionId, candidate.FactionId)) continue;
+                if (candidate.Id == attacker.Id || candidate.Hp <= 0 || candidate.SimulationTier == SimulationTier.Dormant || !AreHostile(attacker.FactionId, candidate.FactionId)) continue;
                 float distance = (candidate.Cell - attacker.Cell).sqrMagnitude;
                 if (distance >= bestDistance) continue;
                 best = candidate;
@@ -679,6 +949,23 @@ namespace OpenWorld
             }
             return best;
         }
+
+private List<UnitEntity> FindHostilesInRadius(Vector2Int center, float radius, int factionId)
+    {
+        var result = new List<UnitEntity>();
+        float r2 = radius * radius;
+        foreach (var candidate in _world.Units.Values)
+        {
+            if (candidate.Hp <= 0) continue;
+            if (candidate.SimulationTier == SimulationTier.Dormant) continue;
+            if (!AreHostile(factionId, candidate.FactionId)) continue;
+            if ((candidate.Cell - center).sqrMagnitude <= r2)
+                result.Add(candidate);
+        }
+        result.Sort((a, b) => (a.Cell - center).sqrMagnitude.CompareTo((b.Cell - center).sqrMagnitude));
+        return result;
+    }
+
 
         private bool AreHostile(int a, int b)
         {

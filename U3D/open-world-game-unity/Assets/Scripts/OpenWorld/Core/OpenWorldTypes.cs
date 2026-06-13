@@ -660,7 +660,8 @@ namespace OpenWorld
         public float Accuracy = 0.65f;
         public float Suppression;
         public SimulationTier SimulationTier = SimulationTier.HighFrequency;
-        public UnitOrder CurrentOrder = new();
+            public int EscortVehicleId;
+public UnitOrder CurrentOrder = new();
     }
 
     [Serializable]

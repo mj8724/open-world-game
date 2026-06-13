@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Rendering;
 
 namespace OpenWorld
 {
@@ -191,13 +192,13 @@ namespace OpenWorld
             }
 
             float workRate = 1f;
-            if (best.FactionId == OpenWorldConstants.PlayerFactionId)
+            if (best.FactionId == OpenWorldConstants.PlayerFactionId || best.FactionId == OpenWorldConstants.EnemyFactionId)
             {
                 var engineer = _units.GetAgent(best.AssignedUnitId);
                 if (engineer == null)
                 {
-                    engineer = _units.GetIdleEngineer();
-                    if (engineer == null)
+                    engineer = _units.GetIdleEngineer(best.FactionId);
+                    if (engineer == null) engineer = _units.GetIdleWorker(best.FactionId);
                     {
                         best.BlockedReason = "No idle engineer";
                         UpdateVisualState(best);
@@ -320,10 +321,7 @@ namespace OpenWorld
 
         private static Material BlueprintMaterial(BlueprintKind kind)
         {
-            var shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            var mat = new Material(shader) { color = BlueprintColor(kind) };
-            return mat;
+            return MaterialCache.GetLit(BlueprintColor(kind));
         }
 
         private static Color BlueprintColor(BlueprintKind kind) => kind switch
