@@ -67,7 +67,7 @@ namespace OpenWorld
         public void ReceiveExcavatedMaterial(Vector2Int cell, GroundMaterial material, int amount)
         {
             if (amount <= 0 || material == GroundMaterial.Oil) return;
-            var resource = ToResource(material);
+            var resource = ResourceInventory.MatToResource(material);
             MiningZoneRecord zone = null;
             foreach (var candidate in _world.MiningZones)
             {
@@ -277,19 +277,6 @@ namespace OpenWorld
             return depth;
         }
 
-        private static ResourceKind ToResource(GroundMaterial material) => material switch
-        {
-            GroundMaterial.Dirt => ResourceKind.Dirt,
-            GroundMaterial.Stone => ResourceKind.Stone,
-            GroundMaterial.IronOre => ResourceKind.IronOre,
-            GroundMaterial.Coal => ResourceKind.Coal,
-            GroundMaterial.Clay => ResourceKind.Clay,
-            GroundMaterial.Wood => ResourceKind.Wood,
-            GroundMaterial.Food => ResourceKind.Food,
-            GroundMaterial.Sulfur => ResourceKind.Sulfur,
-            GroundMaterial.Nitrate => ResourceKind.Nitrate,
-            GroundMaterial.Oil => ResourceKind.Oil,
-            _ => ResourceKind.Stone
-        };
+        // ToResource now delegates to ResourceInventory.MatToResource
     }
 }

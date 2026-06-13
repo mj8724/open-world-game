@@ -138,9 +138,9 @@ namespace OpenWorld
             _selectionRing.SetActive(false);
         }
 
-        private static bool NeedsFuel(VehicleKind kind) => kind is VehicleKind.Truck or VehicleKind.ArmoredCar or VehicleKind.Locomotive or VehicleKind.Tank or VehicleKind.Aircraft or VehicleKind.TransportPlane;
+        public static bool NeedsFuel(VehicleKind kind) => kind is VehicleKind.Truck or VehicleKind.ArmoredCar or VehicleKind.Locomotive or VehicleKind.Tank or VehicleKind.Aircraft or VehicleKind.TransportPlane;
 
-        private static bool IsRail(VehicleKind kind) => kind is VehicleKind.Locomotive or VehicleKind.CargoWagon;
+        public static bool IsRail(VehicleKind kind) => kind is VehicleKind.Locomotive or VehicleKind.CargoWagon;
 
         private static float SpeedFor(VehicleKind kind) => kind switch
         {

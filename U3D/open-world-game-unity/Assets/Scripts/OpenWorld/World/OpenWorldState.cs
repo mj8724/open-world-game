@@ -584,28 +584,7 @@ namespace OpenWorld
         private static void CopyInventory(ResourceInventory from, ResourceInventory to)
         {
             if (from == null || to == null) return;
-            to.Dirt = from.Dirt;
-            to.Stone = from.Stone;
-            to.IronOre = from.IronOre;
-            to.Coal = from.Coal;
-            to.Clay = from.Clay;
-            to.Wood = from.Wood;
-            to.Food = from.Food;
-            to.Sulfur = from.Sulfur;
-            to.Nitrate = from.Nitrate;
-            to.Oil = from.Oil;
-            to.Lumber = from.Lumber;
-            to.Brick = from.Brick;
-            to.IronIngot = from.IronIngot;
-            to.Steel = from.Steel;
-            to.MachineParts = from.MachineParts;
-            to.Medicine = from.Medicine;
-            to.Ammo = from.Ammo;
-            to.Gunpowder = from.Gunpowder;
-            to.Fuel = from.Fuel;
-            to.Power = from.Power;
-            to.Weapons = from.Weapons;
-            to.RailParts = from.RailParts;
+            from.CopyTo(to);
         }
 
         private void MigrateLegacyInventoryToWarehouse()

@@ -149,7 +149,7 @@ namespace OpenWorld
             var command = _world.EnqueueCommand(CommandKind.AssignMiningZone, FactionId);
             command.TargetCell = cell;
             command.Amount = radius;
-            command.ResourceKind = ToResource(material);
+            command.ResourceKind = ResourceInventory.MatToResource(material);
             command.Priority = 4;
         }
 
@@ -345,7 +345,7 @@ namespace OpenWorld
                     _geology.QueueCoreDrill(command.TargetCell, command.Priority);
                     break;
                 case CommandKind.AssignMiningZone:
-                    _geology.AssignMiningZone(command.TargetCell, command.Amount, ToMaterial(command.ResourceKind), command.Priority);
+                    _geology.AssignMiningZone(command.TargetCell, command.Amount, ResourceInventory.MatToMaterial(command.ResourceKind), command.Priority);
                     break;
                 case CommandKind.Produce:
                     _simulation.QueueProduction(command.EntityId, command.Text, command.Amount, command.Priority);
@@ -379,31 +379,6 @@ namespace OpenWorld
             }
         }
 
-        private static ResourceKind ToResource(GroundMaterial material) => material switch
-        {
-            GroundMaterial.Dirt => ResourceKind.Dirt,
-            GroundMaterial.Stone => ResourceKind.Stone,
-            GroundMaterial.IronOre => ResourceKind.IronOre,
-            GroundMaterial.Coal => ResourceKind.Coal,
-            GroundMaterial.Clay => ResourceKind.Clay,
-            GroundMaterial.Wood => ResourceKind.Wood,
-            GroundMaterial.Food => ResourceKind.Food,
-            GroundMaterial.Sulfur => ResourceKind.Sulfur,
-            GroundMaterial.Nitrate => ResourceKind.Nitrate,
-            GroundMaterial.Oil => ResourceKind.Oil,
-            _ => ResourceKind.Stone
-        };
-
-        private static GroundMaterial ToMaterial(ResourceKind resource) => resource switch
-        {
-            ResourceKind.IronOre => GroundMaterial.IronOre,
-            ResourceKind.Coal => GroundMaterial.Coal,
-            ResourceKind.Clay => GroundMaterial.Clay,
-            ResourceKind.Sulfur => GroundMaterial.Sulfur,
-            ResourceKind.Nitrate => GroundMaterial.Nitrate,
-            ResourceKind.Oil => GroundMaterial.Oil,
-            ResourceKind.Dirt => GroundMaterial.Dirt,
-            _ => GroundMaterial.Stone
-        };
+        // ToResource/ToMaterial now delegates to ResourceInventory
     }
 }

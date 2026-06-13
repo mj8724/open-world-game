@@ -129,7 +129,12 @@ namespace OpenWorld.Testing
             // Simplified - jobs don't have direct recipe mapping
             foreach (var order in _world.ProductionOrders)
             {
-                if (order.Status != "Blocked") continue;
+                {
+                    if (order.Status == "Working" || order.Status == "Waiting" ||
+                        order.Status.StartsWith("Workers") || order.Status.StartsWith("Trained") ||
+                        order.Status.StartsWith("Produced"))
+                        continue;
+                }
 
                 var building = _world.Buildings.Values.FirstOrDefault(b => b.Id == order.BuildingId);
                 if (building == null) continue;

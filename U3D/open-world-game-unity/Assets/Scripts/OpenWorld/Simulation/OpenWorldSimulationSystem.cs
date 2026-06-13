@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace OpenWorld
 {
@@ -14,6 +15,9 @@ namespace OpenWorld
         public bool GameOver { get; private set; }
         public string GameOverText { get; private set; } = "";
         public bool IsVictory { get; private set; }
+#if UNITY_EDITOR
+        public static bool TestBotIsActive;
+#endif
 
         private readonly List<string> _productionLines = new();
         private OpenWorldState _world;
@@ -584,6 +588,14 @@ namespace OpenWorld
 
         private void TickEnemyAi()
         {
+            #if UNITY_EDITOR
+            if (TestBotIsActive)
+                return;
+#else
+            if (UnityEngine.Object.FindFirstObjectByType<OpenWorld.Testing.TestBotManager>() != null)
+                return;
+#endif
+
             if (_world.Buildings.Count == 0) return;
             _aiStep++;
             var center = new Vector2Int(_world.MapSize / 2, _world.MapSize / 2);
@@ -795,18 +807,7 @@ namespace OpenWorld
 
         private void EnsureEnemyCapital(Vector2Int enemyCenter)
         {
-            bool hasTownCenter = false;
-            bool hasBarracks = false;
-            foreach (var b in _world.Buildings.Values)
-            {
-                if (b.FactionId != OpenWorldConstants.EnemyFactionId) continue;
-                if (b.Kind == BuildableKind.TownCenter && (b.Origin - enemyCenter).sqrMagnitude < 25) hasTownCenter = true;
-                if (b.Kind == BuildableKind.Barracks && (b.Origin - enemyCenter).sqrMagnitude < 25) hasBarracks = true;
-            }
-            if (!hasTownCenter)
-                _blueprints.QueueBuilding(BuildableKind.TownCenter, enemyCenter, OpenWorldConstants.EnemyFactionId, 2);
-            if (!hasBarracks && _aiStep > 10)
-                _blueprints.QueueBuilding(BuildableKind.ControlPoint, enemyCenter + new Vector2Int(3, 3), OpenWorldConstants.EnemyFactionId, 2);
+            // TestBotManager handles enemy AI now — method retained for signature stability
         }
 
 private Vector2Int CombatGridKey(Vector2Int cell) => new(cell.x / CombatGridCellSize, cell.y / CombatGridCellSize);
@@ -905,7 +906,8 @@ private Vector2Int CombatGridKey(Vector2Int cell) => new(cell.x / CombatGridCell
             UnitEntity target = null;
             if (attacker.CurrentOrder != null && attacker.CurrentOrder.Kind == UnitOrderKind.Attack && attacker.CurrentOrder.TargetEntityId > 0)
                 _world.Units.TryGetValue(attacker.CurrentOrder.TargetEntityId, out target);
-            if (target == null) target = FindNearestHostile(attacker, Mathf.Max(5f, attacker.VisionRange));
+            if (target == null)
+                target = FindHostilesInGrid(attacker.Cell, Mathf.Max(5f, attacker.VisionRange), attacker.FactionId, 1).FirstOrDefault();
             if (target == null) continue;
 
             float distance = Vector2Int.Distance(attacker.Cell, target.Cell);

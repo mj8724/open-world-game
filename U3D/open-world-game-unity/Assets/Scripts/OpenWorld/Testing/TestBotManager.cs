@@ -35,6 +35,10 @@ namespace OpenWorld.Testing
             _botStates[OpenWorldConstants.PlayerFactionId] = new BotState();
             _botStates[OpenWorldConstants.EnemyFactionId] = new BotState();
 
+#if UNITY_EDITOR
+            OpenWorldSimulationSystem.TestBotIsActive = true;
+#endif
+
             Debug.Log("[TestBot] Initialized for symmetric 1v1 test scenario");
         }
 
@@ -66,7 +70,7 @@ namespace OpenWorld.Testing
         {
             // 1. Worker starvation check
             var workers = _world.Units.Values.Where(u => u.FactionId == factionId && u.Kind == UnitKind.Worker).ToList();
-            var idleWorkers = workers.Count(w => w.CurrentOrder == null || w.CurrentOrder.Kind == UnitOrderKind.Move);
+            var idleWorkers = workers.Count(w => w.Task == UnitTask.Idle);
             var blueprints = _world.Blueprints.Where(b => b.FactionId == factionId).ToList();
 
             if (idleWorkers == 0 && blueprints.Count > 0)
@@ -108,6 +112,14 @@ namespace OpenWorld.Testing
             // Build order priority based on current era and resources
             if (state.TickCount % 5 == 0) // Every 10s
             {
+                // Limit max concurrent blueprints to prevent backlog
+                var activeBlueprints = _world.Blueprints.Count(b => b.FactionId == factionId);
+                if (activeBlueprints >= 5)
+                {
+                    // Too many queued, wait for workers to catch up
+                    return;
+                }
+
                 // Check resource bottlenecks
                 if (inventory.Get(ResourceKind.Wood) < 50)
                     TryBuildBuilding(factionId, BuildableKind.LumberCamp, state);
@@ -162,8 +174,11 @@ namespace OpenWorld.Testing
             if (_world.Blueprints.Any(b => b.FactionId == factionId && b.BuildKind == kind))
                 return false;
 
-            // Check resources
-            if (!_world.Inventory.Spend(def.Cost))
+            // Check resources WITHOUT spending (just test)
+            var inventory = _world.Inventory;
+            if (inventory.Dirt < def.Cost.Dirt || inventory.Stone < def.Cost.Stone ||
+                inventory.IronOre < def.Cost.IronOre || inventory.Wood < def.Cost.Wood ||
+                inventory.Food < def.Cost.Food)
             {
                 state.ResourceBlockedBuilds++;
                 if (state.ResourceBlockedBuilds >= 5)
@@ -192,13 +207,17 @@ namespace OpenWorld.Testing
 
                     if (_buildings.CanPlace(kind, origin, 0, out _))
                     {
-                        _buildings.TryPlace(kind, origin, 0, factionId, spendCost: true);
-                        state.ResourceBlockedBuilds = 0;
-                        return true;
+                        // TryPlace with spendCost=true (let it handle the spending)
+                        if (_buildings.TryPlace(kind, origin, 0, factionId, spendCost: true))
+                        {
+                            state.ResourceBlockedBuilds = 0;
+                            return true;
+                        }
                     }
                 }
             }
 
+            // No valid placement found - resources never spent
             return false;
         }
 
@@ -207,7 +226,10 @@ namespace OpenWorld.Testing
             if (!_world.Buildings.TryGetValue(buildingId, out var building)) return;
 
             // Check if already training
-            if (_world.ProductionOrders.Any(o => o.BuildingId == buildingId && o.Status == "InProgress"))
+            var training = _world.ProductionOrders.Any(o => o.BuildingId == buildingId &&
+                o.RemainingCycles > 0 && !o.Paused &&
+                !o.Status.StartsWith("Trained") && !o.Status.StartsWith("Produced"));
+            if (training)
                 return;
 
             var unitDef = OpenWorldDataCatalog.GetUnit(kind);

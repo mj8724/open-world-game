@@ -179,9 +179,6 @@ namespace OpenWorld
             TickRailSchedules();
             foreach (var vehicle in _vehicles.AllAgents())
                 AdvanceAssignedVehicle(vehicle);
-        
-            foreach (var vehicle in _vehicles.AllAgents())
-                AdvanceAssignedVehicle(vehicle);
 
             LastStatus = "Routes idle";
             if (_world.LogisticsRoutes.Count == 0)
@@ -374,9 +371,9 @@ namespace OpenWorld
             route.Status = vehicle.Entity.StatusText;
         }
 
-        private static bool NeedsFuel(VehicleKind kind) => kind is VehicleKind.Truck or VehicleKind.ArmoredCar or VehicleKind.Locomotive or VehicleKind.Tank or VehicleKind.Aircraft or VehicleKind.TransportPlane;
+        private static bool NeedsFuel(VehicleKind kind) => VehicleAgent.NeedsFuel(kind);
 
-        private static bool IsRailVehicle(VehicleKind kind) => kind is VehicleKind.Locomotive or VehicleKind.CargoWagon;
+        private static bool IsRailVehicle(VehicleKind kind) => VehicleAgent.IsRail(kind);
 
         private void EnsureRailSchedule(LogisticsRoute route, VehicleEntity locomotive, BuildingEntity source, BuildingEntity target)
         {

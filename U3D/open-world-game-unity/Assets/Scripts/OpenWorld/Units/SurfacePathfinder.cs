@@ -18,6 +18,8 @@ namespace OpenWorld
             Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right,
             new Vector2Int(1, 1), new Vector2Int(-1, 1), new Vector2Int(1, -1), new Vector2Int(-1, -1)
         };
+        // reusable per-find-path allocations
+        private HashSet<Vector2Int> _openSet;
 
         public bool CacheEnabled { get; set; } = true;
         public int CacheHits => _cacheHits;
@@ -29,24 +31,35 @@ namespace OpenWorld
             _terrain = terrain;
             _maxStep = maxStep;
             _railOnly = railOnly;
+            _openSet = new HashSet<Vector2Int>();
         }
 
         public List<Vector2Int> FindPath(Vector2Int start, Vector2Int goal, int maxIterations = 12000)
         {
-            var open = new List<Vector2Int> { start };
+            _openSet.Clear();
+
+            var openList = new List<Vector2Int>(64) { start };
+            _openSet.Add(start);
+
             var cameFrom = new Dictionary<Vector2Int, Vector2Int>();
             var gScore = new Dictionary<Vector2Int, float> { [start] = 0 };
-            var fScore = new Dictionary<Vector2Int, float> { [start] = Heuristic(start, goal) };
+            var fScore = new SortedDictionary<float, List<Vector2Int>>();
+            float h = Heuristic(start, goal);
+            AddToFScore(fScore, start, h);
+
             var closed = new HashSet<Vector2Int>();
 
             int iterations = 0;
-            while (open.Count > 0 && iterations++ < maxIterations)
+            while (openList.Count > 0 && iterations++ < maxIterations)
             {
-                var current = Best(open, fScore);
+                var current = PopBestFScore(openList, fScore);
+                if (current == new Vector2Int(-1, -1)) break; // shouldn't happen
+
                 if (current == goal)
                     return Reconstruct(cameFrom, current);
 
-                open.Remove(current);
+                openList.Remove(current);
+                _openSet.Remove(current);
                 closed.Add(current);
 
                 foreach (var offset in _neighbors)
@@ -65,8 +78,17 @@ namespace OpenWorld
                     {
                         cameFrom[next] = current;
                         gScore[next] = tentative;
-                        fScore[next] = tentative + Heuristic(next, goal);
-                        if (!open.Contains(next)) open.Add(next);
+                        float newF = tentative + Heuristic(next, goal);
+                        fScore.TryGetValue(old, out var oldFList);
+                        AddToFScore(fScore, next, newF);
+                        if (oldFList != null)
+                            oldFList.Remove(next);
+
+                        if (!_openSet.Contains(next))
+                        {
+                            openList.Add(next);
+                            _openSet.Add(next);
+                        }
                     }
                 }
             }
@@ -74,20 +96,27 @@ namespace OpenWorld
             return new List<Vector2Int>();
         }
 
-        private static Vector2Int Best(List<Vector2Int> open, Dictionary<Vector2Int, float> score)
+        private static void AddToFScore(SortedDictionary<float, List<Vector2Int>> fScore, Vector2Int node, float value)
         {
-            var best = open[0];
-            float bestScore = score.TryGetValue(best, out var s) ? s : float.MaxValue;
-            for (int i = 1; i < open.Count; i++)
+            if (!fScore.TryGetValue(value, out var list))
+                fScore[value] = list = new List<Vector2Int>();
+            list.Add(node);
+        }
+
+        private static Vector2Int PopBestFScore(List<Vector2Int> openList, SortedDictionary<float, List<Vector2Int>> fScore)
+        {
+            foreach (var kvp in fScore)
             {
-                float nextScore = score.TryGetValue(open[i], out var ns) ? ns : float.MaxValue;
-                if (nextScore < bestScore)
+                if (kvp.Value.Count > 0)
                 {
-                    best = open[i];
-                    bestScore = nextScore;
+                    var best = kvp.Value[0];
+                    kvp.Value.RemoveAt(0);
+                    if (kvp.Value.Count == 0)
+                        fScore.Remove(kvp.Key);
+                    return best;
                 }
             }
-            return best;
+            return openList.Count > 0 ? openList[0] : new Vector2Int(-1, -1);
         }
 
         private static float Heuristic(Vector2Int a, Vector2Int b) => Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y);

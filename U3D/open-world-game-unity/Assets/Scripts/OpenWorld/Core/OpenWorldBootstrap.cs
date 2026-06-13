@@ -184,8 +184,10 @@ namespace OpenWorld
             SeedCentralNeutral(center);
             Knowledge.RevealCircle(playerBase, 38);
 
+            #if UNITY_EDITOR
             // Initialize test bot system for 1v1 AI testing
             InitializeTestBotSystem();
+#endif
         }
 
         private void InitializeTestBotSystem()

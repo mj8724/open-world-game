@@ -199,11 +199,15 @@ namespace OpenWorld
                 {
                     engineer = _units.GetIdleEngineer(best.FactionId);
                     if (engineer == null) engineer = _units.GetIdleWorker(best.FactionId);
-                    {
-                        best.BlockedReason = "No idle engineer";
-                        UpdateVisualState(best);
-                        return;
-                    }
+                }
+                if (engineer == null)
+                {
+                    best.BlockedReason = "No idle engineer";
+                    UpdateVisualState(best);
+                    return;
+                }
+                if (best.AssignedUnitId != engineer.Entity.Id)
+                {
                     best.AssignedUnitId = engineer.Entity.Id;
                     engineer.Entity.Task = UnitTask.Building;
                     engineer.MoveTo(best.Cell);
