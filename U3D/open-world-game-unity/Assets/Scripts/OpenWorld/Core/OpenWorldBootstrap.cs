@@ -183,6 +183,23 @@ namespace OpenWorld
 
             SeedCentralNeutral(center);
             Knowledge.RevealCircle(playerBase, 38);
+
+            // Initialize test bot system for 1v1 AI testing
+            InitializeTestBotSystem();
+        }
+
+        private void InitializeTestBotSystem()
+        {
+            var testBotGo = new GameObject("TestBotSystem");
+            testBotGo.transform.SetParent(transform, false);
+
+            var botManager = testBotGo.AddComponent<Testing.TestBotManager>();
+            botManager.Initialize(World, Simulation, Buildings, Units, Vehicles, Logistics);
+
+            var monitor = testBotGo.AddComponent<Testing.TestMonitor>();
+            monitor.Initialize(World, Simulation);
+
+            Debug.Log("[OpenWorld] Test bot system initialized for 1v1 symmetric test scenario");
         }
 
         private void SeedFactionBase(Vector2Int origin, int factionId, string label)
