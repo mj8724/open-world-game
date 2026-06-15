@@ -769,6 +769,10 @@ namespace OpenWorld.Testing
             };
             string json = JsonUtility.ToJson(report, true);
 
+            // Write to file so it survives MCP bridge reconnect
+            var reportPath = System.IO.Path.Combine(Application.persistentDataPath, "playtest_report.json");
+            System.IO.File.WriteAllText(reportPath, json);
+
             Debug.Log("");
             Debug.Log("═══════════════════════════════════════════");
             Debug.Log("        PLAYTEST REPORT");
@@ -778,9 +782,7 @@ namespace OpenWorld.Testing
             Debug.Log($"  ❌ FAIL: {failed}");
             Debug.Log($"  ⚠️ WARN: {warnings}");
             Debug.Log($"  ⏱ Duration: {report.durationSeconds:F1}s");
-            Debug.Log("───────────────────────────────────────────");
-            Debug.Log("  JSON REPORT (copy to file if needed):");
-            Debug.Log(json);
+            Debug.Log($"  📁 Report saved: {reportPath}");
             Debug.Log("═══════════════════════════════════════════");
 
             if (failed > 0)
