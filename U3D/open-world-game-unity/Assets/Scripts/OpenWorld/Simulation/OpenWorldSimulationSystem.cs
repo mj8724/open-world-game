@@ -174,6 +174,14 @@ namespace OpenWorld
             {
                 if (unit.Task == UnitTask.Moving || unit.Task == UnitTask.Attacking || unit.Task == UnitTask.Digging || unit.Task == UnitTask.Building)
                     unit.Fatigue = Mathf.Min(100f, unit.Fatigue + 0.5f);
+                else if (unit.Task == UnitTask.Idle)
+                {
+                    unit.Fatigue = Mathf.Max(0f, unit.Fatigue - 1.5f);
+                    if (unit.Hp < unit.MaxHp && !unit.Wounded)
+                        unit.Hp = Mathf.Min(unit.MaxHp, unit.Hp + 1);
+                    if (unit.Hp >= unit.MaxHp * 0.75f)
+                        unit.Wounded = false;
+                }
                 else
                     unit.Fatigue = Mathf.Max(0f, unit.Fatigue - 0.8f);
 

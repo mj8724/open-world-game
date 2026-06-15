@@ -53,6 +53,8 @@ namespace OpenWorld
         public PopulationState Population { get; } = new();
         public TechState Tech { get; } = new();
         public KnowledgeState[] KnowledgeCells { get; set; }
+        public int SimulationTick { get; set; }
+        public void AdvanceTick() => SimulationTick++;
 
         private readonly ChunkGenerator _chunkGenerator;
 
@@ -310,12 +312,12 @@ namespace OpenWorld
             if (_totalResourceDirty)
             {
                 // Rebuild all caches
-                for (int i = 0; i <= (int)ResourceKind.RailParts; i++)
+                for (int i = 0; i < ResourceInventory.ResourceCount; i++)
                     _totalResourceCache[(ResourceKind)i] = Inventory.Get((ResourceKind)i);
                 foreach (var building in Buildings.Values)
                 {
                     EnsureBuildingStorage(building);
-                    for (int i = 0; i <= (int)ResourceKind.RailParts; i++)
+                    for (int i = 0; i < ResourceInventory.ResourceCount; i++)
                         _totalResourceCache[(ResourceKind)i] += building.Storage.Get((ResourceKind)i);
                 }
                 _totalResourceDirty = false;
@@ -732,46 +734,14 @@ namespace OpenWorld
 
         private static void ApplyVehicleDefaults(VehicleEntity vehicle)
         {
-            switch (vehicle.Kind)
+            var def = OpenWorldDataCatalog.GetVehicle(vehicle.Kind);
+            if (def != null)
             {
-                case VehicleKind.HandCart:
-                    vehicle.CargoCapacity = 40;
-                    vehicle.Fuel = 0;
-                    vehicle.MaxHp = 80;
-                    vehicle.Hp = 80;
-                    vehicle.CrewRequired = 1;
-                    break;
-                case VehicleKind.Wagon:
-                    vehicle.CargoCapacity = 85;
-                    vehicle.Fuel = 0;
-                    vehicle.MaxHp = 120;
-                    vehicle.Hp = 120;
-                    break;
-                case VehicleKind.Truck:
-                    vehicle.CargoCapacity = 180;
-                    vehicle.Fuel = 100;
-                    vehicle.MaxHp = 160;
-                    vehicle.Hp = 160;
-                    break;
-                case VehicleKind.ArmoredCar:
-                    vehicle.CargoCapacity = 30;
-                    vehicle.Fuel = 100;
-                    vehicle.MaxHp = 260;
-                    vehicle.Hp = 260;
-                    vehicle.VisionRange = 24;
-                    break;
-                case VehicleKind.Locomotive:
-                    vehicle.CargoCapacity = 0;
-                    vehicle.Fuel = 150;
-                    vehicle.MaxHp = 300;
-                    vehicle.Hp = 300;
-                    break;
-                case VehicleKind.CargoWagon:
-                    vehicle.CargoCapacity = 500;
-                    vehicle.Fuel = 0;
-                    vehicle.MaxHp = 220;
-                    vehicle.Hp = 220;
-                    break;
+                def.ApplyTo(vehicle);
+            }
+            else
+            {
+                vehicle.Hp = vehicle.MaxHp > 0 ? vehicle.MaxHp : 100;
             }
         }
 

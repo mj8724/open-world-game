@@ -361,6 +361,8 @@ namespace OpenWorld
                     _simulation.QueueResearch(command.Text, command.Priority);
                     break;
                 case CommandKind.TrainUnit:
+                    if (!OpenWorldDataCatalog.IsUnitUnlocked(command.UnitKind, _world.Tech.Era))
+                        break;
                     _simulation.QueueUnitTraining(command.EntityId, command.UnitKind, command.Priority);
                     break;
                 case CommandKind.Attack:

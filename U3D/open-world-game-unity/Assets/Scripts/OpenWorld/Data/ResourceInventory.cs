@@ -6,7 +6,7 @@ namespace OpenWorld
     [Serializable]
     public class ResourceInventory
     {
-        const int ResourceCount = 22;
+        public const int ResourceCount = 22;
         readonly int[] _values = new int[ResourceCount];
 
         public int Dirt { get => _values[0]; set => _values[0] = value; }

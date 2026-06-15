@@ -34,6 +34,21 @@ namespace OpenWorld
         public string DisplayName = "";
         public TechEra RequiredEra = TechEra.WoodStone;
         public ResourceAmount[] Cost = Array.Empty<ResourceAmount>();
+        public int CargoCapacity;
+        public int Fuel;
+        public int MaxHp;
+        public int CrewRequired = 1;
+        public int VisionRange = 10;
+
+        public void ApplyTo(VehicleEntity vehicle)
+        {
+            vehicle.CargoCapacity = CargoCapacity;
+            vehicle.Fuel = Fuel;
+            vehicle.MaxHp = MaxHp;
+            vehicle.Hp = MaxHp;
+            vehicle.CrewRequired = CrewRequired;
+            vehicle.VisionRange = VisionRange;
+        }
     }
 
     public sealed class TechDef
@@ -133,15 +148,15 @@ namespace OpenWorld
 
         private static readonly List<VehicleDef> _vehicles = new()
         {
-            Vehicle(VehicleKind.HandCart, "Hand Cart", TechEra.WoodStone, Amounts((ResourceKind.Wood, 10), (ResourceKind.IronIngot, 1))),
-            Vehicle(VehicleKind.Wagon, "Wagon", TechEra.WoodStone, Amounts((ResourceKind.Wood, 18), (ResourceKind.IronIngot, 3))),
-            Vehicle(VehicleKind.Truck, "Truck", TechEra.Industrial, Amounts((ResourceKind.Steel, 12), (ResourceKind.MachineParts, 5), (ResourceKind.Fuel, 10))),
-            Vehicle(VehicleKind.ArmoredCar, "Armored Car", TechEra.Industrial, Amounts((ResourceKind.Steel, 20), (ResourceKind.MachineParts, 8), (ResourceKind.Weapons, 3), (ResourceKind.Fuel, 15))),
-            Vehicle(VehicleKind.Locomotive, "Locomotive", TechEra.Industrial, Amounts((ResourceKind.Steel, 30), (ResourceKind.MachineParts, 12), (ResourceKind.Fuel, 20))),
-            Vehicle(VehicleKind.CargoWagon, "Cargo Wagon", TechEra.Industrial, Amounts((ResourceKind.Steel, 14), (ResourceKind.MachineParts, 4))),
-            Vehicle(VehicleKind.Tank, "Tank", TechEra.Aviation, Amounts((ResourceKind.Steel, 45), (ResourceKind.MachineParts, 18), (ResourceKind.Weapons, 8), (ResourceKind.Fuel, 25))),
-            Vehicle(VehicleKind.Aircraft, "Aircraft", TechEra.Aviation, Amounts((ResourceKind.Steel, 30), (ResourceKind.MachineParts, 20), (ResourceKind.Fuel, 30))),
-            Vehicle(VehicleKind.TransportPlane, "Transport Plane", TechEra.Aviation, Amounts((ResourceKind.Steel, 40), (ResourceKind.MachineParts, 26), (ResourceKind.Fuel, 45)))
+            Vehicle(VehicleKind.HandCart, "Hand Cart", TechEra.WoodStone, Amounts((ResourceKind.Wood, 10), (ResourceKind.IronIngot, 1)), 40, 0, 80, 1, 10),
+            Vehicle(VehicleKind.Wagon, "Wagon", TechEra.WoodStone, Amounts((ResourceKind.Wood, 18), (ResourceKind.IronIngot, 3)), 85, 0, 120, 1, 10),
+            Vehicle(VehicleKind.Truck, "Truck", TechEra.Industrial, Amounts((ResourceKind.Steel, 12), (ResourceKind.MachineParts, 5), (ResourceKind.Fuel, 10)), 180, 100, 160, 1, 10),
+            Vehicle(VehicleKind.ArmoredCar, "Armored Car", TechEra.Industrial, Amounts((ResourceKind.Steel, 20), (ResourceKind.MachineParts, 8), (ResourceKind.Weapons, 3), (ResourceKind.Fuel, 15)), 30, 100, 260, 1, 24),
+            Vehicle(VehicleKind.Locomotive, "Locomotive", TechEra.Industrial, Amounts((ResourceKind.Steel, 30), (ResourceKind.MachineParts, 12), (ResourceKind.Fuel, 20)), 0, 150, 300, 1, 10),
+            Vehicle(VehicleKind.CargoWagon, "Cargo Wagon", TechEra.Industrial, Amounts((ResourceKind.Steel, 14), (ResourceKind.MachineParts, 4)), 500, 0, 220, 1, 10),
+            Vehicle(VehicleKind.Tank, "Tank", TechEra.Aviation, Amounts((ResourceKind.Steel, 45), (ResourceKind.MachineParts, 18), (ResourceKind.Weapons, 8), (ResourceKind.Fuel, 25)), 0, 200, 500, 1, 24),
+            Vehicle(VehicleKind.Aircraft, "Aircraft", TechEra.Aviation, Amounts((ResourceKind.Steel, 30), (ResourceKind.MachineParts, 20), (ResourceKind.Fuel, 30)), 0, 300, 200, 1, 30),
+            Vehicle(VehicleKind.TransportPlane, "Transport Plane", TechEra.Aviation, Amounts((ResourceKind.Steel, 40), (ResourceKind.MachineParts, 26), (ResourceKind.Fuel, 45)), 1000, 400, 250, 1, 30)
         };
 
         private static readonly List<TechDef> _techs = new()
@@ -256,9 +271,9 @@ namespace OpenWorld
             };
         }
 
-        private static VehicleDef Vehicle(VehicleKind kind, string displayName, TechEra era, ResourceAmount[] cost)
+        private static VehicleDef Vehicle(VehicleKind kind, string displayName, TechEra era, ResourceAmount[] cost, int cargoCapacity = 0, int fuel = 0, int maxHp = 100, int crewRequired = 1, int visionRange = 10)
         {
-            return new VehicleDef { Kind = kind, DisplayName = displayName, RequiredEra = era, Cost = cost };
+            return new VehicleDef { Kind = kind, DisplayName = displayName, RequiredEra = era, Cost = cost, CargoCapacity = cargoCapacity, Fuel = fuel, MaxHp = maxHp, CrewRequired = crewRequired, VisionRange = visionRange };
         }
 
         private static TechDef Tech(string id, string displayName, TechEra requiredEra, TechEra unlockEra, int ticks, int engineers, ResourceAmount[] costPerTick, string next)

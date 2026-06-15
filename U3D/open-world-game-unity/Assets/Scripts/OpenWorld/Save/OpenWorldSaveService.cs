@@ -58,9 +58,26 @@ namespace OpenWorld
 
     public static class OpenWorldSaveService
     {
-        public static string SavePath => Path.Combine(Application.persistentDataPath, "open_world_surface_save.json");
+        public static string SavePath(int slot) => Path.Combine(Application.persistentDataPath, $"open_world_save_{slot}.json");
 
         public static void Save(OpenWorldState world)
+        {
+            // Rotate: slot2 → slot1 → slot0 (keep last 3 saves)
+            for (int i = 2; i > 0; i--)
+            {
+                var older = SavePath(i);
+                var newer = SavePath(i - 1);
+                if (File.Exists(older)) File.Delete(older);
+                if (File.Exists(newer)) File.Move(newer, older);
+            }
+
+            var data = BuildSaveData(world);
+            Directory.CreateDirectory(Application.persistentDataPath);
+            File.WriteAllText(SavePath(0), JsonUtility.ToJson(data, true));
+            Debug.Log($"[OpenWorld] Saved to {SavePath(0)} (rotation: 3 slots)");
+        }
+
+        private static OpenWorldSaveData BuildSaveData(OpenWorldState world)
         {
             var data = new OpenWorldSaveData
             {
@@ -113,35 +130,41 @@ namespace OpenWorld
                 }
             }
 
-            Directory.CreateDirectory(Application.persistentDataPath);
-            File.WriteAllText(SavePath, JsonUtility.ToJson(data, true));
-            Debug.Log($"[OpenWorld] Saved to {SavePath}");
+            return data;
         }
 
         public static bool TryLoad(out OpenWorldSaveData data)
         {
             data = null;
-            if (!File.Exists(SavePath)) return false;
-
-            try
+            // Try newest save first (slot 0), fall back to older slots
+            for (int slot = 0; slot < 3; slot++)
             {
-                data = JsonUtility.FromJson<OpenWorldSaveData>(File.ReadAllText(SavePath));
-                Migrate(data);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[OpenWorld] Failed to read save: {ex.Message}");
-                return false;
+                var path = SavePath(slot);
+                if (!File.Exists(path)) continue;
+
+                try
+                {
+                    data = JsonUtility.FromJson<OpenWorldSaveData>(File.ReadAllText(path));
+                    Migrate(data);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[OpenWorld] Failed to read save slot {slot}: {ex.Message}");
+                    continue;
+                }
+
+                if (data == null || data.MapSize <= 0 || data.ChunkSize <= 0)
+                {
+                    Debug.LogWarning($"[OpenWorld] Save slot {slot} is missing required world metadata.");
+                    continue;
+                }
+
+                Debug.Log($"[OpenWorld] Loaded from {path} (slot {slot})");
+                return true;
             }
 
-            if (data == null || data.MapSize <= 0 || data.ChunkSize <= 0)
-            {
-                Debug.LogWarning("[OpenWorld] Save file is missing required world metadata.");
-                data = null;
-                return false;
-            }
-
-            return true;
+            data = null;
+            return false;
         }
 
         public static void Migrate(OpenWorldSaveData data)
