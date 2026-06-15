@@ -1,13 +1,14 @@
 using System.Collections.Generic;
 using UnityEngine;
+using OpenWorld.Terrain;
 
 namespace OpenWorld
 {
     public class WorldChunk
     {
-        public readonly Vector2Int Coord;
-        public readonly int Size;
-        public readonly SurfaceCell[,] Cells;
+        public Vector2Int Coord { get; }
+        public int Size { get; }
+        public SurfaceCell[,] Cells { get; }
         public bool DirtyVisual = true;
         public bool DirtyPath = true;
 
@@ -19,39 +20,41 @@ namespace OpenWorld
         }
     }
 
-    public class OpenWorldState
+    public class OpenWorldState : IWorldState
     {
-        public readonly int MapSize;
-        public readonly int ChunkSize;
-        public readonly int Seed;
-        public readonly ResourceInventory Inventory = new();
-        public readonly Dictionary<Vector2Int, WorldChunk> Chunks = new();
-        public readonly Dictionary<int, BuildingEntity> Buildings = new();
-        public readonly Dictionary<int, UnitEntity> Units = new();
-        public readonly Dictionary<int, VehicleEntity> Vehicles = new();
-        public readonly List<JobRecord> Jobs = new();
-        public readonly List<BlueprintJob> Blueprints = new();
-        public readonly List<FactionRecord> Factions = new();
-        public readonly List<DiplomacyRecord> Diplomacy = new();
-        public readonly List<RegionRecord> Regions = new();
-        public readonly List<StrategicSiteRecord> StrategicSites = new();
-        public readonly List<LogisticsRoute> LogisticsRoutes = new();
-        public readonly List<ProductionOrder> ProductionOrders = new();
-        public readonly List<ResearchOrder> ResearchOrders = new();
-        public readonly List<WorkerAssignment> WorkerAssignments = new();
-        public readonly List<TradeContract> TradeContracts = new();
-        public readonly List<IntelSnapshot> IntelSnapshots = new();
-        public readonly List<RailSchedule> RailSchedules = new();
-        public readonly List<RepairRefuelOrder> ServiceOrders = new();
-        public readonly List<SurveyRecord> Surveys = new();
-        public readonly List<DrillReport> DrillReports = new();
-        public readonly List<MiningZoneRecord> MiningZones = new();
-        public readonly Dictionary<Vector2Int, SurveyRecord> SurveyByCell = new();
-        public readonly Queue<OpenWorldCommand> Commands = new();
-        public readonly HashSet<Vector2Int> ModifiedCells = new();
-        public readonly PopulationState Population = new();
-        public readonly TechState Tech = new();
-        public KnowledgeState[] KnowledgeCells;
+        public int MapSize { get; }
+        public int ChunkSize { get; }
+        public int Seed { get; }
+        public ResourceInventory Inventory { get; } = new();
+        public Dictionary<Vector2Int, WorldChunk> Chunks { get; } = new();
+        public Dictionary<int, BuildingEntity> Buildings { get; } = new();
+        public Dictionary<int, UnitEntity> Units { get; } = new();
+        public Dictionary<int, VehicleEntity> Vehicles { get; } = new();
+        public List<JobRecord> Jobs { get; } = new();
+        public List<BlueprintJob> Blueprints { get; } = new();
+        public List<FactionRecord> Factions { get; } = new();
+        public List<DiplomacyRecord> Diplomacy { get; } = new();
+        public List<RegionRecord> Regions { get; } = new();
+        public List<StrategicSiteRecord> StrategicSites { get; } = new();
+        public List<LogisticsRoute> LogisticsRoutes { get; } = new();
+        public List<ProductionOrder> ProductionOrders { get; } = new();
+        public List<ResearchOrder> ResearchOrders { get; } = new();
+        public List<WorkerAssignment> WorkerAssignments { get; } = new();
+        public List<TradeContract> TradeContracts { get; } = new();
+        public List<IntelSnapshot> IntelSnapshots { get; } = new();
+        public List<RailSchedule> RailSchedules { get; } = new();
+        public List<RepairRefuelOrder> ServiceOrders { get; } = new();
+        public List<SurveyRecord> Surveys { get; } = new();
+        public List<DrillReport> DrillReports { get; } = new();
+        public List<MiningZoneRecord> MiningZones { get; } = new();
+        public Dictionary<Vector2Int, SurveyRecord> SurveyByCell { get; } = new();
+        public Queue<OpenWorldCommand> Commands { get; } = new();
+        public HashSet<Vector2Int> ModifiedCells { get; } = new();
+        public PopulationState Population { get; } = new();
+        public TechState Tech { get; } = new();
+        public KnowledgeState[] KnowledgeCells { get; set; }
+
+        private readonly ChunkGenerator _chunkGenerator;
 
         private int _nextBuildingId = 1;
         private int _nextUnitId = 1;
@@ -69,6 +72,7 @@ namespace OpenWorld
             MapSize = mapSize;
             ChunkSize = chunkSize;
             Seed = seed;
+            _chunkGenerator = new ChunkGenerator(mapSize, chunkSize, seed, RegionIdFor);
             Inventory.Dirt = 300;
             Inventory.Stone = 250;
             Inventory.IronOre = 120;
@@ -102,7 +106,7 @@ namespace OpenWorld
         {
             if (Chunks.TryGetValue(chunkCoord, out var chunk)) return chunk;
             chunk = new WorldChunk(chunkCoord, ChunkSize);
-            GenerateChunk(chunk);
+            _chunkGenerator.GenerateChunk(chunk);
             Chunks[chunkCoord] = chunk;
             return chunk;
         }
@@ -298,16 +302,28 @@ namespace OpenWorld
             return best;
         }
 
+        private readonly Dictionary<ResourceKind, int> _totalResourceCache = new();
+        private bool _totalResourceDirty = true;
+
         public int TotalResource(ResourceKind kind)
         {
-            int total = Inventory.Get(kind);
-            foreach (var building in Buildings.Values)
+            if (_totalResourceDirty)
             {
-                EnsureBuildingStorage(building);
-                total += building.Storage.Get(kind);
+                // Rebuild all caches
+                for (int i = 0; i <= (int)ResourceKind.RailParts; i++)
+                    _totalResourceCache[(ResourceKind)i] = Inventory.Get((ResourceKind)i);
+                foreach (var building in Buildings.Values)
+                {
+                    EnsureBuildingStorage(building);
+                    for (int i = 0; i <= (int)ResourceKind.RailParts; i++)
+                        _totalResourceCache[(ResourceKind)i] += building.Storage.Get((ResourceKind)i);
+                }
+                _totalResourceDirty = false;
             }
-            return total;
+            return _totalResourceCache.TryGetValue(kind, out int v) ? v : 0;
         }
+
+        public void InvalidateResourceCache() => _totalResourceDirty = true;
 
         public int AddToStorage(BuildingEntity building, ResourceKind kind, int amount)
         {
@@ -317,6 +333,7 @@ namespace OpenWorld
             building.LastStorageStatus = accepted == amount
                 ? $"Stored {accepted} {kind}"
                 : accepted > 0 ? $"Stored {accepted}/{amount} {kind}; output full" : "Output full";
+            if (accepted > 0) _totalResourceDirty = true;
             return accepted;
         }
 
@@ -549,18 +566,7 @@ namespace OpenWorld
             _nextMiningZoneId = NextId(MiningZones, z => z.Id);
         }
 
-        private void GenerateChunk(WorldChunk chunk)
-        {
-            for (int z = 0; z < ChunkSize; z++)
-            {
-                for (int x = 0; x < ChunkSize; x++)
-                {
-                    int wx = chunk.Coord.x * ChunkSize + x;
-                    int wz = chunk.Coord.y * ChunkSize + z;
-                    chunk.Cells[x, z] = GenerateCell(wx, wz);
-                }
-            }
-        }
+
 
         private static int NextId(IEnumerable<int> ids)
         {
@@ -607,6 +613,7 @@ namespace OpenWorld
                 int move = Mathf.Max(1, Mathf.FloorToInt(available * 0.6f));
                 int accepted = AddToStorage(warehouse, kind, move);
                 Inventory.Add(kind, -accepted);
+                if (accepted > 0) _totalResourceDirty = true;
             }
             warehouse.LastStorageStatus = "Migrated legacy stock";
         }
@@ -636,122 +643,7 @@ namespace OpenWorld
             if (from.CompletedResearch != null) to.CompletedResearch.AddRange(from.CompletedResearch);
         }
 
-        private SurfaceCell GenerateCell(int x, int z)
-        {
-            const int mapHalfX = 256;
-            const float riverHalfWidth = 4f;
 
-            // === Central River (symmetric barrier at X=256) ===
-            int distFromCenter = Mathf.Abs(x - mapHalfX);
-            if (distFromCenter <= riverHalfWidth)
-            {
-                float edgeFactor = distFromCenter / riverHalfWidth;
-                SurfaceTerrain riverTerrain;
-                float riverHeight;
-
-                if (edgeFactor < 0.4f)
-                {
-                    riverTerrain = SurfaceTerrain.Water;
-                    riverHeight = 1.0f;
-                }
-                else if (edgeFactor < 0.7f)
-                {
-                    riverTerrain = SurfaceTerrain.Water;
-                    riverHeight = 2.0f;
-                }
-                else
-                {
-                    riverTerrain = SurfaceTerrain.Shallows;
-                    riverHeight = 3.0f;
-                }
-
-                // Ford crossing points — shallow passable zones
-                int[] fordZValues = { 80, 190, 300, 410 };
-                foreach (int fordZ in fordZValues)
-                {
-                    if (Mathf.Abs(z - fordZ) <= 3)
-                    {
-                        riverTerrain = SurfaceTerrain.Shallows;
-                        riverHeight = 3.5f;
-                        break;
-                    }
-                }
-
-                return new SurfaceCell
-                {
-                    Height = riverHeight,
-                    Terrain = riverTerrain,
-                    Layers = new[] { new MaterialLayer(GroundMaterial.Dirt, 1), new MaterialLayer(GroundMaterial.Stone, 6) },
-                    CurrentLayer = 0,
-                    BuildingId = 0,
-                    ResourceRichness = 0,
-                    RegionId = RegionIdFor(new Vector2Int(x, z))
-                };
-            }
-
-            // === Symmetric Terrain: mirror right side to left side ===
-            int genX = (x > mapHalfX) ? (mapHalfX * 2 - x) : x;
-
-            float low = Mathf.PerlinNoise((genX + Seed) * 0.010f, (z - Seed) * 0.010f);
-            float high = Mathf.PerlinNoise((genX - Seed) * 0.035f, (z + Seed) * 0.035f);
-            float height = Mathf.Round((low * 12f + high * 3f) * 2f) / 2f;
-
-            SurfaceTerrain terrain = height switch
-            {
-                < 2.0f => SurfaceTerrain.Plains,
-                < 7.5f => SurfaceTerrain.Hills,
-                _ => SurfaceTerrain.Mountain
-            };
-
-            float forestNoise = Mathf.PerlinNoise((genX + 91) * 0.045f, (z + 37) * 0.045f);
-            if (terrain == SurfaceTerrain.Plains && forestNoise > 0.66f) terrain = SurfaceTerrain.Forest;
-
-            // River generation - winding channels that require bridges (uses genX for symmetry)
-            float riverX = Mathf.PerlinNoise((genX + Seed * 2) * 0.006f, (z - 137) * 0.0042f);
-            float riverZ = Mathf.PerlinNoise((genX + 229) * 0.0042f, (z + Seed * 2) * 0.006f);
-            float riverVal = Mathf.Abs(riverX - 0.5f) * 2f;
-            float riverZVal = Mathf.Abs(riverZ - 0.5f) * 2f;
-            float river = Mathf.Min(riverVal, riverZVal);
-            float riverSecondary = Mathf.PerlinNoise((genX - 401) * 0.0055f, (z + 331) * 0.0055f);
-            bool isRiver = river < 0.13f || (riverSecondary > 0.88f && river < 0.18f);
-            if (isRiver)
-            {
-                float edge = river < 0.06f ? 0f : (river - 0.06f) / 0.07f;
-                terrain = edge < 0.5f ? SurfaceTerrain.Water : SurfaceTerrain.Shallows;
-                height = terrain == SurfaceTerrain.Water ? height - 1.5f : height - 0.8f;
-            }
-
-            bool iron = Mathf.PerlinNoise((genX + Seed * 3) * 0.025f, (z - Seed * 5) * 0.025f) > 0.72f && height > 3.5f;
-            bool coal = Mathf.PerlinNoise((genX - Seed * 4) * 0.021f, (z + Seed * 2) * 0.021f) > 0.76f && height > 4.0f;
-            bool oil = Mathf.PerlinNoise((genX + 444) * 0.015f, (z - 888) * 0.015f) > 0.83f && height < 4.5f;
-            bool sulfur = Mathf.PerlinNoise((genX + Seed * 7) * 0.019f, (z + Seed * 11) * 0.019f) > 0.84f && height > 2.5f;
-            bool nitrate = Mathf.PerlinNoise((genX - Seed * 9) * 0.018f, (z - Seed * 6) * 0.018f) > 0.85f && height < 6f;
-            bool clay = Mathf.PerlinNoise((genX + 51) * 0.032f, (z - 73) * 0.032f) > 0.70f && height < 3.5f;
-            var layers = iron
-                ? new[] { new MaterialLayer(GroundMaterial.Dirt, 2), new MaterialLayer(GroundMaterial.Stone, 3), new MaterialLayer(GroundMaterial.IronOre, 8, 0.55f + high * 0.35f, 1.55f, 0.08f, 96) }
-                : coal
-                    ? new[] { new MaterialLayer(GroundMaterial.Dirt, 2), new MaterialLayer(GroundMaterial.Stone, 3), new MaterialLayer(GroundMaterial.Coal, 8, 0.62f + low * 0.25f, 1.15f, 0.12f, 110) }
-                    : oil
-                        ? new[] { new MaterialLayer(GroundMaterial.Dirt, 2), new MaterialLayer(GroundMaterial.Clay, 2), new MaterialLayer(GroundMaterial.Oil, 6, 0.72f + low * 0.20f, 0.65f, 0.48f, 140) }
-                        : sulfur
-                            ? new[] { new MaterialLayer(GroundMaterial.Dirt, 2), new MaterialLayer(GroundMaterial.Stone, 4), new MaterialLayer(GroundMaterial.Sulfur, 5, 0.45f + high * 0.30f, 1.25f, 0.15f, 65) }
-                            : nitrate
-                                ? new[] { new MaterialLayer(GroundMaterial.Dirt, 3), new MaterialLayer(GroundMaterial.Clay, 2), new MaterialLayer(GroundMaterial.Nitrate, 5, 0.42f + low * 0.32f, 1.05f, 0.24f, 60) }
-                                : clay
-                                    ? new[] { new MaterialLayer(GroundMaterial.Dirt, 2), new MaterialLayer(GroundMaterial.Clay, 6), new MaterialLayer(GroundMaterial.Stone, 5) }
-                                    : new[] { new MaterialLayer(GroundMaterial.Dirt, 3), new MaterialLayer(GroundMaterial.Stone, 8) };
-
-            return new SurfaceCell
-            {
-                Height = height,
-                Terrain = terrain,
-                Layers = layers,
-                CurrentLayer = 0,
-                BuildingId = 0,
-                ResourceRichness = iron || coal || oil || sulfur || nitrate ? 3 : forestNoise > 0.66f ? 2 : 1,
-                RegionId = RegionIdFor(new Vector2Int(x, z))
-            };
-        }
 
         public static void NormalizeLayers(ref SurfaceCell cell)
         {
@@ -830,8 +722,7 @@ namespace OpenWorld
 
         private static void ApplyUnitDefaults(UnitEntity unit)
         {
-            var def = OpenWorldDataCatalog.GetUnit(unit.Kind);
-            if (def != null) { def.ApplyTo(unit); return; }
+            if (OpenWorldDataCatalog.TryGetDef(unit.Kind, out var def)) { def.ApplyTo(unit); return; }
             // Fallback defaults for any kind missing from the catalog
             unit.AttackPower = 8;
             unit.VisionRange = 12;
