@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace OpenWorld
 {
-    public class OpenWorldLogisticsSystem : MonoBehaviour
+    public class OpenWorldLogisticsSystem : MonoBehaviour, ILogistics
     {
         public string LastStatus { get; private set; } = "No routes";
         public IReadOnlyList<string> RouteLines => _routeLines;
@@ -156,6 +156,7 @@ namespace OpenWorld
                 {
                     int load = Mathf.Min(locomotive.CargoCapacity, stationStock);
                     station.Storage.Spend(schedule.CargoKind, load);
+                    _world.InvalidateResourceCache();
                     locomotive.CargoKind = schedule.CargoKind;
                     locomotive.CargoAmount = load;
                     locomotive.StatusText = $"Loaded {load} {schedule.CargoKind} at #{currentStationId}";
@@ -327,6 +328,7 @@ namespace OpenWorld
             if (vehicle.Entity.CargoAmount > 0)
             {
                 source.Storage.Add(vehicle.Entity.CargoKind, vehicle.Entity.CargoAmount);
+                _world.InvalidateResourceCache();
                 vehicle.Entity.CargoAmount = 0;
             }
             vehicle.Entity.AssignedRouteId = 0;
@@ -353,6 +355,7 @@ namespace OpenWorld
                 vehicle.Entity.AssignedRouteId = 0;
                 return;
             }
+            _world.InvalidateResourceCache();
 
             source.LastStorageStatus = $"Loaded {load} {route.CargoKind} onto vehicle #{vehicle.Entity.Id}";
             vehicle.Entity.CargoKind = route.CargoKind;
@@ -361,6 +364,7 @@ namespace OpenWorld
             if (!vehicle.MoveTo(route.Target))
             {
                 source.Storage.Add(route.CargoKind, load);
+                _world.InvalidateResourceCache();
                 vehicle.Entity.CargoAmount = 0;
                 vehicle.Entity.AssignedRouteId = 0;
                 route.AssignedVehicleId = 0;
