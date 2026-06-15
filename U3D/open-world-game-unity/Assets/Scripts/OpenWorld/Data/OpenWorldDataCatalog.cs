@@ -152,10 +152,19 @@ namespace OpenWorld
         };
 
         private static readonly List<UnitKindDef> _unitKinds = UnitKindDef.Defaults();
+        private static readonly Dictionary<UnitKind, UnitKindDef> _defCache = new();
+
+        static OpenWorldDataCatalog()
+        {
+            foreach (var def in _unitKinds)
+                _defCache[def.Kind] = def;
+        }
 
         public static IReadOnlyList<UnitKindDef> UnitKinds => _unitKinds;
 
-        public static UnitKindDef GetUnit(UnitKind kind) => _unitKinds.Find(u => u.Kind == kind);
+        public static bool TryGetDef(UnitKind kind, out UnitKindDef def) => _defCache.TryGetValue(kind, out def);
+
+        public static UnitKindDef GetUnit(UnitKind kind) => TryGetDef(kind, out var def) ? def : null;
 
         public static VehicleDef GetVehicle(VehicleKind kind) => _vehicles.Find(v => v.Kind == kind);
 
