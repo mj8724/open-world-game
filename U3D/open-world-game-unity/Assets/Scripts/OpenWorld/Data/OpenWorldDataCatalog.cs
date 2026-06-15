@@ -69,6 +69,7 @@ namespace OpenWorld
         public float Ammo = 20f;
         public int MaxAmmo = 35;
         public bool IsRanged;
+        public TechEra RequiredEra = TechEra.WoodStone;
 
         public void ApplyTo(UnitEntity unit)
         {
@@ -92,10 +93,10 @@ namespace OpenWorld
             new UnitKindDef { Kind = UnitKind.Melee, DisplayName = "Swordsman", AttackPower = 10, Hp = 100, MaxHp = 100, VisionRange = 12, AttackRange = 1.5f, Accuracy = 0.72f, Armor = 1f, Speed = 3.5f },
             new UnitKindDef { Kind = UnitKind.Spearman, DisplayName = "Spearman", AttackPower = 9, Hp = 100, MaxHp = 100, VisionRange = 12, AttackRange = 1.8f, Accuracy = 0.68f, Speed = 3.5f },
             new UnitKindDef { Kind = UnitKind.Ranged, DisplayName = "Archer", AttackPower = 8, Hp = 80, MaxHp = 80, VisionRange = 14, AttackRange = 6f, Accuracy = 0.64f, IsRanged = true, Ammo = 30, Speed = 3.5f },
-            new UnitKindDef { Kind = UnitKind.Musketeer, DisplayName = "Musketeer", AttackPower = 14, Hp = 90, MaxHp = 90, VisionRange = 16, AttackRange = 7f, Accuracy = 0.70f, IsRanged = true, Ammo = 35, Speed = 3.2f },
-            new UnitKindDef { Kind = UnitKind.Rifleman, DisplayName = "Rifleman", AttackPower = 14, Hp = 90, MaxHp = 90, VisionRange = 16, AttackRange = 7f, Accuracy = 0.72f, IsRanged = true, Ammo = 35, Speed = 3.2f },
-            new UnitKindDef { Kind = UnitKind.MachineGunner, DisplayName = "Machine Gunner", AttackPower = 22, Hp = 100, MaxHp = 100, VisionRange = 18, AttackRange = 8f, Accuracy = 0.62f, Armor = 2f, IsRanged = true, Ammo = 70, Speed = 2.8f },
-            new UnitKindDef { Kind = UnitKind.Artillery, DisplayName = "Artillery", AttackPower = 35, Hp = 70, MaxHp = 70, VisionRange = 20, AttackRange = 12f, Accuracy = 0.52f, Armor = 3f, IsRanged = true, Ammo = 24, Speed = 2f },
+            new UnitKindDef { Kind = UnitKind.Musketeer, DisplayName = "Musketeer", AttackPower = 14, Hp = 90, MaxHp = 90, VisionRange = 16, AttackRange = 7f, Accuracy = 0.70f, IsRanged = true, Ammo = 35, Speed = 3.2f, RequiredEra = TechEra.Gunpowder },
+            new UnitKindDef { Kind = UnitKind.Rifleman, DisplayName = "Rifleman", AttackPower = 14, Hp = 90, MaxHp = 90, VisionRange = 16, AttackRange = 7f, Accuracy = 0.72f, IsRanged = true, Ammo = 35, Speed = 3.2f, RequiredEra = TechEra.Industrial },
+            new UnitKindDef { Kind = UnitKind.MachineGunner, DisplayName = "Machine Gunner", AttackPower = 22, Hp = 100, MaxHp = 100, VisionRange = 18, AttackRange = 8f, Accuracy = 0.62f, Armor = 2f, IsRanged = true, Ammo = 70, Speed = 2.8f, RequiredEra = TechEra.Industrial },
+            new UnitKindDef { Kind = UnitKind.Artillery, DisplayName = "Artillery", AttackPower = 35, Hp = 70, MaxHp = 70, VisionRange = 20, AttackRange = 12f, Accuracy = 0.52f, Armor = 3f, IsRanged = true, Ammo = 24, Speed = 2f, RequiredEra = TechEra.Gunpowder },
             new UnitKindDef { Kind = UnitKind.Medic, DisplayName = "Medic", AttackPower = 2, Hp = 60, MaxHp = 60, VisionRange = 14, AttackRange = 1.2f, Accuracy = 0.45f, Speed = 3.8f },
             new UnitKindDef { Kind = UnitKind.Hauler, DisplayName = "Hauler", AttackPower = 3, Hp = 70, MaxHp = 70, VisionRange = 10, AttackRange = 1.2f, Accuracy = 0.40f, Speed = 3.5f },
         };
@@ -209,6 +210,12 @@ namespace OpenWorld
         public static bool IsStorageNode(BuildableKind kind) => StorageCapacityFor(kind) > 0;
 
         public static bool EraUnlocked(TechEra current, TechEra required) => current >= required;
+
+        public static bool IsUnitUnlocked(UnitKind kind, TechEra currentEra)
+        {
+            var def = GetUnit(kind);
+            return def != null && EraUnlocked(currentEra, def.RequiredEra);
+        }
 
         public static bool CanSpend(ResourceInventory inventory, IReadOnlyList<ResourceAmount> amounts, out string missing)
         {

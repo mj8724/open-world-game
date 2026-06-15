@@ -282,6 +282,7 @@ namespace OpenWorld
         Research,
         Move,
         Attack,
+        EscortVehicle,
         Patrol,
         SetDefenseArea,
         SetTransportPolicy,

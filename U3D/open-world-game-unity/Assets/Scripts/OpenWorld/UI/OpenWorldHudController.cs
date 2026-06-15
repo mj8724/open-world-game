@@ -490,6 +490,35 @@ namespace OpenWorld
             if (_militaryList == null) return;
             _militaryList.Clear();
             AddStatusLine(_militaryList, $"Known enemy contacts {_world.IntelSnapshots.Count}", "status-summary");
+
+            if (_units != null && _units.SelectedUnits.Count > 0)
+            {
+                int closestVehicleId = -1;
+                float closestDist = float.MaxValue;
+                Vector2Int groupCenter = _units.SelectedUnits[0].Entity.Cell;
+                foreach (var v in _world.Vehicles.Values)
+                {
+                    if (v.FactionId == OpenWorldConstants.PlayerFactionId)
+                    {
+                        float dist = Vector2Int.Distance(groupCenter, v.Cell);
+                        if (dist <= 20f && dist < closestDist)
+                        {
+                            closestDist = dist;
+                            closestVehicleId = v.Id;
+                        }
+                    }
+                }
+
+                if (closestVehicleId != -1)
+                {
+                    var row = new VisualElement();
+                    row.AddToClassList("queue-row");
+                    row.Add(new Label { text = $"Escort Vehicle #{closestVehicleId}" });
+                    row.Add(MakeRouteButton("Escort", () => _commands?.SubmitEscortVehicle(0, closestVehicleId)));
+                    _militaryList.Add(row);
+                }
+            }
+
             int shown = 0;
             foreach (var unit in _world.Units.Values)
             {
@@ -548,23 +577,36 @@ namespace OpenWorld
                     row.AddToClassList("queue-row");
                     row.Add(new Label { text = $"#{building.Id} Barracks" });
                     int barracksId = building.Id;
-                    row.Add(MakeRouteButton("Mil", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Militia)));
-                    row.Add(MakeRouteButton("Mel", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Melee)));
-                    row.Add(MakeRouteButton("Spear", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Spearman)));
-                    row.Add(MakeRouteButton("Rngd", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Ranged)));
-                    row.Add(MakeRouteButton("Musk", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Musketeer)));
-                    row.Add(MakeRouteButton("Scout", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Scout)));
-                    row.Add(MakeRouteButton("Eng", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Engineer)));
-                    row.Add(MakeRouteButton("Med", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Medic)));
+                    Button MakeTrainButton(string text, UnitKind kind)
+                    {
+                        var btn = MakeRouteButton(text, () => _commands?.SubmitTrainUnit(barracksId, kind));
+                        if (!OpenWorldDataCatalog.IsUnitUnlocked(kind, _world.Tech.Era))
+                        {
+                            btn.SetEnabled(false);
+                            var def = OpenWorldDataCatalog.GetUnit(kind);
+                            if (def != null)
+                                btn.tooltip = $"需要 {def.RequiredEra} 时代";
+                        }
+                        return btn;
+                    }
+
+                    row.Add(MakeTrainButton("Mil", UnitKind.Militia));
+                    row.Add(MakeTrainButton("Mel", UnitKind.Melee));
+                    row.Add(MakeTrainButton("Spear", UnitKind.Spearman));
+                    row.Add(MakeTrainButton("Rngd", UnitKind.Ranged));
+                    row.Add(MakeTrainButton("Musk", UnitKind.Musketeer));
+                    row.Add(MakeTrainButton("Scout", UnitKind.Scout));
+                    row.Add(MakeTrainButton("Eng", UnitKind.Engineer));
+                    row.Add(MakeTrainButton("Med", UnitKind.Medic));
                     parent.Add(row);
                     var row2 = new VisualElement();
                     row2.AddToClassList("queue-row");
                     row2.Add(new Label { text = "Advanced:" });
-                    row2.Add(MakeRouteButton("Rifle", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Rifleman)));
-                    row2.Add(MakeRouteButton("MG", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.MachineGunner)));
-                    row2.Add(MakeRouteButton("Art", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Artillery)));
-                    row2.Add(MakeRouteButton("Wkr", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Worker)));
-                    row2.Add(MakeRouteButton("Haul", () => _commands?.SubmitTrainUnit(barracksId, UnitKind.Hauler)));
+                    row2.Add(MakeTrainButton("Rifle", UnitKind.Rifleman));
+                    row2.Add(MakeTrainButton("MG", UnitKind.MachineGunner));
+                    row2.Add(MakeTrainButton("Art", UnitKind.Artillery));
+                    row2.Add(MakeTrainButton("Wkr", UnitKind.Worker));
+                    row2.Add(MakeTrainButton("Haul", UnitKind.Hauler));
                     parent.Add(row2);
                     shown += 2;
                 }

@@ -95,6 +95,21 @@ namespace OpenWorld
             }
         }
 
+        public void EscortSelected(int vehicleId)
+        {
+            if (!_world.Vehicles.TryGetValue(vehicleId, out var vehicle)) return;
+            for (int i = 0; i < _selected.Count; i++)
+            {
+                _selected[i].IssueOrder(new UnitOrder
+                {
+                    Kind = UnitOrderKind.Escort,
+                    TargetCell = vehicle.Cell,
+                    TargetEntityId = vehicleId,
+                    Priority = 4
+                });
+            }
+        }
+
         public bool MoveBestScoutTo(Vector2Int target)
         {
             UnitAgent best = null;

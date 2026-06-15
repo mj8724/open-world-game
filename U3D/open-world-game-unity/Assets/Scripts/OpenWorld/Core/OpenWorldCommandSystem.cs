@@ -181,6 +181,13 @@ namespace OpenWorld
             command.EntityId = targetEntityId;
         }
 
+        public void SubmitEscortVehicle(int unitId, int vehicleId)
+        {
+            var command = _world.EnqueueCommand(CommandKind.EscortVehicle, FactionId);
+            command.EntityId = unitId;
+            command.SecondaryEntityId = vehicleId;
+        }
+
         public void SubmitPatrolSelected(Vector2Int cell)
         {
             var command = _world.EnqueueCommand(CommandKind.Patrol, FactionId);
@@ -359,6 +366,26 @@ namespace OpenWorld
                 case CommandKind.Attack:
                     _simulation.DeclareHostilityForTarget(command.EntityId);
                     _units.AttackSelected(command.TargetCell, command.EntityId);
+                    break;
+                case CommandKind.EscortVehicle:
+                    if (command.EntityId > 0)
+                    {
+                        var agent = _units.GetAgent(command.EntityId);
+                        if (agent != null && _world.Vehicles.TryGetValue(command.SecondaryEntityId, out var v))
+                        {
+                            agent.IssueOrder(new UnitOrder
+                            {
+                                Kind = UnitOrderKind.Escort,
+                                TargetCell = v.Cell,
+                                TargetEntityId = v.Id,
+                                Priority = 4
+                            });
+                        }
+                    }
+                    else
+                    {
+                        _units.EscortSelected(command.SecondaryEntityId);
+                    }
                     break;
                 case CommandKind.Patrol:
                     _units.PatrolSelected(command.TargetCell);

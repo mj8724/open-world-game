@@ -69,6 +69,10 @@ namespace OpenWorld
                 UnitOrderKind.Drill => UnitTask.Drilling,
                 _ => UnitTask.Moving
             };
+            if (order.Kind == UnitOrderKind.Escort)
+            {
+                Entity.EscortVehicleId = order.TargetEntityId;
+            }
             BuildPath(order.TargetCell, task);
         }
 
