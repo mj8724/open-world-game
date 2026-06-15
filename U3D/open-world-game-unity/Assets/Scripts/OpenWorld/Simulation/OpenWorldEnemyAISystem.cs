@@ -3,20 +3,16 @@ using System.Collections.Generic;
 
 namespace OpenWorld
 {
-    /// <summary>
-    /// 敌方 AI 系统：管理敌方势力的自动扩张、资源采集、防御建设和攻击策略
-    /// </summary>
     public class OpenWorldEnemyAISystem
     {
         private readonly OpenWorldState _world;
         private readonly UnitSystem _units;
         private readonly SurfaceTerrainSystem _terrain;
         private readonly BlueprintSystem _blueprints;
-        private int _aiStep;
-
-        private const int EnemyUnitBudget = 14;
-        private const int EnemyRoadblockBudget = 2;
-        private const int EnemyRaidSize = 3;
+        
+        private readonly EnemyEconomy _economy;
+        private readonly EnemyScoutSystem _scouting;
+        private readonly EnemyMilitarySystem _military;
 
         public string PressureSummary { get; private set; } = "Stable";
 
@@ -26,6 +22,10 @@ namespace OpenWorld
             _units = units;
             _terrain = terrain;
             _blueprints = blueprints;
+            
+            _economy = new EnemyEconomy(_world);
+            _scouting = new EnemyScoutSystem();
+            _military = new EnemyMilitarySystem(_economy);
         }
 
         public void Tick()
@@ -39,174 +39,104 @@ namespace OpenWorld
             #endif
 
             if (_world.Buildings.Count == 0) return;
-            _aiStep++;
-            PressureSummary = "Stable";
+            
+            _economy.TickEconomy();
+            _scouting.TickScouting(_units, _world);
+            TickExpansion();
+            _military.TickMilitary(_units, _world);
+            UpdatePressureSummary();
+        }
+
+        private void TickExpansion()
+        {
             var center = new Vector2Int(_world.MapSize / 2, _world.MapSize / 2);
             var enemyCenter = center + new Vector2Int(80, 0);
-            var pressureCell = enemyCenter + new Vector2Int((_aiStep % 5) * 2, (_aiStep % 3) * 2);
+            
+            int tcCount = 0;
+            int barracksCount = 0;
+            int smelterCount = 0;
+            int steelworksCount = 0;
+            int machineShopCount = 0;
+            int minePostCount = 0;
+            int roadblockCount = 0;
 
-            int enemyUnits = 0;
-            foreach (var unit in _world.Units.Values)
-                if (unit.FactionId == OpenWorldConstants.EnemyFactionId) enemyUnits++;
-            int enemyBuildings = 0;
-            foreach (var building in _world.Buildings.Values)
-                if (building.FactionId == OpenWorldConstants.EnemyFactionId) enemyBuildings++;
-            int enemyRoadblocks = 0;
-            foreach (var building in _world.Buildings.Values)
-                if (building.FactionId == OpenWorldConstants.EnemyFactionId && building.Kind == BuildableKind.Roadblock) enemyRoadblocks++;
-            foreach (var blueprint in _world.Blueprints)
-                if (blueprint.FactionId == OpenWorldConstants.EnemyFactionId && blueprint.BuildKind == BuildableKind.Roadblock && blueprint.Status != BlueprintStatus.Cancelled) enemyRoadblocks++;
-
-            // Phase 0: Scout nearby terrain for resources (early game)
-            if (_aiStep <= 8 && enemyUnits < EnemyUnitBudget * 2 / 5)
+            foreach (var b in _world.Buildings.Values)
             {
-                _units.Spawn(UnitKind.Militia, pressureCell, OpenWorldConstants.EnemyFactionId);
-                PressureSummary = "Enemy scouting";
-            }
-
-            // Phase 1: Build mines at resource nodes (steps 3-12)
-            if (_aiStep >= 3 && _aiStep <= 12 && _aiStep % 2 == 0)
-            {
-                var resourceCell = FindEnemyResourceNode(enemyCenter);
-                if (resourceCell.HasValue)
+                if (b.FactionId == OpenWorldConstants.EnemyFactionId)
                 {
-                    _terrain.ApplyBrush(TerrainTool.Flatten, resourceCell.Value, 3, 1f);
-                    _blueprints.QueueBuilding(BuildableKind.MinePost, resourceCell.Value, OpenWorldConstants.EnemyFactionId, 3);
-                    _aiStep++;
+                    if (b.Kind == BuildableKind.TownCenter) tcCount++;
+                    else if (b.Kind == BuildableKind.Barracks) barracksCount++;
+                    else if (b.Kind == BuildableKind.Smelter) smelterCount++;
+                    else if (b.Kind == BuildableKind.Steelworks) steelworksCount++;
+                    else if (b.Kind == BuildableKind.MachineShop) machineShopCount++;
+                    else if (b.Kind == BuildableKind.MinePost) minePostCount++;
+                    else if (b.Kind == BuildableKind.Roadblock || b.Kind == BuildableKind.Bunker) roadblockCount++;
+                }
+            }
+            foreach (var b in _world.Blueprints)
+            {
+                if (b.FactionId == OpenWorldConstants.EnemyFactionId && b.Status != BlueprintStatus.Cancelled)
+                {
+                    if (b.BuildKind == BuildableKind.TownCenter) tcCount++;
+                    else if (b.BuildKind == BuildableKind.Barracks) barracksCount++;
+                    else if (b.BuildKind == BuildableKind.Smelter) smelterCount++;
+                    else if (b.BuildKind == BuildableKind.Steelworks) steelworksCount++;
+                    else if (b.BuildKind == BuildableKind.MachineShop) machineShopCount++;
+                    else if (b.BuildKind == BuildableKind.MinePost) minePostCount++;
+                    else if (b.BuildKind == BuildableKind.Roadblock || b.BuildKind == BuildableKind.Bunker) roadblockCount++;
                 }
             }
 
-            // Phase 2: Build barracks and defenses (steps 6-16)
-            if (_aiStep >= 6 && _aiStep <= 16)
-            {
-                if (enemyBuildings < 6 && _aiStep % 3 == 0)
-                    _blueprints.QueueBuilding(BuildableKind.Barracks, pressureCell + new Vector2Int(_aiStep % 4, _aiStep / 4 % 2), OpenWorldConstants.EnemyFactionId, 2);
-                if (enemyRoadblocks < EnemyRoadblockBudget && _aiStep % 2 == 0)
-                    _blueprints.QueueBuilding(BuildableKind.Roadblock, pressureCell + new Vector2Int(2, _aiStep % 4), OpenWorldConstants.EnemyFactionId, 2);
-            }
+            EnsureEnemyCapital(enemyCenter, tcCount, barracksCount, smelterCount);
 
-            // Phase 3: Train mixed unit armies (steps 6+)
-            if (_aiStep >= 6 && enemyUnits < EnemyUnitBudget)
+            foreach (var res in _scouting.DiscoveredResources)
             {
-                UnitKind[] types = { UnitKind.Militia, UnitKind.Melee, UnitKind.Ranged, UnitKind.Scout, UnitKind.Spearman };
-                _units.Spawn(types[_aiStep % types.Length], pressureCell, OpenWorldConstants.EnemyFactionId);
-                if (_aiStep >= 10 && _aiStep % 2 == 0 && enemyUnits < EnemyUnitBudget)
-                    _units.Spawn(UnitKind.Musketeer, pressureCell + new Vector2Int(1, 1), OpenWorldConstants.EnemyFactionId);
-            }
+                var cell = _world.GetCell(res);
+                OpenWorldState.NormalizeLayers(ref cell);
+                var mat = cell.Layers[cell.CurrentLayer].Material;
 
-            // Phase 4: Attack player logistics routes (steps 15+)
-            if (_aiStep >= 15)
-            {
-                var routeTarget = FindEnemyRaidTarget();
-                int activeRaiders = 0;
-                foreach (var agent in _units.AllAgents())
+                if (mat == GroundMaterial.IronOre && minePostCount == 0)
                 {
-                    if (agent.Entity.FactionId != OpenWorldConstants.EnemyFactionId) continue;
-                    if (agent.Entity.CurrentOrder?.Kind == UnitOrderKind.Attack) activeRaiders++;
+                    _blueprints.QueueBuilding(BuildableKind.MinePost, res, OpenWorldConstants.EnemyFactionId, 3);
+                    _blueprints.QueueBuilding(BuildableKind.Warehouse, res + new Vector2Int(2, 0), OpenWorldConstants.EnemyFactionId, 2);
+                    minePostCount++;
                 }
-                if (routeTarget.HasValue && activeRaiders < EnemyRaidSize)
+                else if (mat == GroundMaterial.Coal && smelterCount == 0)
                 {
-                    foreach (var agent in _units.AllAgents())
-                    {
-                        if (agent.Entity.FactionId != OpenWorldConstants.EnemyFactionId) continue;
-                        if (agent.Entity.CurrentOrder?.Kind == UnitOrderKind.Attack) continue;
-                        if (agent.Entity.Task is UnitTask.Attacking or UnitTask.Moving) continue;
-                        agent.IssueOrder(new UnitOrder { Kind = UnitOrderKind.Attack, TargetCell = routeTarget.Value, Priority = 4 });
-                        if (++activeRaiders >= EnemyRaidSize) break;
-                    }
-                    PressureSummary = "Enemy raiding logistics routes";
+                    _blueprints.QueueBuilding(BuildableKind.Smelter, res, OpenWorldConstants.EnemyFactionId, 2);
+                    smelterCount++;
                 }
             }
 
-            // Phase 5: Siege player base (steps 20+) with massed forces
-            if (_aiStep >= 20)
-            {
-                var playerBase = FindNearestPlayerBuilding(enemyCenter);
-                if (playerBase.HasValue)
-                {
-                    int siegers = 0;
-                    int siegeMax = 6;
-                    foreach (var agent in _units.AllAgents())
-                    {
-                        if (agent.Entity.FactionId != OpenWorldConstants.EnemyFactionId) continue;
-                        if (agent.Entity.CurrentOrder?.Kind == UnitOrderKind.Attack && agent.Entity.CurrentOrder.TargetCell == playerBase.Value)
-                            siegers++;
-                    }
-                    if (siegers < siegeMax)
-                    {
-                        foreach (var agent in _units.AllAgents())
-                        {
-                            if (agent.Entity.FactionId != OpenWorldConstants.EnemyFactionId) continue;
-                            if (agent.Entity.CurrentOrder?.Kind == UnitOrderKind.Attack) continue;
-                            if (agent.Entity.Task is UnitTask.Attacking or UnitTask.Moving) continue;
-                            agent.IssueOrder(new UnitOrder { Kind = UnitOrderKind.Attack, TargetCell = playerBase.Value, Priority = 6 });
-                            if (++siegers >= siegeMax) break;
-                        }
-                        PressureSummary = _aiStep % 2 == 0 ? "Enemy forces moving on player base" : $"Siege in progress ({siegers} advancing)";
-                    }
-                }
-            }
+            if (smelterCount > 0 && steelworksCount == 0)
+                _blueprints.QueueBuilding(BuildableKind.Steelworks, enemyCenter + new Vector2Int(4, 4), OpenWorldConstants.EnemyFactionId, 2);
+                
+            if (steelworksCount > 0 && machineShopCount == 0)
+                _blueprints.QueueBuilding(BuildableKind.MachineShop, enemyCenter + new Vector2Int(0, 8), OpenWorldConstants.EnemyFactionId, 2);
 
-            // Ensure enemy capital fort remains stocked
-            EnsureEnemyCapital(enemyCenter);
-            if (PressureSummary == "Enemy scouting")
-                PressureSummary = "Logistics stable";
+            int militaryCount = 0;
+            foreach (var u in _world.Units.Values)
+                if (u.FactionId == OpenWorldConstants.EnemyFactionId && u.Kind != UnitKind.Scout && u.Kind != UnitKind.Worker) militaryCount++;
+
+            if (militaryCount > 8 && roadblockCount < 2)
+            {
+                _blueprints.QueueBuilding(BuildableKind.Roadblock, enemyCenter + new Vector2Int(Random.Range(-5, 5), Random.Range(-5, 5)), OpenWorldConstants.EnemyFactionId, 2);
+            }
         }
 
-        private Vector2Int? FindEnemyResourceNode(Vector2Int enemyCenter)
+        private void EnsureEnemyCapital(Vector2Int enemyCenter, int tcCount, int barracksCount, int smelterCount)
         {
-            Vector2Int? best = null;
-            int bestDist = int.MaxValue;
-            int mapHalfX = _world.MapSize / 2;
-            for (int z = -18; z <= 18; z++)
-            {
-                for (int x = -18; x <= 18; x++)
-                {
-                    var cell = enemyCenter + new Vector2Int(x, z);
-                    if (cell.x < mapHalfX + 10) continue; // restrict to right half
-                    if (!_world.InBounds(cell)) continue;
-                    var surface = _world.GetCell(cell);
-                    if (surface.ResourceRichness < 2) continue;
-                    bool occupied = false;
-                    foreach (var b in _world.Buildings.Values)
-                        if ((b.Origin - cell).sqrMagnitude < 9) { occupied = true; break; }
-                    if (occupied) continue;
-                    int d = Mathf.Abs(x) + Mathf.Abs(z);
-                    if (d >= bestDist) continue;
-                    best = cell;
-                    bestDist = d;
-                }
-            }
-            return best;
+            if (tcCount == 0) _blueprints.QueueBuilding(BuildableKind.TownCenter, enemyCenter, OpenWorldConstants.EnemyFactionId, 2);
+            if (barracksCount == 0) _blueprints.QueueBuilding(BuildableKind.Barracks, enemyCenter + new Vector2Int(4, 0), OpenWorldConstants.EnemyFactionId, 2);
+            if (smelterCount == 0) _blueprints.QueueBuilding(BuildableKind.Smelter, enemyCenter + new Vector2Int(0, 4), OpenWorldConstants.EnemyFactionId, 2);
         }
 
-        private Vector2Int? FindNearestPlayerBuilding(Vector2Int from)
+        private void UpdatePressureSummary()
         {
-            Vector2Int? best = null;
-            int bestDist = _world.MapSize * _world.MapSize;
-            foreach (var building in _world.Buildings.Values)
-            {
-                if (building.FactionId != OpenWorldConstants.PlayerFactionId) continue;
-                int d = (building.Origin - from).sqrMagnitude;
-                if (d >= bestDist) continue;
-                best = building.Origin;
-                bestDist = d;
-            }
-            return best;
-        }
-
-        private Vector2Int? FindEnemyRaidTarget()
-        {
-            if (_world.LogisticsRoutes.Count == 0) return FindNearestPlayerBuilding(new Vector2Int(_world.MapSize / 2 + 80, _world.MapSize / 2));
-            var route = _world.LogisticsRoutes[_aiStep % _world.LogisticsRoutes.Count];
-            if (route.Status.Contains("moving") || route.Status.Contains("delivering"))
-                return route.Target;
-            return route.Source;
-        }
-
-        private void EnsureEnemyCapital(Vector2Int enemyCenter)
-        {
-            // TestBotManager handles enemy AI now — method retained for signature stability
+            int militaryCount = 0;
+            foreach (var u in _world.Units.Values)
+                if (u.FactionId == OpenWorldConstants.EnemyFactionId && u.Kind != UnitKind.Scout && u.Kind != UnitKind.Worker) militaryCount++;
+            PressureSummary = $"Threat: {_scouting.ThreatLevel} | Troops: {militaryCount} | WPN: {_economy.GetWeapons()}";
         }
     }
 }
