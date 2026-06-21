@@ -69,6 +69,7 @@ namespace OpenWorld
                 // Defend: actively scan for hostiles within vision range
                 if (attacker.Task == UnitTask.Defending && attacker.CurrentOrder?.Kind == UnitOrderKind.Defend && attacker.CurrentOrder?.TargetEntityId <= 0)
                 {
+                    if (attacker.CurrentOrder == null) continue;
                     var defendCenter = attacker.CurrentOrder.SecondaryCell;
                     var hostiles = FindHostilesInGrid(defendCenter, Mathf.Max(36f, attacker.VisionRange * attacker.VisionRange), attacker.FactionId);
                     foreach (var hostile in hostiles)

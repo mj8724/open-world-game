@@ -71,6 +71,9 @@ namespace OpenWorld
 
         public OpenWorldState(int mapSize, int chunkSize, int seed)
         {
+            if (mapSize <= 0) throw new System.ArgumentException("MapSize must be positive", nameof(mapSize));
+            if (chunkSize <= 0) throw new System.ArgumentException("ChunkSize must be positive", nameof(chunkSize));
+            if (mapSize % chunkSize != 0) throw new System.ArgumentException("MapSize must be divisible by ChunkSize", nameof(mapSize));
             MapSize = mapSize;
             ChunkSize = chunkSize;
             Seed = seed;

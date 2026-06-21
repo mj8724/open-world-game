@@ -6,10 +6,10 @@ namespace OpenWorld
     public class EnemyEconomy
     {
         private readonly ResourceInventory _inventory = new ResourceInventory();
-        private readonly List<int> _minePosts = new List<int>();
-        private readonly List<int> _smelters = new List<int>();
-        private readonly List<int> _steelworks = new List<int>();
-        private readonly List<int> _machineShops = new List<int>();
+        private readonly HashSet<int> _minePosts = new HashSet<int>();
+        private readonly HashSet<int> _smelters = new HashSet<int>();
+        private readonly HashSet<int> _steelworks = new HashSet<int>();
+        private readonly HashSet<int> _machineShops = new HashSet<int>();
         private readonly OpenWorldState _world;
         private int _lastBuildingCount = 0;
 
@@ -25,10 +25,10 @@ namespace OpenWorld
 
         public void RegisterBuilding(BuildingEntity building)
         {
-            if (building.Kind == BuildableKind.MinePost && !_minePosts.Contains(building.Id)) _minePosts.Add(building.Id);
-            else if (building.Kind == BuildableKind.Smelter && !_smelters.Contains(building.Id)) _smelters.Add(building.Id);
-            else if (building.Kind == BuildableKind.Steelworks && !_steelworks.Contains(building.Id)) _steelworks.Add(building.Id);
-            else if (building.Kind == BuildableKind.MachineShop && !_machineShops.Contains(building.Id)) _machineShops.Add(building.Id);
+            if (building.Kind == BuildableKind.MinePost) _minePosts.Add(building.Id);
+            else if (building.Kind == BuildableKind.Smelter) _smelters.Add(building.Id);
+            else if (building.Kind == BuildableKind.Steelworks) _steelworks.Add(building.Id);
+            else if (building.Kind == BuildableKind.MachineShop) _machineShops.Add(building.Id);
         }
 
         public void TickEconomy()

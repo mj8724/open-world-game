@@ -147,9 +147,24 @@ namespace OpenWorld
                     data = JsonUtility.FromJson<OpenWorldSaveData>(File.ReadAllText(path));
                     Migrate(data);
                 }
+                catch (System.IO.IOException ex)
+                {
+                    Debug.LogWarning($"[OpenWorld] IO error reading save slot {slot}: {ex.Message}");
+                    continue;
+                }
+                catch (System.ArgumentException ex)
+                {
+                    Debug.LogWarning($"[OpenWorld] Invalid JSON in save slot {slot}: {ex.Message}");
+                    continue;
+                }
+                catch (System.Security.SecurityException ex)
+                {
+                    Debug.LogError($"[OpenWorld] Security error accessing save slot {slot}: {ex.Message}");
+                    continue;
+                }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning($"[OpenWorld] Failed to read save slot {slot}: {ex.Message}");
+                    Debug.LogError($"[OpenWorld] Unexpected error loading save slot {slot}: {ex.GetType().Name} - {ex.Message}");
                     continue;
                 }
 

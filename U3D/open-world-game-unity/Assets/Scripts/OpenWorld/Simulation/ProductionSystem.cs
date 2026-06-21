@@ -12,6 +12,8 @@ namespace OpenWorld
         private readonly UnitSystem _units;
         private readonly VehicleSystem _vehicles;
         private readonly List<string> _lines = new();
+        private List<ProductionOrder> _sortedOrders = new();
+        private bool _ordersDirty = true;
 
         public IReadOnlyList<string> ProductionLines => _lines;
         public string Summary { get; private set; } = "Production idle";
@@ -31,6 +33,7 @@ namespace OpenWorld
             if (recipe == null || recipe.Building != building.Kind) return null;
             building.ActiveRecipeId = recipeId;
             if (building.AssignedWorkers <= 0) AssignWorkers(buildingId, recipe.Workers);
+            _ordersDirty = true;
             return _world.AddProductionOrder(buildingId, recipeId, cycles, priority);
         }
 
@@ -45,6 +48,7 @@ namespace OpenWorld
         public ProductionOrder QueueUnitTraining(int barracksId, UnitKind kind, int priority)
         {
             if (!_world.Buildings.TryGetValue(barracksId, out var building) || building.Kind != BuildableKind.Barracks) return null;
+            _ordersDirty = true;
             return _world.AddProductionOrder(barracksId, $"unit:{kind}", 1, priority);
         }
 
@@ -75,9 +79,13 @@ namespace OpenWorld
             int blockedRecipes = 0;
             string firstBlocked = "";
 
-            var orders = new List<ProductionOrder>(_world.ProductionOrders);
-            orders.Sort((a, b) => b.Priority != a.Priority ? b.Priority.CompareTo(a.Priority) : a.Id.CompareTo(b.Id));
-            foreach (var order in orders)
+            if (_ordersDirty || _sortedOrders.Count != _world.ProductionOrders.Count)
+            {
+                _sortedOrders = new List<ProductionOrder>(_world.ProductionOrders);
+                _sortedOrders.Sort((a, b) => b.Priority != a.Priority ? b.Priority.CompareTo(a.Priority) : a.Id.CompareTo(b.Id));
+                _ordersDirty = false;
+            }
+            foreach (var order in _sortedOrders)
             {
                 if (order.Paused || order.RemainingCycles <= 0) continue;
                 if (!_world.Buildings.TryGetValue(order.BuildingId, out var building))
