@@ -1,0 +1,18 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/UI/PauseMenu.uss?fileID=7433441132597879392&amp;guid=PAUSE_MENU_USS" />
+    <ui:VisualElement name="pause-overlay" class="pause-overlay">
+        <ui:VisualElement name="pause-panel" class="pause-panel">
+            <ui:Label text="已暂停" name="pause-title" class="pause-title" />
+
+            <ui:VisualElement class="menu-section">
+                <ui:Label text="语言" class="section-label" />
+                <ui:DropdownField name="language-dropdown" class="modern-dropdown" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="button-group">
+                <ui:Button text="继续游戏" name="resume-button" class="modern-button primary" />
+                <ui:Button text="退出游戏" name="exit-button" class="modern-button danger" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
