@@ -4,7 +4,7 @@ namespace OpenWorld
 {
     public class OpenWorldInputController : MonoBehaviour
     {
-        public TerrainTool CurrentTool { get; private set; } = TerrainTool.Dig;
+        public TerrainTool CurrentTool { get; private set; } = TerrainTool.None;
         public BuildableKind CurrentBuildable { get; private set; } = BuildableKind.Wall;
         public VehicleKind CurrentVehicle { get; private set; } = VehicleKind.HandCart;
         public int BrushRadius { get; private set; } = 1;
