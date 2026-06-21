@@ -79,7 +79,6 @@ namespace OpenWorld
             { "Buildings", "建筑" },
             { "Units", "单位" },
             { "Vehicles", "车辆" },
-            { "Blueprints", "蓝图" },
             { "Routes", "路线" },
             { "Selected", "选中" },
             { "brush", "笔刷大小" },
