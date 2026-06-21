@@ -10,6 +10,8 @@ namespace OpenWorld
         [SerializeField] private int _seed = 8724;
         [SerializeField] private int _visibleChunkRadius = 2;
 
+        private static bool _worldBuilt = false; // 防止 BuildWorld 被多次调用
+
         public OpenWorldState World { get; private set; }
         public SurfaceTerrainSystem Terrain { get; private set; }
         public BuildingSystem Buildings { get; private set; }
@@ -27,13 +29,16 @@ namespace OpenWorld
         public OpenWorldHudController Hud { get; private set; }
         public OpenWorldStrategicMapController StrategicMap { get; private set; }
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        private static void EnsureBootstrap()
-        {
-            if (FindObjectOfType<OpenWorldBootstrap>() != null) return;
-            var go = new GameObject("OpenWorldBootstrap");
-            go.AddComponent<OpenWorldBootstrap>();
-        }
+        // 注释掉自动创建逻辑，避免与场景中的 Bootstrap GameObject 冲突
+        // 场景中已存在 OpenWorldBootstrap，运行时创建会导致双重实例化，
+        // 单例检查时销毁实例会连带销毁所有已生成的建筑和单位子对象
+        // [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        // private static void EnsureBootstrap()
+        // {
+        //     if (FindObjectOfType<OpenWorldBootstrap>() != null) return;
+        //     var go = new GameObject("OpenWorldBootstrap");
+        //     go.AddComponent<OpenWorldBootstrap>();
+        // }
 
         private void Awake()
         {
@@ -56,6 +61,14 @@ namespace OpenWorld
 
         private void BuildWorld()
         {
+            // 防止重复初始化
+            if (_worldBuilt)
+            {
+                Debug.LogWarning("[OpenWorldBootstrap] BuildWorld already called, skipping duplicate initialization.");
+                return;
+            }
+            _worldBuilt = true;
+
             var camera = EnsureCamera();
             EnsureLight();
 
@@ -187,6 +200,8 @@ namespace OpenWorld
             #if UNITY_EDITOR
             // Initialize test bot system for 1v1 AI testing
             InitializeTestBotSystem();
+			// Initialize play tester (auto-starts on Play Mode)
+			InitializePlayTester();
 #endif
         }
 
@@ -202,6 +217,14 @@ namespace OpenWorld
             monitor.Initialize(World, Simulation);
 
             Debug.Log("[OpenWorld] Test bot system initialized for 1v1 symmetric test scenario");
+        }
+
+        private void InitializePlayTester()
+        {
+            var testerGo = new GameObject("OpenWorldPlayTester");
+            testerGo.transform.SetParent(transform, false);
+            testerGo.AddComponent<Testing.OpenWorldPlayTester>();
+            Debug.Log("[OpenWorld] Play tester initialized — press Play to run automated tests");
         }
 
         private void SeedFactionBase(Vector2Int origin, int factionId, string label)
