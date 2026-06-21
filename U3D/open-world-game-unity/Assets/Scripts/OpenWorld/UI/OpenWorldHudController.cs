@@ -40,6 +40,14 @@ namespace OpenWorld
         private Button _saveButton;
         private Button _cancelAllBlueprintsButton;
         private VisualElement _statusPanel;
+        private VisualElement _overviewPanel;
+        private VisualElement _productionPanel;
+        private VisualElement _transportPanel;
+        private VisualElement _blueprintPanel;
+        private VisualElement _geologyPanel;
+        private VisualElement _populationPanel;
+        private VisualElement _militaryPanel;
+        private VisualElement _diplomacyPanel;
         private VisualElement _productionList;
         private VisualElement _transportList;
         private VisualElement _blueprintList;
@@ -48,11 +56,23 @@ namespace OpenWorld
         private VisualElement _militaryList;
         private VisualElement _diplomacyList;
 
+        private Button _opsOverview;
+        private Button _opsProduction;
+        private Button _opsTransport;
+        private Button _opsGeology;
+        private Button _opsPopulation;
+        private Button _opsMilitary;
+        private Button _opsDiplomacy;
+        private Button _opsBlueprints;
+        private string _currentOpsTab = "Overview";
+
         private Button _tabCivilian;
         private Button _tabIndustry;
         private Button _tabLogistics;
         private Button _tabMilitary;
         private Button _tabInfrastructure;
+        private Label _buildSummaryLabel;
+        private Label _buildHintLabel;
         private ScrollView _buildContent;
         private string _currentBuildTab = "Civilian";
 
@@ -88,16 +108,11 @@ namespace OpenWorld
 
         private void OnLanguageChanged()
         {
-            // Rebind text for tabs
-            if (_tabCivilian != null) _tabCivilian.text = I18nSystem.Get("Civilian");
-            if (_tabIndustry != null) _tabIndustry.text = I18nSystem.Get("Industry");
-            if (_tabLogistics != null) _tabLogistics.text = I18nSystem.Get("Logistics");
-            if (_tabMilitary != null) _tabMilitary.text = I18nSystem.Get("Military");
-            if (_tabInfrastructure != null) _tabInfrastructure.text = I18nSystem.Get("Infrastructure");
+            // 先统一翻译静态文本，再让各 C# 渲染逻辑对动态文本做最终覆盖
+            var root = GetComponent<UIDocument>()?.rootVisualElement;
+            I18nSystem.LocalizeTree(root);
 
-            if (_saveButton != null) _saveButton.text = I18nSystem.Get("Save");
-            if (_cancelAllBlueprintsButton != null) _cancelAllBlueprintsButton.text = I18nSystem.Get("Cancel All Blueprints");
-
+            UpdateBuildDeckText();
             PopulateBuildMenu();
             Refresh();
         }
@@ -148,10 +163,12 @@ namespace OpenWorld
             _goalLabel = root.Q<Label>("goal-value");
             _controlsLabel = root.Q<Label>("controls-value");
             _statusPanel = root.Q<VisualElement>("status-panel");
+            _overviewPanel = root.Q<VisualElement>("overview-panel");
             _saveButton = root.Q<Button>("save-button");
             EnsureSaveButton();
             EnsureOperationalPanels();
             EnsureBlueprintPanel();
+            BindOpsTabs(root);
             if (_saveButton != null)
             {
                 _saveButton.clicked -= SaveNow;
@@ -164,6 +181,40 @@ namespace OpenWorld
             }
 
             BindBuildMenu(root);
+
+            // 翻译所有静态 UXML 文本（资源栏/页签/指标名/帮助等）；
+            // 动态文本由下方各刷新逻辑（UpdateBuildDeckText/PopulateBuildMenu/Refresh）覆盖。
+            I18nSystem.LocalizeTree(root);
+        }
+
+        private void BindOpsTabs(VisualElement root)
+        {
+            _opsOverview = root.Q<Button>("ops-overview");
+            _opsProduction = root.Q<Button>("ops-production");
+            _opsTransport = root.Q<Button>("ops-transport");
+            _opsGeology = root.Q<Button>("ops-geology");
+            _opsPopulation = root.Q<Button>("ops-population");
+            _opsMilitary = root.Q<Button>("ops-military");
+            _opsDiplomacy = root.Q<Button>("ops-diplomacy");
+            _opsBlueprints = root.Q<Button>("ops-blueprints");
+
+            BindOpsButton(_opsOverview, SwitchOpsTabOverview);
+            BindOpsButton(_opsProduction, SwitchOpsTabProduction);
+            BindOpsButton(_opsTransport, SwitchOpsTabTransport);
+            BindOpsButton(_opsGeology, SwitchOpsTabGeology);
+            BindOpsButton(_opsPopulation, SwitchOpsTabPopulation);
+            BindOpsButton(_opsMilitary, SwitchOpsTabMilitary);
+            BindOpsButton(_opsDiplomacy, SwitchOpsTabDiplomacy);
+            BindOpsButton(_opsBlueprints, SwitchOpsTabBlueprints);
+
+            SwitchOpsTab(_currentOpsTab);
+        }
+
+        private static void BindOpsButton(Button button, System.Action handler)
+        {
+            if (button == null) return;
+            button.clicked -= handler;
+            button.clicked += handler;
         }
 
         private void BindBuildMenu(VisualElement root)
@@ -173,15 +224,24 @@ namespace OpenWorld
             _tabLogistics = root.Q<Button>("tab-logistics");
             _tabMilitary = root.Q<Button>("tab-military");
             _tabInfrastructure = root.Q<Button>("tab-infrastructure");
+            _buildSummaryLabel = root.Q<Label>("build-summary");
+            _buildHintLabel = root.Q<Label>("build-hint");
             _buildContent = root.Q<ScrollView>("build-content");
 
-            if (_tabCivilian != null) _tabCivilian.clicked += () => SwitchBuildTab("Civilian");
-            if (_tabIndustry != null) _tabIndustry.clicked += () => SwitchBuildTab("Industry");
-            if (_tabLogistics != null) _tabLogistics.clicked += () => SwitchBuildTab("Logistics");
-            if (_tabMilitary != null) _tabMilitary.clicked += () => SwitchBuildTab("Military");
-            if (_tabInfrastructure != null) _tabInfrastructure.clicked += () => SwitchBuildTab("Infrastructure");
+            BindBuildButton(_tabCivilian, SwitchBuildTabCivilian);
+            BindBuildButton(_tabIndustry, SwitchBuildTabIndustry);
+            BindBuildButton(_tabLogistics, SwitchBuildTabLogistics);
+            BindBuildButton(_tabMilitary, SwitchBuildTabMilitary);
+            BindBuildButton(_tabInfrastructure, SwitchBuildTabInfrastructure);
 
-            SwitchBuildTab("Civilian");
+            SwitchBuildTab(_currentBuildTab);
+        }
+
+        private static void BindBuildButton(Button button, System.Action handler)
+        {
+            if (button == null) return;
+            button.clicked -= handler;
+            button.clicked += handler;
         }
 
         private void EnsureSaveButton()
@@ -195,15 +255,17 @@ namespace OpenWorld
         private void EnsureBlueprintPanel()
         {
             if (_statusPanel == null) return;
-            _blueprintList = _statusPanel.Q<VisualElement>("blueprint-list");
+            _blueprintPanel = _statusPanel.Q<VisualElement>("blueprint-panel");
+            _blueprintList = _blueprintPanel?.Q<VisualElement>("blueprint-list");
             if (_blueprintList != null)
             {
-                _cancelAllBlueprintsButton = _statusPanel.Q<Button>("blueprint-cancel-all");
+                _cancelAllBlueprintsButton = _blueprintPanel.Q<Button>("blueprint-cancel-all");
                 return;
             }
 
             var panel = new VisualElement { name = "blueprint-panel" };
             panel.AddToClassList("queue-panel");
+            panel.AddToClassList("command-panel");
 
             var header = new VisualElement { name = "blueprint-header" };
             header.AddToClassList("queue-header");
@@ -221,17 +283,24 @@ namespace OpenWorld
             if (_controlsLabel != null)
                 insertIndex = Mathf.Max(0, _statusPanel.IndexOf(_controlsLabel));
             _statusPanel.Insert(insertIndex, panel);
+            _blueprintPanel = panel;
         }
 
         private void EnsureOperationalPanels()
         {
             if (_statusPanel == null) return;
-            _productionList = _statusPanel.Q<VisualElement>("production-list");
-            _transportList = _statusPanel.Q<VisualElement>("transport-list");
-            _geologyList = _statusPanel.Q<VisualElement>("geology-list");
-            _populationList = _statusPanel.Q<VisualElement>("population-list");
-            _militaryList = _statusPanel.Q<VisualElement>("military-list");
-            _diplomacyList = _statusPanel.Q<VisualElement>("diplomacy-list");
+            _productionPanel = _statusPanel.Q<VisualElement>("production-panel");
+            _transportPanel = _statusPanel.Q<VisualElement>("transport-panel");
+            _geologyPanel = _statusPanel.Q<VisualElement>("geology-panel");
+            _populationPanel = _statusPanel.Q<VisualElement>("population-panel");
+            _militaryPanel = _statusPanel.Q<VisualElement>("military-panel");
+            _diplomacyPanel = _statusPanel.Q<VisualElement>("diplomacy-panel");
+            _productionList = _productionPanel?.Q<VisualElement>("production-list");
+            _transportList = _transportPanel?.Q<VisualElement>("transport-list");
+            _geologyList = _geologyPanel?.Q<VisualElement>("geology-list");
+            _populationList = _populationPanel?.Q<VisualElement>("population-list");
+            _militaryList = _militaryPanel?.Q<VisualElement>("military-list");
+            _diplomacyList = _diplomacyPanel?.Q<VisualElement>("diplomacy-list");
             if (_productionList != null && _transportList != null && _geologyList != null && _populationList != null && _militaryList != null && _diplomacyList != null) return;
 
             if (_productionList == null)
@@ -252,6 +321,7 @@ namespace OpenWorld
         {
             var panel = new VisualElement { name = panelName };
             panel.AddToClassList("queue-panel");
+            panel.AddToClassList("command-panel");
 
             var header = new Label { text = title };
             header.AddToClassList("status-subtitle");
@@ -267,6 +337,15 @@ namespace OpenWorld
             if (_controlsLabel != null)
                 insertIndex = Mathf.Max(0, _statusPanel.IndexOf(_controlsLabel));
             _statusPanel.Insert(insertIndex, panel);
+            switch (panelName)
+            {
+                case "production-panel": _productionPanel = panel; break;
+                case "transport-panel": _transportPanel = panel; break;
+                case "geology-panel": _geologyPanel = panel; break;
+                case "population-panel": _populationPanel = panel; break;
+                case "military-panel": _militaryPanel = panel; break;
+                case "diplomacy-panel": _diplomacyPanel = panel; break;
+            }
             return list;
         }
 
@@ -283,6 +362,53 @@ namespace OpenWorld
             _frames = 0;
         }
 
+        private void SwitchOpsTabOverview() => SwitchOpsTab("Overview");
+        private void SwitchOpsTabProduction() => SwitchOpsTab("Production");
+        private void SwitchOpsTabTransport() => SwitchOpsTab("Transport");
+        private void SwitchOpsTabGeology() => SwitchOpsTab("Geology");
+        private void SwitchOpsTabPopulation() => SwitchOpsTab("Population");
+        private void SwitchOpsTabMilitary() => SwitchOpsTab("Military");
+        private void SwitchOpsTabDiplomacy() => SwitchOpsTab("Diplomacy");
+        private void SwitchOpsTabBlueprints() => SwitchOpsTab("Blueprints");
+
+        private void SwitchOpsTab(string tabName)
+        {
+            _currentOpsTab = tabName;
+            SetPanelVisible(_overviewPanel, tabName == "Overview");
+            SetPanelVisible(_productionPanel, tabName == "Production");
+            SetPanelVisible(_transportPanel, tabName == "Transport");
+            SetPanelVisible(_geologyPanel, tabName == "Geology");
+            SetPanelVisible(_populationPanel, tabName == "Population");
+            SetPanelVisible(_militaryPanel, tabName == "Military");
+            SetPanelVisible(_diplomacyPanel, tabName == "Diplomacy");
+            SetPanelVisible(_blueprintPanel, tabName == "Blueprints");
+
+            ToggleOpsButton(_opsOverview, tabName == "Overview");
+            ToggleOpsButton(_opsProduction, tabName == "Production");
+            ToggleOpsButton(_opsTransport, tabName == "Transport");
+            ToggleOpsButton(_opsGeology, tabName == "Geology");
+            ToggleOpsButton(_opsPopulation, tabName == "Population");
+            ToggleOpsButton(_opsMilitary, tabName == "Military");
+            ToggleOpsButton(_opsDiplomacy, tabName == "Diplomacy");
+            ToggleOpsButton(_opsBlueprints, tabName == "Blueprints");
+        }
+
+        private static void SetPanelVisible(VisualElement panel, bool visible)
+        {
+            if (panel != null) panel.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        private static void ToggleOpsButton(Button button, bool active)
+        {
+            if (button != null) button.EnableInClassList("ops-tab-active", active);
+        }
+
+        private void SwitchBuildTabCivilian() => SwitchBuildTab("Civilian");
+        private void SwitchBuildTabIndustry() => SwitchBuildTab("Industry");
+        private void SwitchBuildTabLogistics() => SwitchBuildTab("Logistics");
+        private void SwitchBuildTabMilitary() => SwitchBuildTab("Military");
+        private void SwitchBuildTabInfrastructure() => SwitchBuildTab("Infrastructure");
+
         private void SwitchBuildTab(string tabName)
         {
             _currentBuildTab = tabName;
@@ -292,7 +418,29 @@ namespace OpenWorld
             if (_tabMilitary != null) _tabMilitary.EnableInClassList("build-tab-active", tabName == "Military");
             if (_tabInfrastructure != null) _tabInfrastructure.EnableInClassList("build-tab-active", tabName == "Infrastructure");
 
+            UpdateBuildDeckText();
             PopulateBuildMenu();
+        }
+
+        private void UpdateBuildDeckText()
+        {
+            if (_buildSummaryLabel != null) _buildSummaryLabel.text = I18nSystem.Get(_currentBuildTab switch
+            {
+                "Industry" => "Industry deck: extraction, smelting, power, and manufacturing",
+                "Logistics" => "Logistics deck: depots, vehicles, rail hubs, docks, and bridges",
+                "Military" => "Military deck: defense lines, vision, barracks, and fortifications",
+                "Infrastructure" => "Infrastructure deck: terrain tools, roads, rails, bridges, and mines",
+                _ => "Civilian deck: housing, food, storage, trade, and command"
+            });
+
+            if (_buildHintLabel != null) _buildHintLabel.text = I18nSystem.Get(_currentBuildTab switch
+            {
+                "Infrastructure" => "Issue terrain commands directly. Brush size and queue behavior follow current input modifiers.",
+                "Military" => "Place defensive assets near routes, chokepoints, and exposed production chains.",
+                "Logistics" => "Build storage and vehicle infrastructure before scaling production throughput.",
+                "Industry" => "Prioritize upstream inputs first: ore, coal, smelting, then advanced factories.",
+                _ => "Establish food, housing, storage, and command capacity before heavy expansion."
+            });
         }
 
         private void PopulateBuildMenu()
@@ -316,13 +464,7 @@ namespace OpenWorld
                 var defs = BuildableDef.Defaults();
                 foreach (var def in defs)
                 {
-                    bool match = false;
-                    if (_currentBuildTab == "Industry" && def.IsIndustrial) match = true;
-                    else if (_currentBuildTab == "Logistics" && def.IsTransport) match = true;
-                    else if (_currentBuildTab == "Military" && def.IsDefense) match = true;
-                    else if (_currentBuildTab == "Civilian" && !def.IsIndustrial && !def.IsTransport && !def.IsDefense) match = true;
-
-                    if (match)
+                    if (MatchesBuildTab(def, _currentBuildTab))
                     {
                         AddBuildableButton(def);
                     }
@@ -330,19 +472,51 @@ namespace OpenWorld
             }
         }
 
+        private static bool MatchesBuildTab(BuildableDef def, string tabName) => tabName switch
+        {
+            "Industry" => IsIndustrialBuildable(def),
+            "Logistics" => def.IsTransport,
+            "Military" => IsMilitaryBuildable(def),
+            "Civilian" => !IsIndustrialBuildable(def) && !def.IsTransport && !IsMilitaryBuildable(def),
+            _ => false
+        };
+
+        private static bool IsIndustrialBuildable(BuildableDef def)
+        {
+            return def.IsIndustrial
+                || def.Kind is BuildableKind.MinePost or BuildableKind.Quarry or BuildableKind.LumberCamp;
+        }
+
+        private static bool IsMilitaryBuildable(BuildableDef def)
+        {
+            return def.IsDefense
+                || def.Kind is BuildableKind.Barracks or BuildableKind.Armory;
+        }
+
         private void AddBuildableButton(BuildableDef def)
         {
             var btn = new Button { name = $"build-item-{def.Kind}" };
             btn.AddToClassList("build-item-btn");
+            btn.AddToClassList($"build-card-{BuildCategoryClass(def)}");
 
+            var cardTop = new VisualElement();
+            cardTop.AddToClassList("build-card-top");
             var colorBox = new VisualElement();
             colorBox.AddToClassList("build-item-color");
             colorBox.style.backgroundColor = def.Color;
-            btn.Add(colorBox);
+            cardTop.Add(colorBox);
+            var tagLabel = new Label { text = BuildCategoryLabel(def) };
+            tagLabel.AddToClassList("build-item-tag");
+            cardTop.Add(tagLabel);
+            btn.Add(cardTop);
 
             var nameLabel = new Label { text = I18nSystem.Get(def.DisplayName) };
             nameLabel.AddToClassList("build-item-name");
             btn.Add(nameLabel);
+
+            var metaLabel = new Label { text = $"{def.Size.x}x{def.Size.y}  {OpenWorldDataCatalog.RequiredEraFor(def.Kind)}" };
+            metaLabel.AddToClassList("build-item-meta");
+            btn.Add(metaLabel);
 
             string costText = "";
             if (def.Cost.Wood > 0) costText += $"{I18nSystem.Get("W:")}{def.Cost.Wood} ";
@@ -354,6 +528,14 @@ namespace OpenWorld
             var costLabel = new Label { text = costText.Trim() };
             costLabel.AddToClassList("build-item-cost");
             btn.Add(costLabel);
+
+            bool unlocked = _world == null || OpenWorldDataCatalog.EraUnlocked(_world.Tech.Era, OpenWorldDataCatalog.RequiredEraFor(def.Kind));
+            if (!unlocked)
+            {
+                btn.SetEnabled(false);
+                btn.AddToClassList("build-item-locked");
+                btn.tooltip = $"Requires {OpenWorldDataCatalog.RequiredEraFor(def.Kind)} era";
+            }
 
             btn.clicked += () =>
             {
@@ -367,15 +549,26 @@ namespace OpenWorld
         {
             var btn = new Button { name = $"build-tool-{tool}" };
             btn.AddToClassList("build-item-btn");
+            btn.AddToClassList("build-card-infrastructure");
 
+            var cardTop = new VisualElement();
+            cardTop.AddToClassList("build-card-top");
             var colorBox = new VisualElement();
             colorBox.AddToClassList("build-item-color");
             colorBox.style.backgroundColor = color;
-            btn.Add(colorBox);
+            cardTop.Add(colorBox);
+            var tagLabel = new Label { text = "Tool" };
+            tagLabel.AddToClassList("build-item-tag");
+            cardTop.Add(tagLabel);
+            btn.Add(cardTop);
 
             var nameLabel = new Label { text = I18nSystem.Get(displayName) };
             nameLabel.AddToClassList("build-item-name");
             btn.Add(nameLabel);
+
+            var metaLabel = new Label { text = TerrainToolMeta(tool) };
+            metaLabel.AddToClassList("build-item-meta");
+            btn.Add(metaLabel);
 
             btn.clicked += () =>
             {
@@ -384,6 +577,38 @@ namespace OpenWorld
 
             _buildContent.Add(btn);
         }
+
+        private static string BuildCategoryClass(BuildableDef def)
+        {
+            if (IsMilitaryBuildable(def)) return "military";
+            if (def.IsTransport) return "logistics";
+            if (IsIndustrialBuildable(def)) return "industry";
+            if (def.IsMedical) return "civilian";
+            return "civilian";
+        }
+
+        private static string BuildCategoryLabel(BuildableDef def)
+        {
+            if (IsMilitaryBuildable(def)) return "Military";
+            if (def.IsTransport) return "Logistics";
+            if (IsIndustrialBuildable(def)) return "Industry";
+            if (def.IsMedical) return "Medical";
+            if (def.ProvidesVision) return "Intel";
+            return "Civil";
+        }
+
+        private static string TerrainToolMeta(TerrainTool tool) => tool switch
+        {
+            TerrainTool.Road => "surface route",
+            TerrainTool.Rail => "heavy route",
+            TerrainTool.Bridge => "gap crossing",
+            TerrainTool.Dig => "lower ground",
+            TerrainTool.Fill => "raise ground",
+            TerrainTool.Flatten => "grade terrain",
+            TerrainTool.Trench => "defense work",
+            TerrainTool.Mine => "mining zone",
+            _ => "terrain"
+        };
 
         private void Refresh()
         {
