@@ -61,6 +61,19 @@ namespace OpenWorld
             SetOpen(true);
             EnsureTexture();
             RefreshMap();
+
+            I18nSystem.OnLanguageChanged -= OnLanguageChanged;
+            I18nSystem.OnLanguageChanged += OnLanguageChanged;
+        }
+
+        private void OnDestroy()
+        {
+            I18nSystem.OnLanguageChanged -= OnLanguageChanged;
+        }
+
+        private void OnLanguageChanged()
+        {
+            if (_world != null && _knowledge != null) RefreshMap();
         }
 
         private void Awake()
@@ -162,16 +175,16 @@ namespace OpenWorld
             if (_mapImage != null)
                 _mapImage.style.backgroundImage = new StyleBackground(_mapTexture);
             if (_title != null)
-                _title.text = $"Strategic Map - {_knowledge.CurrentOverlay} / {_clickMode}";
+                _title.text = $"{I18nSystem.Get("Strategic Map")} - {_knowledge.CurrentOverlay} / {_clickMode}";
             if (_details != null)
             {
                 int controlled = 0;
                 foreach (var region in _world.Regions)
                     if (region.OwnerFactionId == OpenWorldConstants.PlayerFactionId) controlled++;
-                _details.text = $"Explored {_knowledge.ExploredCells:n0}  Visible {_knowledge.VisibleCells:n0}  Zoom {_zoom:0.0}x  Regions {controlled}/{_world.Regions.Count}  Sites {RevealedSiteCount()}/{_world.StrategicSites.Count}  Routes {_world.LogisticsRoutes.Count}";
+                _details.text = $"{I18nSystem.Get("Explored")} {_knowledge.ExploredCells:n0}  {I18nSystem.Get("Visible")} {_knowledge.VisibleCells:n0}  {I18nSystem.Get("Zoom")} {_zoom:0.0}x  {I18nSystem.Get("Regions")} {controlled}/{_world.Regions.Count}  {I18nSystem.Get("Sites")} {RevealedSiteCount()}/{_world.StrategicSites.Count}  {I18nSystem.Get("Routes")} {_world.LogisticsRoutes.Count}";
             }
             if (_legend != null)
-                _legend.text = LegendText();
+                _legend.text = I18nSystem.Get(LegendText());
         }
 
         private void OnMapPointerDown(PointerDownEvent evt)
@@ -296,8 +309,18 @@ namespace OpenWorld
         private void JumpCameraTo(Vector2Int cell)
         {
             var target = _world.CellToWorld(cell);
-            _camera.transform.position = target + new Vector3(-35f, 60f, -45f);
-            _camera.transform.rotation = Quaternion.Euler(55f, 38f, 0f);
+            var currentHeight = _camera.transform.position.y;
+            var currentForward = _camera.transform.forward;
+
+            if (Mathf.Abs(currentForward.y) > 0.01f)
+            {
+                var distance = (currentHeight - target.y) / -currentForward.y;
+                _camera.transform.position = target - currentForward * distance;
+            }
+            else
+            {
+                _camera.transform.position = target + new Vector3(-35f, currentHeight, -45f);
+            }
         }
 
         private void ExecuteMapClick(Vector2Int cell)

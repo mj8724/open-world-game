@@ -36,6 +36,8 @@ namespace OpenWorld
             if (keyboard != null && (OpenWorldInput.Held(keyboard.dKey) || OpenWorldInput.Held(keyboard.rightArrowKey))) move += right;
             if (keyboard != null && (OpenWorldInput.Held(keyboard.aKey) || OpenWorldInput.Held(keyboard.leftArrowKey))) move -= right;
 
+            if (move.sqrMagnitude > 1f) move.Normalize();
+
             float heightFactor = Mathf.Lerp(0.5f, 2.5f, Mathf.InverseLerp(_minHeight, _maxHeight, transform.position.y));
             transform.position += move * (_moveSpeed * heightFactor * Time.deltaTime);
 
@@ -43,8 +45,10 @@ namespace OpenWorld
             if (Mathf.Abs(scroll) > 0.001f)
             {
                 var pos = transform.position + transform.forward * (scroll * _zoomSpeed * Time.deltaTime);
-                pos.y = Mathf.Clamp(pos.y, _minHeight, _maxHeight);
-                transform.position = pos;
+                if (pos.y >= _minHeight && pos.y <= _maxHeight)
+                {
+                    transform.position = pos;
+                }
             }
 
             if (keyboard != null && OpenWorldInput.Held(keyboard.qKey))
