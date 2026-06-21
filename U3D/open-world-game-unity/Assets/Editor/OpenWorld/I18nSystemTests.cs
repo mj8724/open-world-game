@@ -7,6 +7,13 @@ namespace OpenWorld.Tests
     /// </summary>
     public class I18nSystemTests
     {
+        [SetUp]
+        public void SetUp()
+        {
+            // 运行时默认语言为中文，测试统一从英文起步以保证隔离
+            I18nSystem.SetLanguage(Language.English);
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -134,7 +141,7 @@ namespace OpenWorld.Tests
         }
 
         [Test]
-        public void CurrentLanguage_DefaultIsEnglish()
+        public void SetLanguage_English_SetsEnglish()
         {
             I18nSystem.SetLanguage(Language.English);
             Assert.AreEqual(Language.English, I18nSystem.CurrentLanguage);
