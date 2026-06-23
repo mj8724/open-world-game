@@ -6,6 +6,11 @@ namespace OpenWorld.Testing
     /// <summary>
     /// Additional monitoring system that runs in the simulation to detect broader design issues.
     /// Attached to the same GameObject as TestBotManager to run passive checks.
+    ///
+    /// 已知局限：
+    /// - Blueprint 无 timestamp，延迟检测是简化实现（可能误报）
+    /// - ProductionOrder 无直接 recipe 映射，卡顿检测是降级实现
+    /// - 探针依赖数据快照，可能错过瞬态问题
     /// </summary>
     public class TestMonitor : MonoBehaviour
     {
@@ -126,15 +131,13 @@ namespace OpenWorld.Testing
 
         private void CheckProductionStalls()
         {
-            // Simplified - jobs don't have direct recipe mapping
+            // 注意：降级实现 - ProductionOrder 无直接 recipe 映射
             foreach (var order in _world.ProductionOrders)
             {
-                {
-                    if (order.Status == "Working" || order.Status == "Waiting" ||
-                        order.Status.StartsWith("Workers") || order.Status.StartsWith("Trained") ||
-                        order.Status.StartsWith("Produced"))
-                        continue;
-                }
+                if (order.Status == "Working" || order.Status == "Waiting" ||
+                    order.Status.StartsWith("Workers") || order.Status.StartsWith("Trained") ||
+                    order.Status.StartsWith("Produced"))
+                    continue;
 
                 var building = _world.Buildings.Values.FirstOrDefault(b => b.Id == order.BuildingId);
                 if (building == null) continue;

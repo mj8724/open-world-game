@@ -1,0 +1,54 @@
+{
+  "$schema": "context-package/1.0",
+  "source": {
+    "type": "analyze",
+    "artifact_id": "ANL-重新设计UI-2026-06-16",
+    "session_path": "scratch/20260616-analyze-重新设计UI",
+    "generated_at": "2026-06-16T07:33:00+08:00"
+  },
+  "requirements": [
+    {
+      "id": "REQ-ANL-1",
+      "title": "构建 UIViewModel 抽象基类",
+      "acceptance": "类文件建立，且具备 Dispose 与 isActive 开关的完整能力",
+      "ref": "conclusions.json"
+    },
+    {
+      "id": "REQ-ANL-2",
+      "title": "实现自适应 Blur Shader 材质",
+      "acceptance": "拥有模糊和遮罩两层逻辑，能在低端机自动失效模糊",
+      "ref": "conclusions.json"
+    }
+  ],
+  "constraints": [
+    { "status": "locked", "ref": "context.md#Locked" },
+    { "status": "locked", "ref": "context.md#Locked" },
+    { "status": "open", "ref": "context.md#Free" }
+  ],
+  "domain": {},
+  "non_goals": [
+    {
+      "title": "迁移到 UI Toolkit",
+      "rationale": "工作量过大，暂且推迟",
+      "ref": "context.md#Deferred"
+    }
+  ],
+  "insights": [
+    {
+      "role": "analyzer",
+      "area": "Architecture",
+      "summary": "构建 UIViewModel 抽象基类"
+    },
+    {
+      "role": "analyzer",
+      "area": "Performance",
+      "summary": "实现自适应 Blur Shader 材质"
+    }
+  ],
+  "open_questions": [],
+  "references": [
+    { "type": "analysis", "path": "context.md" },
+    { "type": "conclusions", "path": "conclusions.json" }
+  ],
+  "scope_verdict": "medium"
+}

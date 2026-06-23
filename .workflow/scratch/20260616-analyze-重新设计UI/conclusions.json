@@ -1,0 +1,63 @@
+{
+  "recommendation": "GO",
+  "confidence": "high",
+  "key_conclusions": [
+    {
+      "finding": "UniRx 的生命周期管理是消除 Update() 轮询的最优解",
+      "evidence": "相比原生 Action，AddTo() 从根源上防范泄漏",
+      "confidence": "high"
+    },
+    {
+      "finding": "ViewModel 层拦截是性能的关键",
+      "evidence": "不可见的抽屉面板必须被拦截，避免计算浪费",
+      "confidence": "high"
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": "high",
+      "action": "构建 UIViewModel 抽象基类",
+      "rationale": "统一处理 OnDestroy 时的数据流释放，且强制要求实现 isActive 属性。",
+      "steps": [
+        {
+          "target": "Assets/Scripts/UI/Core/UIViewModel.cs",
+          "description": "实现基础类并封装 UniRx"
+        }
+      ]
+    },
+    {
+      "priority": "high",
+      "action": "实现自适应 Blur Shader 材质",
+      "rationale": "支持玻璃化界面在不同地形下的对比度保障，且支持低端机降级。",
+      "steps": [
+        {
+          "target": "Assets/Materials/UI_Glassmorphism_Blur.mat",
+          "description": "编写 Shader 并附带 Fallback 降级机制"
+        }
+      ]
+    }
+  ],
+  "implementation_scope": [
+    {
+      "objective": "构建 UIViewModel 抽象基类",
+      "rationale": "统一处理 OnDestroy 时的数据流释放，且强制要求实现 isActive 属性。",
+      "priority": "high",
+      "target_files": ["Assets/Scripts/UI/Core/UIViewModel.cs"],
+      "acceptance_criteria": "类文件建立，且具备 Dispose 与 isActive 开关的完整能力",
+      "change_summary": "Assets/Scripts/UI/Core/UIViewModel.cs: 实现基础类并封装 UniRx"
+    },
+    {
+      "objective": "实现自适应 Blur Shader 材质",
+      "rationale": "支持玻璃化界面在不同地形下的对比度保障。",
+      "priority": "high",
+      "target_files": ["Assets/Materials/UI_Glassmorphism_Blur.mat"],
+      "acceptance_criteria": "拥有模糊和遮罩两层逻辑，能在低端机自动失效模糊",
+      "change_summary": "Assets/Materials/UI_Glassmorphism_Blur.mat: 编写 Shader 并附带 Fallback 降级机制"
+    }
+  ],
+  "decision_trail": [
+    "确认了放弃轮询转向事件驱动的架构方向。",
+    "经过选型，排除了原生 Action 和 MVP 模式，锁定了 UniRx。",
+    "增加了 isActive 的前置判断以增强不可见面板的计算优化。"
+  ]
+}

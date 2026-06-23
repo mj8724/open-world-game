@@ -1,0 +1,10 @@
+{
+  "id": "DBP-20260621-234242",
+  "mode": "discover",
+  "status": "completed",
+  "started_at": "2026-06-21T23:42:42Z",
+  "completed_at": "2026-06-22T00:05:00Z",
+  "perspectives_completed": ["SECURITY", "PERFORMANCE", "RELIABILITY", "MAINTAINABILITY", "SCALABILITY", "UX", "ACCESSIBILITY", "COMPLIANCE"],
+  "issues_found": 13,
+  "issues_deduplicated": 13
+}

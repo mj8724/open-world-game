@@ -35,9 +35,8 @@ namespace OpenWorld.Testing
             _botStates[OpenWorldConstants.PlayerFactionId] = new BotState();
             _botStates[OpenWorldConstants.EnemyFactionId] = new BotState();
 
-#if UNITY_EDITOR
-            OpenWorldSimulationSystem.TestBotIsActive = true;
-#endif
+            // 使用实例方法而非静态变量
+            _simulation.SetTestBotActive(true);
 
             Debug.Log("[TestBot] Initialized for symmetric 1v1 test scenario");
         }

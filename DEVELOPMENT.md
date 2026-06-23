@@ -1,5 +1,20 @@
 # 开发必读 (DEVELOPMENT.md)
 
+> ⚠️ **本文档已过时** — 描述的是从 Three.js + WebSocket 架构迁移前的旧系统。
+> 当前架构请参考 `CLAUDE.md`。以下内容仅供历史参考。
+>
+> 已过时的部分：
+> - `Networking/` 网络层（已删除，现为单机游戏）
+> - `State/` 网络数据模型（已删除）
+> - `Core/GameApp.cs` 入口（已改为 `OpenWorld/Core/OpenWorldBootstrap.cs`）
+> - 多个独立 Renderer（`NodeRenderer`/`ArmyRenderer`/`EdgeRenderer` 等已删除）
+> - `GameDataConfig` 作为 ScriptableObject（当前为 `OpenWorldDataCatalog`）
+>
+> 仍然有效的部分：
+> - `MaterialCache` 使用规则（禁止 `new Material()`）
+> - 数据/配置层分层原则
+> - 关键规则中的性能和内存管理约定
+
 ## 项目概述
 
 开放世界策略游戏 Unity 客户端，基于 URP 渲染管线，支持地形编辑、建筑系统、兵种战斗、物流运输、科技研究、地质勘查、AI 敌人等子系统。

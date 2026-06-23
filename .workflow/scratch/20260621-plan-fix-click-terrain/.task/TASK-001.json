@@ -1,0 +1,35 @@
+{
+  "id": "TASK-001",
+  "title": "修复 CurrentTool 默认值导致的意外地形编辑",
+  "description": "将 OpenWorldInputController 中 CurrentTool 属性的默认值从 TerrainTool.Dig 改为 TerrainTool.None，确保默认点击不触发地形编辑。",
+  "type": "fix",
+  "action": "修改 U3D/open-world-game-unity/Assets/Scripts/OpenWorld/Core/OpenWorldInputController.cs 第 7 行，将 `public TerrainTool CurrentTool { get; private set; } = TerrainTool.Dig;` 改为 `public TerrainTool CurrentTool { get; private set; } = TerrainTool.None;`",
+  "files": [
+    "U3D/open-world-game-unity/Assets/Scripts/OpenWorld/Core/OpenWorldInputController.cs"
+  ],
+  "read_first": [
+    "U3D/open-world-game-unity/Assets/Scripts/OpenWorld/Core/OpenWorldInputController.cs"
+  ],
+  "implementation": [
+    "1. 打开 OpenWorldInputController.cs",
+    "2. 定位到第 7 行的 CurrentTool 属性声明",
+    "3. 将默认值从 `= TerrainTool.Dig` 修改为 `= TerrainTool.None`",
+    "4. 保存文件"
+  ],
+  "convergence": {
+    "criteria": [
+      "U3D/open-world-game-unity/Assets/Scripts/OpenWorld/Core/OpenWorldInputController.cs 包含 `public TerrainTool CurrentTool { get; private set; } = TerrainTool.None;`",
+      "U3D/open-world-game-unity/Assets/Scripts/OpenWorld/Core/OpenWorldInputController.cs 不包含 `= TerrainTool.Dig;` 在 CurrentTool 声明中",
+      "Unity 编译通过，无 CS 错误"
+    ],
+    "how_to_verify": "1. grep 'CurrentTool.*TerrainTool.None' 文件路径确认修改\n2. 通过 Unity MCP 工具或 maestro delegate 编译项目\n3. 手动测试：启动游戏，默认点击地面不改变地形，按数字键选择工具后可正常编辑"
+  },
+  "dependencies": [],
+  "estimated_time": "5 min",
+  "complexity": "trivial",
+  "priority": "high",
+  "wave": 1,
+  "status": "completed",
+  "executor": "claude-code",
+  "completed_at": "2026-06-21T22:42:00+08:00"
+}

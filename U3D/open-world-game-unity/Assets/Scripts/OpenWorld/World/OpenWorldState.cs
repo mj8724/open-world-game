@@ -57,6 +57,36 @@ namespace OpenWorld
         public void AdvanceTick() => SimulationTick++;
 
         private readonly ChunkGenerator _chunkGenerator;
+        private List<UnitEntity> _unitsList = new();
+        private List<BuildingEntity> _buildingsList = new();
+        private bool _unitsListDirty = true;
+        private bool _buildingsListDirty = true;
+
+        public IReadOnlyList<UnitEntity> GetUnitsListCached()
+        {
+            if (_unitsListDirty)
+            {
+                _unitsList = new List<UnitEntity>(Units.Values);
+                _unitsListDirty = false;
+            }
+            return _unitsList;
+        }
+
+        public IReadOnlyList<BuildingEntity> GetBuildingsListCached()
+        {
+            if (_buildingsListDirty)
+            {
+                _buildingsList = new List<BuildingEntity>(Buildings.Values);
+                _buildingsListDirty = false;
+            }
+            return _buildingsList;
+        }
+
+        public void InvalidateEntityCaches()
+        {
+            _unitsListDirty = true;
+            _buildingsListDirty = true;
+        }
 
         private int _nextBuildingId = 1;
         private int _nextUnitId = 1;
@@ -190,6 +220,7 @@ namespace OpenWorld
             };
             EnsureBuildingStorage(building);
             Buildings[building.Id] = building;
+            InvalidateEntityCaches();
             return building;
         }
 
@@ -206,6 +237,7 @@ namespace OpenWorld
             };
             ApplyUnitDefaults(unit);
             Units[unit.Id] = unit;
+            InvalidateEntityCaches();
             return unit;
         }
 

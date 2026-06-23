@@ -1,0 +1,119 @@
+[
+  {
+    "perspective": "PERFORMANCE",
+    "title": "每帧重建整个战斗网格导致性能问题",
+    "severity": "high",
+    "description": "CombatSystem.TickCombat() 在每次调用时都会完全重建 _combatGrid（频率 0.25s）。遍历所有 Units.Values（潜在数百个单位），清空所有网格列表，然后重新填充。这是不必要的开销，尤其在单位数量增长时。",
+    "location": "OpenWorld/Simulation/CombatSystem.cs:20-31",
+    "fix_direction": "增量更新战斗网格：仅在单位移动/创建/销毁时更新受影响的网格单元，而非每帧完全重建。或增加重建间隔到 1-2 秒。",
+    "affected_components": ["CombatSystem", "战斗模拟"]
+  },
+  {
+    "perspective": "PERFORMANCE",
+    "title": "频繁枚举 Dictionary.Values 造成 GC 压力",
+    "severity": "medium",
+    "description": "代码中有 91 处使用 Dictionary.Values 枚举（如 world.Units.Values, world.Buildings.Values）。每次枚举都会产生临时对象，在高频调用路径（如 TickCombat, TickEconomy）中会造成 GC 压力。",
+    "location": "多个文件：CombatSystem.cs, ProductionSystem.cs, EnemyEconomy.cs 等",
+    "fix_direction": "缓存常用集合为 List，或使用对象池。对于每帧/高频调用的路径，避免直接枚举 Dictionary.Values。",
+    "affected_components": ["战斗系统", "生产系统", "AI 系统"]
+  },
+  {
+    "perspective": "PERFORMANCE",
+    "title": "生产订单每次排序造成不必要开销",
+    "severity": "medium",
+    "description": "ProductionSystem.TickEconomy() 在每次 tick 时都会对所有 ProductionOrders 进行排序（line 78-79）。订单优先级很少改变，但排序每秒执行一次。",
+    "location": "OpenWorld/Simulation/ProductionSystem.cs:78-79",
+    "fix_direction": "使用优先级队列（PriorityQueue）或仅在订单添加/优先级改变时排序，缓存排序结果。",
+    "affected_components": ["ProductionSystem", "经济模拟"]
+  },
+  {
+    "perspective": "RELIABILITY",
+    "title": "缺少全局错误处理和日志记录",
+    "severity": "high",
+    "description": "整个代码库中只有 1 处 try-catch（SaveService），但 simulation、combat、production 等关键系统都没有错误处理。一个空引用或逻辑错误会导致整个游戏崩溃。",
+    "location": "多个系统：CombatSystem, ProductionSystem, SimulationSystem",
+    "fix_direction": "在关键循环和 Update() 方法中添加 try-catch，捕获异常并记录到日志。添加诊断模式以便调试。",
+    "affected_components": ["所有模拟系统"]
+  },
+  {
+    "perspective": "RELIABILITY",
+    "title": "未验证 Dictionary 查找结果可能导致 NullReferenceException",
+    "severity": "medium",
+    "description": "多处代码直接使用 TryGetValue 后未检查结果就访问值（如 ProductionSystem.cs:83-88）。虽然有 TryGetValue，但后续代码路径中仍可能因条件分支导致空引用。",
+    "location": "ProductionSystem.cs:83-88, CombatSystem.cs:70-80",
+    "fix_direction": "在所有 TryGetValue 调用后立即添加 null 检查，或使用更防御性的编程模式。",
+    "affected_components": ["ProductionSystem", "CombatSystem"]
+  },
+  {
+    "perspective": "MAINTAINABILITY",
+    "title": "OpenWorldHudController 过大（1022 行）职责过多",
+    "severity": "high",
+    "description": "OpenWorldHudController.cs 有 1022 行，负责所有 UI 交互、多个面板管理、建造菜单、操作页签等。违反单一职责原则，难以测试和维护。",
+    "location": "OpenWorld/UI/OpenWorldHudController.cs",
+    "fix_direction": "拆分为多个控制器：BuildMenuController, StatusPanelController, StrategicMapPanelController, ResourceBarController。使用组合模式。",
+    "affected_components": ["UI 系统"]
+  },
+  {
+    "perspective": "MAINTAINABILITY",
+    "title": "OpenWorldState 暴露所有内部集合为 public",
+    "severity": "medium",
+    "description": "OpenWorldState 将 Buildings, Units, Vehicles 等 20+ 个集合都声明为 public Dictionary/List，外部代码可以直接修改，破坏封装性，难以追踪状态变更。",
+    "location": "OpenWorld/World/OpenWorldState.cs:30-46",
+    "fix_direction": "使用 IReadOnlyDictionary/IReadOnlyList 暴露，提供 AddBuilding/RemoveBuilding 等方法来控制修改。或使用事件通知状态变更。",
+    "affected_components": ["OpenWorldState", "所有依赖状态的系统"]
+  },
+  {
+    "perspective": "SCALABILITY",
+    "title": "硬编码地图大小和区块大小限制扩展性",
+    "severity": "low",
+    "description": "MapSize, ChunkSize 在构造函数中设置后不可更改。没有验证逻辑，如果传入不合理的值（如 0 或负数）会导致崩溃。",
+    "location": "OpenWorld/World/OpenWorldState.cs:72-77",
+    "fix_direction": "添加参数验证。考虑支持动态地图扩展（流式加载区块）。",
+    "affected_components": ["OpenWorldState", "地形系统"]
+  },
+  {
+    "perspective": "SCALABILITY",
+    "title": "EnemyEconomy 线性搜索建筑列表效率低",
+    "severity": "medium",
+    "description": "RegisterBuilding 对每个建筑类型维护单独的 List，并使用 Contains() 检查（O(n)）。当敌方建筑数量增长时，注册性能会下降。",
+    "location": "OpenWorld/Simulation/EnemyEconomy.cs:26-32",
+    "fix_direction": "使用 HashSet 替代 List 存储建筑 ID，或直接使用 Dictionary<BuildableKind, HashSet<int>>。",
+    "affected_components": ["EnemyEconomy", "敌方 AI"]
+  },
+  {
+    "perspective": "UX",
+    "title": "用户不清楚当前操作模式（建造 vs 地形编辑）",
+    "severity": "medium",
+    "description": "InputController 支持两种模式（TerrainTool.None = 建造, 其他 = 地形编辑），但 UI 没有明确指示器显示当前模式。用户可能在不知情的情况下切换模式。",
+    "location": "OpenWorld/Core/OpenWorldInputController.cs:7-8, UI 层缺失",
+    "fix_direction": "在 HUD 添加模式指示器，显示当前是 '建造模式' 还是 '地形工具: Dig/Fill/等'。使用图标或颜色标识。",
+    "affected_components": ["UI 系统", "输入系统"]
+  },
+  {
+    "perspective": "ACCESSIBILITY",
+    "title": "UI 缺少键盘导航和屏幕阅读器支持",
+    "severity": "low",
+    "description": "UI Toolkit 界面未配置 ARIA 标签、焦点顺序或键盘导航。视障用户无法访问建造菜单、资源面板等核心功能。",
+    "location": "所有 UI .uxml 文件",
+    "fix_direction": "为所有交互元素添加 name 和 aria-label。配置 focusable 和 tab 顺序。测试键盘导航完整路径。",
+    "affected_components": ["UI 系统"]
+  },
+  {
+    "perspective": "SECURITY",
+    "title": "SaveService 异常处理过于宽泛可能隐藏安全问题",
+    "severity": "low",
+    "description": "SaveService 捕获所有 Exception 但只记录日志，不区分反序列化错误、权限错误或恶意数据。攻击者可能通过构造恶意存档文件触发非预期行为。",
+    "location": "OpenWorld/Save/OpenWorldSaveService.cs:145-151",
+    "fix_direction": "区分异常类型（IOException, JsonException, SecurityException）。对不信任的存档文件进行验证（签名/校验和）。限制反序列化深度。",
+    "affected_components": ["SaveService"]
+  },
+  {
+    "perspective": "COMPLIANCE",
+    "title": "缺少游戏操作审计日志",
+    "severity": "low",
+    "description": "关键操作（建造、战斗、资源转移）没有审计日志。无法追溯游戏状态变更历史，难以调试或回放问题。",
+    "location": "CommandSystem, CombatSystem, ProductionSystem",
+    "fix_direction": "添加结构化日志记录关键操作（timestamp, actor, action, parameters）。考虑实现事件溯源模式以支持回放。",
+    "affected_components": ["所有模拟系统"]
+  }
+]

@@ -109,9 +109,9 @@ namespace OpenWorld.Testing
 
             ResolveReferences();
             // Disable TestBot so EnemyAI runs normally under PlayTester
-#if UNITY_EDITOR
-            OpenWorldSimulationSystem.TestBotIsActive = false;
-#endif
+            // 使用 Simulation 实例方法而非静态标志，解除静态耦合
+            if (_simulation != null)
+                _simulation.SetTestBotActive(false);
             _running = true;
 
             Debug.Log("═══════════════════════════════════════════");
@@ -220,6 +220,10 @@ namespace OpenWorld.Testing
         }
 
         // ── Rapid Ticks (uses Time.timeScale to speed up) ──
+        // 注意：这是墙钟时间等待而非模拟步进。
+        // 实际模拟 tick 由系统内部定时器驱动（1秒经济、1秒战斗、2秒AI）。
+        // TimeScale 加速会让系统 tick 更快触发，但此方法只是"等待 N*0.05 秒"。
+        // 最后强制一次 TickEconomyNow() 确保至少有一次经济更新。
         private IEnumerator FastForward(int ticks, string reason)
         {
             Debug.Log($"  ⏩ Fast-forwarding {ticks} ticks ({reason})...");
@@ -228,9 +232,9 @@ namespace OpenWorld.Testing
                 _tickCounter++;
                 yield return new WaitForSeconds(0.05f); // ~20 ticks/sec at 1x, ~200 at 10x
             }
-            // Force one economy tick
+            // Force one economy tick to ensure state progression
             _simulation?.TickEconomyNow();
-            Debug.Log($"  ✓ {ticks} ticks elapsed");
+            Debug.Log($"  ✓ {ticks} ticks elapsed (wall-clock wait, not simulation steps)");
         }
 
         // ════════════════════════════════════════════════

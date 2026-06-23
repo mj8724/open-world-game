@@ -1,0 +1,18 @@
+{
+  "target": "重新设计UI",
+  "completed_at": "2026-06-16T13:02:00+08:00",
+  "results": [
+    {
+      "id": "T-001",
+      "name": "验证 Glassmorphism Shader 属性",
+      "status": "pass",
+      "details": "User confirmed"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "issues": 0,
+    "skipped": 0
+  }
+}

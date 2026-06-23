@@ -1,0 +1,21 @@
+{
+  "id": "TASK-003",
+  "title": "将 ViewModel 绑定至 SidebarView",
+  "scope": "Assets/Scripts/UI/Views/",
+  "action": "Bind HUDViewModel and ConstructionMenuViewModel to the SidebarView buttons using UniRx.",
+  "files": [
+    {
+      "path": "Assets/Scripts/UI/Views/SidebarView.cs",
+      "target": "Start Method",
+      "change": "Subscribe to ViewModel ReactiveCollections and ReactiveProperties."
+    }
+  ],
+  "read_first": ["Assets/Scripts/UI/Views/SidebarView.cs", "Assets/Scripts/UI/Panels/ConstructionMenuViewModel.cs"],
+  "implementation": ["Inject ViewModels.", "Bind UniRx streams to UI update methods."],
+  "convergence": {
+    "criteria": [
+      "grep -q 'Subscribe' Assets/Scripts/UI/Views/SidebarView.cs",
+      "grep -q 'ViewModel' Assets/Scripts/UI/Views/SidebarView.cs"
+    ]
+  }
+}

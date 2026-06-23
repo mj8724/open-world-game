@@ -8,6 +8,7 @@ namespace OpenWorld
     {
         private OpenWorldState _world;
         private Dictionary<Vector2Int, List<UnitEntity>> _combatGrid;
+        private bool _gridDirty = true;
         private const int CombatGridCellSize = 12;
 
         public OpenWorldCombatSystem(OpenWorldState world)
@@ -15,13 +16,15 @@ namespace OpenWorld
             _world = world;
         }
 
+        public void MarkGridDirty() => _gridDirty = true;
+
         public Vector2Int CombatGridKey(Vector2Int cell) => new(cell.x / CombatGridCellSize, cell.y / CombatGridCellSize);
 
         public void RebuildCombatGrid()
         {
             _combatGrid ??= new Dictionary<Vector2Int, List<UnitEntity>>();
             foreach (var list in _combatGrid.Values) list.Clear();
-            foreach (var unit in _world.Units.Values)
+            foreach (var unit in _world.GetUnitsListCached())
             {
                 if (unit.SimulationTier == SimulationTier.Dormant) continue;
                 var key = CombatGridKey(unit.Cell);
@@ -57,9 +60,13 @@ namespace OpenWorld
 
         public void TickCombat(UnitSystem units)
         {
-            RebuildCombatGrid();
+            if (_gridDirty)
+            {
+                RebuildCombatGrid();
+                _gridDirty = false;
+            }
             var dead = new List<int>();
-            var allUnits = new List<UnitEntity>(_world.Units.Values);
+            var allUnits = _world.GetUnitsListCached();
             foreach (var attacker in allUnits)
             {
                 if (attacker.Hp <= 0) { dead.Add(attacker.Id); continue; }
@@ -113,7 +120,7 @@ namespace OpenWorld
                 if (attacker.CurrentOrder != null && attacker.CurrentOrder.Kind == UnitOrderKind.Attack && attacker.CurrentOrder.TargetEntityId > 0)
                     _world.Units.TryGetValue(attacker.CurrentOrder.TargetEntityId, out target);
                 if (target == null)
-                    target = FindHostilesInGrid(attacker.Cell, Mathf.Max(5f, attacker.VisionRange), attacker.FactionId, 1).FirstOrDefault();
+                    target = FindHostilesInGrid(attacker.Cell, Mathf.Max(5f, attacker.VisionRange * attacker.VisionRange), attacker.FactionId, 1).FirstOrDefault();
                 if (target == null) continue;
 
                 float distance = Vector2Int.Distance(attacker.Cell, target.Cell);
@@ -128,21 +135,27 @@ namespace OpenWorld
                     continue;
                 }
 
-                bool ranged = attacker.AttackRange > 2f;
-                if (ranged && attacker.Ammo < 1f) { attacker.Morale = Mathf.Max(0f, attacker.Morale - 0.5f); continue; }
-                if (ranged) attacker.Ammo -= 1f;
-                float efficiency = Mathf.Clamp(attacker.Morale / 100f, 0.2f, 1f) * Mathf.Clamp(1f - attacker.Fatigue / 120f, 0.25f, 1f);
-                float damage = Mathf.Max(1f, attacker.AttackPower * attacker.Accuracy * efficiency * 0.32f - target.Armor * 0.15f);
+                bool ranged = attacker.AttackRange > GameBalance.C.RangedWeaponThreshold;
+                if (ranged && attacker.Ammo < 1f) { attacker.Morale = Mathf.Max(0f, attacker.Morale - GameBalance.C.CombatAmmoMoralePenalty); continue; }
+                if (ranged) attacker.Ammo -= GameBalance.C.CombatAmmoConsumption;
+                float efficiency = Mathf.Clamp(attacker.Morale / GameBalance.C.CombatMoraleBase, GameBalance.C.CombatMoraleMin, 1f) *
+                                   Mathf.Clamp(1f - attacker.Fatigue / GameBalance.C.CombatFatigueBase, GameBalance.C.CombatFatigueMin, 1f);
+                float damage = Mathf.Max(1f, attacker.AttackPower * attacker.Accuracy * efficiency * GameBalance.C.CombatDamageMultiplier -
+                                              target.Armor * GameBalance.C.CombatArmorReduction);
                 target.Hp -= Mathf.RoundToInt(damage);
-                target.Suppression = Mathf.Min(100f, target.Suppression + damage * 1.5f);
-                target.Morale = Mathf.Max(0f, target.Morale - damage * 0.35f);
+                target.Suppression = Mathf.Min(100f, target.Suppression + damage * GameBalance.C.CombatSuppressionMultiplier);
+                target.Morale = Mathf.Max(0f, target.Morale - damage * GameBalance.C.CombatMoraleDamageMultiplier);
                 if (target.Hp <= 0) dead.Add(target.Id);
-                else if (target.Hp < target.MaxHp * 0.45f) target.Wounded = true;
+                else if (target.Hp < target.MaxHp * GameBalance.C.CombatWoundedThreshold) target.Wounded = true;
             }
 
             foreach (int id in dead) units.RemoveUnit(id);
         }
 
+        // TODO: 死代码 - 这两个方法从未被调用，且不走空间哈希网格（O(n) 遍历）。
+        // 如需类似功能，应使用 FindHostilesInGrid 的空间哈希版本。
+        // 保留仅为向后兼容，考虑在确认无外部调用后删除。
+        [System.Obsolete("Use FindHostilesInGrid instead for better performance with spatial hashing")]
         public UnitEntity FindNearestHostile(UnitEntity attacker, float radius)
         {
             UnitEntity best = null;
@@ -158,6 +171,7 @@ namespace OpenWorld
             return best;
         }
 
+        [System.Obsolete("Use FindHostilesInGrid instead for better performance with spatial hashing")]
         public List<UnitEntity> FindHostilesInRadius(Vector2Int center, float radius, int factionId)
         {
             var result = new List<UnitEntity>();
@@ -180,7 +194,11 @@ namespace OpenWorld
             foreach (var relation in _world.Diplomacy)
                 if ((relation.FactionA == a && relation.FactionB == b) || (relation.FactionA == b && relation.FactionB == a))
                     return relation.Stance == DiplomacyStance.Hostile;
-            return a == OpenWorldConstants.EnemyFactionId || b == OpenWorldConstants.EnemyFactionId;
+            // 默认规则：玩家与敌人互为敌对，中性阵营与所有方中立
+            if (a == OpenWorldConstants.NeutralFactionId || b == OpenWorldConstants.NeutralFactionId)
+                return false;
+            return (a == OpenWorldConstants.PlayerFactionId && b == OpenWorldConstants.EnemyFactionId) ||
+                   (a == OpenWorldConstants.EnemyFactionId && b == OpenWorldConstants.PlayerFactionId);
         }
     }
 }

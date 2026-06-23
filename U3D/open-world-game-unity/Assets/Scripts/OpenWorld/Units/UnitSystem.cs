@@ -211,6 +211,7 @@ namespace OpenWorld
             _selected.Remove(agent);
             _agents.Remove(id);
             _world.Units.Remove(id);
+            _world.InvalidateEntityCaches();
             if (agent != null) Destroy(agent.gameObject);
         }
 

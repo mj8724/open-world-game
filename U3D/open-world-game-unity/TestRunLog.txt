@@ -1,0 +1,40 @@
+Unity Editor version:    6000.4.9f1 (f7258d6eebbe)
+Branch:                  6000.4/staging
+Build type:              Release
+Batch mode:              YES
+macOS version:           Version 14.6.1 (Build 23G93)
+Darwin version:          23.6.0
+Architecture:            arm64
+Running under Rosetta:   NO
+Available memory:        8192 MB
+Date:                    2026-06-19T17:27:58Z
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-junma" at "2026-06-19T17:27:58.210454Z"
+Launching external process: /Applications/Unity/Hub/Editor/6000.4.9f1/Unity.app/Contents/Helpers/PackageManager/Server/UnityPackageManager
+
+COMMAND LINE ARGUMENTS:
+/Applications/Unity/Hub/Editor/6000.4.9f1/Unity.app/Contents/MacOS/Unity
+-batchmode
+-nographics
+-projectPath
+/Users/junma/cc-project/open-world-game/U3D/open-world-game-unity
+-runTests
+-testPlatform
+EditMode
+-testResults
+/Users/junma/cc-project/open-world-game/U3D/open-world-game-unity/TestResults.xml
+-logFile
+/Users/junma/cc-project/open-world-game/U3D/open-world-game-unity/TestRunLog.txt
+Successfully changed project path to: /Users/junma/cc-project/open-world-game/U3D/open-world-game-unity
+/Users/junma/cc-project/open-world-game/U3D/open-world-game-unity
+[Package Manager] Server process was shutdown
+[Licensing::Client] Code 0 while verifying Licensing Client signature (process Id: 3004, path: "/Applications/Unity Hub.app/Contents/Frameworks/UnityLicensingClient_V1.app/Contents/MacOS/Unity.Licensing.Client")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Error: HandshakeResponse reported an error:
+	ResponseCode: 505
+	ResponseStatus: Unsupported protocol version '1.18.1'.
+[Licensing::Module] Error: Failed to handshake to channel: "LicenseClient-junma"
+[Licensing::IpcConnector] LicenseClient-junma channel disconnected successfully.
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-junma-6000.4.9" at "2026-06-19T17:27:58.472416Z"
+[Licensing::Client] Code 0 while verifying Licensing Client signature (process Id: 48969, path: "/Applications/Unity/Hub/Editor/6000.4.9f1/Unity.app/Contents/Helpers/UnityLicensingClient.app/Contents/MacOS/Unity.Licensing.Client")
+[Licensing::Module] LicensingClient has failed validation; ignoring

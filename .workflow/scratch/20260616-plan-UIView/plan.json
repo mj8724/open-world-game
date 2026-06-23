@@ -1,0 +1,25 @@
+{
+  "summary": "重构UI表现层：实现毛玻璃Shader并替换为分类抽屉侧边栏",
+  "approach": "1. 补全 Shader 代码；2. 构建极简 UI Prefab (侧边栏及分类按钮)；3. 通过 ViewModel 绑定交互。",
+  "waves": [
+    {
+      "phase": "Wave 1 (底层Shader与UI结构)",
+      "tasks": ["TASK-001", "TASK-002"]
+    },
+    {
+      "phase": "Wave 2 (绑定数据驱动)",
+      "tasks": ["TASK-003"]
+    }
+  ],
+  "confidence": {
+    "overall_score": 95,
+    "dimensions": {
+      "requirements_coverage": 100,
+      "task_quality": 95,
+      "dependency_correctness": 95,
+      "estimation_accuracy": 90,
+      "collision_safety": 95
+    },
+    "pressure_pass": "TASK-002 UI Prefab constraint checked."
+  }
+}

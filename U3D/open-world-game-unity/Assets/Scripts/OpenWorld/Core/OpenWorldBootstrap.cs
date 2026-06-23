@@ -29,9 +29,11 @@ namespace OpenWorld
         public OpenWorldHudController Hud { get; private set; }
         public OpenWorldStrategicMapController StrategicMap { get; private set; }
 
-        // 注释掉自动创建逻辑，避免与场景中的 Bootstrap GameObject 冲突
-        // 场景中已存在 OpenWorldBootstrap，运行时创建会导致双重实例化，
-        // 单例检查时销毁实例会连带销毁所有已生成的建筑和单位子对象
+        // 自动创建逻辑已禁用 - 见 Awake() 中的运行时检查
+        // 历史问题：RuntimeInitializeOnLoadMethod 自动创建会与场景中已有的 Bootstrap 冲突，
+        // 导致双重实例化，单例检查时 Destroy 会连带销毁所有子对象（建筑/单位）。
+        // 解决方案：场景中手动放置 Bootstrap GameObject，由 Awake 单例检查保证唯一性。
+        //
         // [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         // private static void EnsureBootstrap()
         // {
@@ -43,11 +45,17 @@ namespace OpenWorld
         private void Awake()
         {
             Application.runInBackground = true;
-            if (FindObjectsOfType<OpenWorldBootstrap>().Length > 1)
+
+            // 单例检查 - 如果场景中有多个 Bootstrap，销毁后来的
+            var existing = FindObjectsOfType<OpenWorldBootstrap>();
+            if (existing.Length > 1)
             {
+                Debug.LogWarning($"[OpenWorld] 检测到多个 OpenWorldBootstrap 实例（共 {existing.Length} 个）。" +
+                                 "请确保场景中只有一个 Bootstrap GameObject。销毁重复实例。");
                 Destroy(gameObject);
                 return;
             }
+
             DontDestroyOnLoad(gameObject);
             BuildWorld();
         }

@@ -1,0 +1,118 @@
+{
+  "session_id": "maestro-20260617-145857",
+  "source": "maestro",
+  "intent": "我要设置一个按ESC的菜单，有一个语言选项可以改成中文",
+  "task_type": "feature",
+  "chain_name": "feature_pipeline",
+  "ralph_protocol_version": "1",
+  "active_step_index": null,
+  "phase": null,
+  "phase_is_new": false,
+  "milestone": "",
+  "scope_verdict": "medium",
+  "analyze_macro_id": null,
+  "blueprint_id": null,
+  "auto_mode": false,
+  "cli_tool": "claude",
+  "context": {
+    "scratch_dir": null,
+    "plan_dir": null,
+    "analysis_dir": null,
+    "brainstorm_dir": null,
+    "blueprint_dir": null,
+    "issue_id": null
+  },
+  "steps": [
+    {
+      "index": 0,
+      "skill": "maestro-analyze",
+      "args": "ESC菜单及官方Localization多语言包的集成方案",
+      "stage": "analyze",
+      "scope": "standalone",
+      "decision": null,
+      "command_scope": "global",
+      "command_path": "/Users/junma/.agents/skills/maestro-analyze/SKILL.md",
+      "milestone_id": null,
+      "source_artifact_ref": null,
+      "status": "done",
+      "goal_ref": null,
+      "completion_confirmed": true,
+      "completion_status": "DONE",
+      "completion_evidence": null,
+      "completed_at": "2026-06-18T00:54:00Z",
+      "deferred_reads": [],
+      "load": null
+    },
+    {
+      "index": 1,
+      "skill": "maestro-plan",
+      "args": "--from analyze:latest",
+      "stage": "plan",
+      "scope": "standalone",
+      "decision": null,
+      "command_scope": "global",
+      "command_path": "/Users/junma/.agents/skills/maestro-plan/SKILL.md",
+      "status": "done",
+      "completion_confirmed": true
+    },
+    {
+      "index": 2,
+      "skill": "maestro-execute",
+      "args": "",
+      "stage": "execute",
+      "scope": "standalone",
+      "decision": null,
+      "command_scope": "global",
+      "command_path": "/Users/junma/.agents/skills/maestro-execute/SKILL.md",
+      "status": "done",
+      "completion_confirmed": true
+    }
+  ],
+  "waves": [],
+  "current_step": 2,
+  "status": "completed",
+  "boundary_contract": {
+    "in_scope": [
+      "安装并配置 Unity Localization Package",
+      "监听 ESC 键盘事件并处理菜单的弹出/收起",
+      "控制 Time.timeScale 暂停和恢复",
+      "在 UI Toolkit 中制作带有语言切换下拉框/按钮的暂停菜单"
+    ],
+    "out_of_scope": [
+      "重写现有的核心游戏逻辑",
+      "增加除语言切换外的其他设置选项（如画质、音效），预留位置即可"
+    ]
+  },
+  "execution_criteria": [
+    "按 ESC 游戏画面冻结 (timeScale=0)，显示菜单",
+    "菜单内存在语言切换功能并成功接管 Unity Localization",
+    "切换到中文后，菜单测试文本变成中文"
+  ],
+  "task_decomposition": [
+    {
+      "id": "T1",
+      "title": "系统层：配置 Localization Package",
+      "status": "done",
+      "completion_confirmed": true,
+      "done_when": "Package is installed and basic EN/ZH locale tables exist.",
+      "evidence": "mcp status success for com.unity.localization"
+    },
+    {
+      "id": "T2",
+      "title": "逻辑层：ESC 输入与游戏暂停",
+      "status": "done",
+      "completion_confirmed": true,
+      "done_when": "Input Action responds to ESC and toggles timescale and UI visibility.",
+      "evidence": "PauseController.cs created."
+    },
+    {
+      "id": "T3",
+      "title": "表现层：UI Toolkit 菜单界面",
+      "status": "done",
+      "completion_confirmed": true,
+      "done_when": "Pause menu UXML/USS created matching game's visual style.",
+      "evidence": "PauseMenu.uxml and PauseMenu.uss created."
+    }
+  ],
+  "task_decomposition_all_done": true
+}

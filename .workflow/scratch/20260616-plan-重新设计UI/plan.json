@@ -1,0 +1,30 @@
+{
+  "summary": "重构开放世界游戏的UI架构，引入 UniRx 与玻璃化材质。",
+  "approach": "第一波完成基础类的搭建（UIViewModel 与 Shader 材质），为后续面板迁移铺平道路。",
+  "task_count": 2,
+  "complexity": "Medium",
+  "task_ids": [
+    "TASK-001",
+    "TASK-002"
+  ],
+  "waves": [
+    {
+      "name": "Wave 1",
+      "tasks": [
+        "TASK-001",
+        "TASK-002"
+      ]
+    }
+  ],
+  "confidence": {
+    "overall_score": 92,
+    "dimensions": {
+      "requirements_coverage": 100,
+      "task_quality": 95,
+      "dependency_correctness": 90,
+      "estimation_accuracy": 85,
+      "collision_safety": 90
+    },
+    "pressure_pass": "TASK-001 (UIViewModel) criteria verification passed"
+  }
+}

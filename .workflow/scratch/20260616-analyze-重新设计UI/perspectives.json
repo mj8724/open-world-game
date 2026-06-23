@@ -1,0 +1,31 @@
+{
+  "perspectives": {
+    "technical": {
+      "summary": "现有 UI 高度依赖 MonoBehaviour.Update() 轮询，资源浪费极大。迁移至 UniRx 绑定架构能大幅减少开销，但需要注意事件取消订阅以防内存泄漏。",
+      "conflicts": [],
+      "unique_insights": "建议构建一个 UIViewModel 抽象基类统一管理 IDisposable。"
+    },
+    "architectural": {
+      "summary": "StateStore 和 WorldEvents 的单向数据流已具备初步雏形，目前的瓶颈在于 View 层缺乏 ViewModel 作为防腐层，导致领域逻辑泄漏。",
+      "conflicts": ["UI 组件的销毁时机与 WorldEvents 的生命周期不同步"],
+      "unique_insights": "使用 VContainer 等 DI 容器来注入 ViewModel 实例，提升可测试性。"
+    },
+    "domain_expert": {
+      "summary": "Glassmorphism 是现代 UI 的标配，但在游戏中由于背景动态多变，纯半透明会导致高对比度场景下的文本难以阅读。",
+      "conflicts": [],
+      "unique_insights": "除了 Shader 层面的 Blur，还需要在文本外层加入 1px 的深色描边或阴影作为最低保障。"
+    }
+  },
+  "technical_solutions": [
+    {
+      "round": 1,
+      "solution": "引入 UniRx 并构建 UIViewModel 基类统一 Dispose。",
+      "problem": "避免事件驱动带来的潜在内存泄漏。",
+      "rationale": "规范化生命周期管理",
+      "alternatives": ["C# 原生 Action event +=/-="],
+      "status": "proposed",
+      "evidence_refs": ["Assets/Scripts/Core/WorldEvents.cs"],
+      "next_action": "需要确定具体是采用 UniRx 还是原生的 async/await IAsyncEnumerable"
+    }
+  ]
+}

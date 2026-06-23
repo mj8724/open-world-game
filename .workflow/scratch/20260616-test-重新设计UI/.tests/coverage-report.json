@@ -1,0 +1,11 @@
+{
+  "target": "重新设计UI",
+  "generated_at": "2026-06-16T13:02:00+08:00",
+  "requirements_covered": [
+    "REQ-ANL-2"
+  ],
+  "requirements_uncovered": [
+    "REQ-ANL-1"
+  ],
+  "coverage_percentage": 50.0
+}

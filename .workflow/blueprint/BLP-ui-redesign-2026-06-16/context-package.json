@@ -1,0 +1,41 @@
+{
+  "$schema": "context-package/1.0",
+  "source": {
+    "type": "blueprint",
+    "artifact_id": "BLP-ui-redesign-2026-06-16",
+    "session_path": "blueprint/BLP-ui-redesign-2026-06-16",
+    "generated_at": "2026-06-16T00:55:00Z"
+  },
+  "requirements": [
+    { "id": "REQ-001", "title": "HUD 基础框架重构", "priority": "must", "ref": "requirements/REQ-001-hud-framework.md" },
+    { "id": "REQ-002", "title": "边缘滑出式建设抽屉面板", "priority": "must", "ref": "requirements/REQ-002-construction-drawer.md" },
+    { "id": "REQ-003", "title": "单位详情与指令面板", "priority": "must", "ref": "requirements/REQ-003-unit-details-panel.md" },
+    { "id": "NFR-ARCH-001", "title": "响应式数据绑定底座 (MVVM)", "priority": "must", "ref": "requirements/NFR-ARCH-001-data-binding.md" }
+  ],
+  "constraints": [
+    { "id": "C-001", "area": "UI Rendering", "constraint": "Glassmorphism blur fallback", "status": "locked", "ref": "architecture/ADR-002-glassmorphism-rendering.md" },
+    { "id": "C-002", "area": "Architecture", "constraint": "No MonoBehavior Update polling", "status": "locked", "ref": "architecture/ADR-001-mvvm-architecture.md" }
+  ],
+  "domain": {
+    "problem_statement": "本项目的目标是对现有的实时开放世界策略游戏进行全方位的 UI 重构。",
+    "terminology": [
+      { "term": "HUD (头显)", "definition": "Heads-up Display，游戏内常驻显示在屏幕边缘的状态与资源信息。", "ref": "glossary.json" },
+      { "term": "Glassmorphism (拟玻璃化)", "definition": "现代极简 UI 风格，特征为无边框、半透明磨砂背景与悬浮文字。", "ref": "glossary.json" },
+      { "term": "Drawer Panel (抽屉面板)", "definition": "从屏幕边缘滑出的二级菜单面板，不遮挡屏幕中心视口。", "ref": "glossary.json" },
+      { "term": "MVVM", "definition": "Model-View-ViewModel，通过声明式绑定将底层数据直接映射到 UI 元素的架构模式。", "ref": "glossary.json" },
+      { "term": "WorldEvents", "definition": "全局事件总线", "ref": "glossary.json" }
+    ]
+  },
+  "non_goals": [
+    { "title": "不包含移动端 UI 适配", "rationale": "仅针对 PC/Mac" },
+    { "title": "不包括联机功能相关界面", "rationale": "当前聚焦单机体验" }
+  ],
+  "insights": [],
+  "open_questions": [],
+  "references": [
+    { "type": "product-brief", "path": "product-brief.md" },
+    { "type": "requirements", "path": "requirements/_index.md" },
+    { "type": "architecture", "path": "architecture/_index.md" },
+    { "type": "epics", "path": "epics/_index.md" }
+  ]
+}

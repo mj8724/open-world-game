@@ -1,0 +1,38 @@
+{
+  "relevant_files": [
+    "Assets/Scripts/UI/Legacy/HUDController.cs",
+    "Assets/Scripts/UI/Legacy/ConstructionMenu.cs",
+    "Assets/Scripts/UI/Legacy/UnitPanel.cs",
+    "Assets/Scripts/Core/StateStore.cs",
+    "Assets/Scripts/Core/WorldEvents.cs"
+  ],
+  "call_chains": [
+    {
+      "trigger": "HUDController.Update()",
+      "chain": [
+        "HUDController.Update() -> StateStore.GetResource(Gold)",
+        "HUDController.Update() -> Text.text = value.ToString()"
+      ]
+    },
+    {
+      "trigger": "StateStore.AddResource()",
+      "chain": [
+        "StateStore.AddResource(Gold, 100) -> WorldEvents.InvokeOnResourceChanged()"
+      ]
+    }
+  ],
+  "data_flows": [
+    "StateStore -> (Every Frame via Update) -> UI Scripts",
+    "StateStore -> WorldEvents -> (Currently unutilized by UI)"
+  ],
+  "code_anchors": [
+    {
+      "file": "Assets/Scripts/UI/Legacy/HUDController.cs:45",
+      "snippet": "void Update() { goldText.text = StateStore.Instance.Gold.ToString(); }"
+    },
+    {
+      "file": "Assets/Scripts/Core/WorldEvents.cs:12",
+      "snippet": "public static Action<ResourceType, int> OnResourceChanged;"
+    }
+  ]
+}

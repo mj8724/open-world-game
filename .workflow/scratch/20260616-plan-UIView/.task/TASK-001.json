@@ -1,0 +1,21 @@
+{
+  "id": "TASK-001",
+  "title": "补全 Glassmorphism Shader",
+  "scope": "Assets/Materials/",
+  "action": "Modify UI_Glassmorphism_Blur.shader to implement GrabPass or CommandBuffer sampling for real blur effect.",
+  "files": [
+    {
+      "path": "Assets/Materials/UI_Glassmorphism_Blur.shader",
+      "target": "SubShader",
+      "change": "Add GrabPass and blur sampling fragment shader."
+    }
+  ],
+  "read_first": ["Assets/Materials/UI_Glassmorphism_Blur.shader"],
+  "implementation": ["Define GrabPass.", "Write vert and frag functions for multi-tap blur.", "Mix _OverlayColor."],
+  "convergence": {
+    "criteria": [
+      "grep -q 'GrabPass' Assets/Materials/UI_Glassmorphism_Blur.shader",
+      "grep -q 'CGPROGRAM' Assets/Materials/UI_Glassmorphism_Blur.shader"
+    ]
+  }
+}

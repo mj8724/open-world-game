@@ -1,0 +1,20 @@
+{
+  "id": "TASK-002",
+  "description": "实现自适应 Blur Shader 材质",
+  "type": "feature",
+  "action": "在 Assets/Materials/ 下创建并编写 UI_Glassmorphism_Blur.mat 以及对应 Shader，添加高对比度遮罩层属性支持。",
+  "read_first": [
+    "Assets/Materials/UI_Glassmorphism_Blur.mat"
+  ],
+  "implementation": [
+    "创建 Shader 'UI/GlassmorphismBlur'",
+    "添加 _BlurSize 和 _OverlayColor 属性",
+    "实现简单的降级 Fallback"
+  ],
+  "convergence": {
+    "criteria": [
+      "grep -q 'Shader \"UI/GlassmorphismBlur\"' Assets/Materials/UI_Glassmorphism_Blur.shader",
+      "grep -q '_BlurSize' Assets/Materials/UI_Glassmorphism_Blur.shader"
+    ]
+  }
+}

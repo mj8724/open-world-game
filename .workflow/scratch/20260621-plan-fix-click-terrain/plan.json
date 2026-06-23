@@ -1,0 +1,28 @@
+{
+  "summary": "修复默认点击触发地形改变的 bug",
+  "approach": "将 OpenWorldInputController.cs 中 CurrentTool 的默认值从 TerrainTool.Dig 改为 TerrainTool.None，使默认点击执行建筑放置而非地形编辑。",
+  "task_ids": ["TASK-001"],
+  "task_count": 1,
+  "complexity": "trivial",
+  "estimated_time": "5 min",
+  "waves": [
+    {
+      "wave": 1,
+      "label": "修复默认工具值",
+      "task_ids": ["TASK-001"],
+      "estimated_time": "5 min"
+    }
+  ],
+  "confidence": {
+    "overall": 95,
+    "dimensions": {
+      "requirements_coverage": 100,
+      "task_quality": 95,
+      "dependency_correctness": 100,
+      "estimation_accuracy": 90,
+      "collision_safety": 100
+    },
+    "pressure_pass": "completed",
+    "residual_risks": []
+  }
+}

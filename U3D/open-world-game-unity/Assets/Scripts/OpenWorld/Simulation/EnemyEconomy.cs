@@ -35,7 +35,7 @@ namespace OpenWorld
         {
             if (_world.Buildings.Count != _lastBuildingCount)
             {
-                foreach (var b in _world.Buildings.Values)
+                foreach (var b in _world.GetBuildingsListCached())
                 {
                     if (b.FactionId == OpenWorldConstants.EnemyFactionId)
                         RegisterBuilding(b);

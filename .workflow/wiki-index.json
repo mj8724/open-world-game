@@ -1,0 +1,372 @@
+{
+  "version": 2,
+  "generatedAt": 1782052638809,
+  "entries": [
+    {
+      "id": "project-project",
+      "type": "project",
+      "title": "Project: open-world-game",
+      "summary": "## What This Is",
+      "tags": [],
+      "status": "active",
+      "created": "2026-06-13T13:16:26.788Z",
+      "updated": "2026-06-13T13:16:26.788Z",
+      "scope": null,
+      "category": null,
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "project.md"
+      }
+    },
+    {
+      "id": "spec:project:architecture-constraints",
+      "type": "spec",
+      "title": "Architecture Constraints",
+      "summary": "# Architecture Constraints",
+      "tags": [
+        "architecture",
+        "module",
+        "layer",
+        "boundary",
+        "dependency",
+        "structure"
+      ],
+      "status": "active",
+      "created": "2026-06-13T13:17:21.293Z",
+      "updated": "2026-06-13T13:17:21.293Z",
+      "scope": "project",
+      "category": "arch",
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "specs/architecture-constraints.md"
+      }
+    },
+    {
+      "id": "spec:project:coding-conventions",
+      "type": "spec",
+      "title": "Coding Conventions",
+      "summary": "# Coding Conventions",
+      "tags": [
+        "style",
+        "naming",
+        "import",
+        "pattern",
+        "convention",
+        "formatting"
+      ],
+      "status": "active",
+      "created": "2026-06-13T13:17:21.293Z",
+      "updated": "2026-06-13T13:17:21.293Z",
+      "scope": "project",
+      "category": "coding",
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "specs/coding-conventions.md"
+      }
+    },
+    {
+      "id": "spec:project:debug-notes",
+      "type": "spec",
+      "title": "Debug Notes",
+      "summary": "# Debug Notes",
+      "tags": [
+        "debug",
+        "issue",
+        "workaround",
+        "root-cause",
+        "gotcha"
+      ],
+      "status": "active",
+      "created": "2026-06-13T13:17:21.294Z",
+      "updated": "2026-06-13T13:17:21.294Z",
+      "scope": "project",
+      "category": "debug",
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "specs/debug-notes.md"
+      }
+    },
+    {
+      "id": "spec:project:learnings",
+      "type": "spec",
+      "title": "Learnings",
+      "summary": "# Learnings",
+      "tags": [
+        "bug",
+        "lesson",
+        "gotcha",
+        "learning"
+      ],
+      "status": "active",
+      "created": "2026-06-13T13:17:21.294Z",
+      "updated": "2026-06-13T13:17:21.294Z",
+      "scope": "project",
+      "category": "learning",
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "specs/learnings.md"
+      }
+    },
+    {
+      "id": "spec:project:quality-rules",
+      "type": "spec",
+      "title": "Quality Rules",
+      "summary": "# Quality Rules",
+      "tags": [
+        "quality",
+        "lint",
+        "rule",
+        "enforcement"
+      ],
+      "status": "active",
+      "created": "2026-06-13T13:17:21.294Z",
+      "updated": "2026-06-13T13:17:21.294Z",
+      "scope": "project",
+      "category": "review",
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "specs/quality-rules.md"
+      }
+    },
+    {
+      "id": "spec:project:review-standards",
+      "type": "spec",
+      "title": "Review Standards",
+      "summary": "# Review Standards",
+      "tags": [
+        "review",
+        "checklist",
+        "gate",
+        "approval",
+        "standard"
+      ],
+      "status": "active",
+      "created": "2026-06-13T13:17:21.294Z",
+      "updated": "2026-06-13T13:17:21.294Z",
+      "scope": "project",
+      "category": "review",
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "specs/review-standards.md"
+      }
+    },
+    {
+      "id": "spec:project:test-conventions",
+      "type": "spec",
+      "title": "Test Conventions",
+      "summary": "# Test Conventions",
+      "tags": [
+        "test",
+        "coverage",
+        "mock",
+        "fixture",
+        "assertion",
+        "framework"
+      ],
+      "status": "active",
+      "created": "2026-06-13T13:17:21.294Z",
+      "updated": "2026-06-13T13:17:21.294Z",
+      "scope": "project",
+      "category": "test",
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "specs/test-conventions.md"
+      }
+    },
+    {
+      "id": "spec:project:ui-conventions",
+      "type": "spec",
+      "title": "UI Conventions",
+      "summary": "# UI Conventions",
+      "tags": [
+        "ui",
+        "design",
+        "color",
+        "typography",
+        "layout",
+        "animation",
+        "component"
+      ],
+      "status": "active",
+      "created": "2026-06-13T13:17:21.294Z",
+      "updated": "2026-06-13T13:17:21.294Z",
+      "scope": "project",
+      "category": "ui",
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "specs/ui-conventions.md"
+      }
+    },
+    {
+      "id": "scratch-20260615-brainstorm-ui-redesign-guidance-specification",
+      "type": "note",
+      "title": "Guidance Specification: UI Redesign Brainstorming",
+      "summary": "## 1. Project Positioning & Goals 本项目的目标是对现有的实时开放世界策略游戏进行全方位的 UI 重构。游戏核心循环包含资源采集、经济建设、军事训练与领土征服。新版 UI 的首要目标是改善当前混乱的视觉表现和深层嵌套的操作逻辑，以现代极简（浅色基调+半透明磨砂质感）的风格重新梳理信息架构，提供直观的经济流水展示，并强化战斗状态（如掩体加成/抗性）等常驻信息的可见度，同时在架构层面引入数据驱动的绑定机制。",
+      "tags": [],
+      "status": "draft",
+      "created": "2026-06-15T16:30:19.353Z",
+      "updated": "2026-06-15T16:30:19.354Z",
+      "scope": null,
+      "category": "scratch",
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "scratch/20260615-brainstorm-ui-redesign/guidance-specification.md"
+      }
+    },
+    {
+      "id": "scratch-20260616-analyze-uiview-context",
+      "type": "note",
+      "title": "Context: 重构UI表现层",
+      "summary": "## Locked Decisions (约束与固定决策) - **着色器补全**: 必须完成 `UI_Glassmorphism_Blur.shader`，实现真正的模糊采样（GrabPass 或 CommandBuffer）与半透明颜色叠加。 - **视觉重构**: 左侧冗杂的灰色大面板废弃。改为多层级的“抽屉式”折叠菜单。 - **交互逻辑**: 菜单项需进行分类（例如：生产、军事、物流），默认只显示分类图标按钮，点击后侧边栏才平滑滑出显示具体内容。 - **绑定 Vi",
+      "tags": [],
+      "status": "draft",
+      "created": "2026-06-16T06:08:18.006Z",
+      "updated": "2026-06-16T06:08:18.006Z",
+      "scope": null,
+      "category": "scratch",
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "scratch/20260616-analyze-UIView/context.md"
+      }
+    },
+    {
+      "id": "scratch-20260616-analyze-ui-analysis",
+      "type": "note",
+      "title": "Analysis: 重新设计UI",
+      "summary": "## 1. Executive Summary 本次评估针对开放世界策略游戏的 UI 全面重构。分析结论为 **GO (高置信度)**。 放弃了性能低下的原生 MonoBehavior.Update() 轮询，转而采用 MVVM + UniRx 事件总线的架构是完全可行的。针对游戏环境的高亮背景，采用 Blur Shader 加底层遮罩的设计在保障视觉质感的同时解决了可读性痛点。整体架构蓝图清晰，未发现不可逾越的技术屏障。",
+      "tags": [],
+      "status": "draft",
+      "created": "2026-06-15T23:33:24.499Z",
+      "updated": "2026-06-15T23:33:24.500Z",
+      "scope": null,
+      "category": "scratch",
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "scratch/20260616-analyze-重新设计UI/analysis.md"
+      }
+    },
+    {
+      "id": "scratch-20260616-analyze-ui-context",
+      "type": "note",
+      "title": "Context: 重新设计UI",
+      "summary": "**Date**: 2026-06-16 **Areas discussed**: 架构模式、底层数据流、性能优化",
+      "tags": [],
+      "status": "draft",
+      "created": "2026-06-15T23:33:40.579Z",
+      "updated": "2026-06-15T23:33:40.579Z",
+      "scope": null,
+      "category": "scratch",
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "scratch/20260616-analyze-重新设计UI/context.md"
+      }
+    },
+    {
+      "id": "scratch-20260616-analyze-ui-discussion",
+      "type": "note",
+      "title": "Discussion: 重新设计UI",
+      "summary": "## Session Metadata - **ID**: ANL-重新设计UI-2026-06-16 - **Topic**: 重新设计UI - **Dimensions**: architecture, implementation, performance - **Perspectives**: Technical, Architectural, Domain Expert - **Depth**: Standard",
+      "tags": [],
+      "status": "draft",
+      "created": "2026-06-15T23:22:36.761Z",
+      "updated": "2026-06-15T23:31:58.915Z",
+      "scope": null,
+      "category": "scratch",
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "scratch/20260616-analyze-重新设计UI/discussion.md"
+      }
+    },
+    {
+      "id": "scratch-20260616-test-ui-uat",
+      "type": "note",
+      "title": "uat",
+      "summary": "### 1. 验证 Glassmorphism Shader 属性 expected: 在 Unity 编辑器中将 UI_Glassmorphism_Blur.shader 分配给 Material 时，材质面板不报错，且能看到并调节 Blur Size 和 Overlay Color 参数。 result: pass",
+      "tags": [],
+      "status": "draft",
+      "created": "2026-06-16T04:22:21.467Z",
+      "updated": "2026-06-16T05:02:02.509Z",
+      "scope": null,
+      "category": "scratch",
+      "specCategory": null,
+      "createdBy": null,
+      "sourceRef": null,
+      "parent": null,
+      "related": [],
+      "source": {
+        "kind": "file",
+        "path": "scratch/20260616-test-重新设计UI/uat.md"
+      }
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "TASK-002",
+  "title": "新建极简侧边栏 UI Prefab 骨架",
+  "scope": "Assets/Prefabs/UI/",
+  "action": "Create SidebarMenu prefab with category buttons (Logistics, Military, etc.) and expandable content panels.",
+  "files": [
+    {
+      "path": "Assets/Scripts/UI/Views/SidebarView.cs",
+      "target": "SidebarView Class",
+      "change": "Create view script for folding/unfolding logic."
+    }
+  ],
+  "read_first": ["Assets/Scripts/UI/Core/UIViewModel.cs"],
+  "implementation": ["Create SidebarView MonoBehaviour.", "Implement ExpandCategory() and CollapseCategory()."],
+  "convergence": {
+    "criteria": [
+      "grep -q 'class SidebarView' Assets/Scripts/UI/Views/SidebarView.cs",
+      "grep -q 'ExpandCategory' Assets/Scripts/UI/Views/SidebarView.cs"
+    ]
+  }
+}

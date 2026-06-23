@@ -15,7 +15,12 @@ namespace OpenWorld
         public bool GameOver { get; private set; }
         public string GameOverText { get; private set; } = "";
         public bool IsVictory { get; private set; }
+
+        // 实例级别的 TestBot 标志，替代静态变量，解除测试器耦合
+        private bool _testBotActive;
+
 #if UNITY_EDITOR
+        [System.Obsolete("Use instance method SetTestBotActive instead")]
         public static bool TestBotIsActive;
 #endif
 
@@ -44,7 +49,19 @@ namespace OpenWorld
             _combat = new OpenWorldCombatSystem(_world);
             _production = new OpenWorldProductionSystem(_world, _units, _vehicles);
             _enemyAi = new OpenWorldEnemyAISystem(_world, _units, _terrain, _blueprints);
+            _enemyAi.SetSimulation(this); // 设置反向引用，用于 TestBot 状态检查
         }
+
+        public void SetTestBotActive(bool active)
+        {
+            _testBotActive = active;
+#if UNITY_EDITOR
+            TestBotIsActive = active; // 保持向后兼容
+#endif
+        }
+
+        public bool IsTestBotActive() => _testBotActive;
+
 
         private void Update()
         {
@@ -60,8 +77,11 @@ namespace OpenWorld
                 _production.TickEconomy();
                 _production.TickResearch();
                 TickMoraleMedical();
+                // 注意：UpdateRegionControl 更新 UnityProgress，但会被 CheckWinLose 覆盖
+                // 当前使用建筑占比版本（见 CheckWinLose:273）
                 UpdateRegionControl();
                 _world.InvalidateResourceCache();
+                _combat.MarkGridDirty();
             }
 
             if (_aiTimer >= 2.0f)
@@ -72,10 +92,11 @@ namespace OpenWorld
                     PressureSummary = _enemyAi.PressureSummary;
             }
 
-            if (_combatTimer >= 0.25f)
+            if (_combatTimer >= 1.0f)
             {
                 _combatTimer = 0f;
                 _combat.TickCombat(_units);
+                // CheckWinLose 会覆盖 UnityProgress 为建筑占比版本
                 CheckWinLose();
             }
 
@@ -151,44 +172,44 @@ namespace OpenWorld
             int houses = 0;
             foreach (var building in _world.Buildings.Values)
                 if (building.FactionId == OpenWorldConstants.PlayerFactionId && building.Kind == BuildableKind.House) houses++;
-            int populationCapacity = 16 + houses * 6;
+            int populationCapacity = GameBalance.C.PopulationBaseCapacity + houses * GameBalance.C.PopulationPerHouse;
             _world.Population.Homeless = Mathf.Max(0, _world.Population.Residents - populationCapacity);
 
-            int foodNeed = Mathf.Max(1, _world.Population.Residents / 8);
+            int foodNeed = Mathf.Max(1, _world.Population.Residents / GameBalance.C.PopulationFoodDivisor);
             if (_world.Inventory.Food >= foodNeed)
             {
                 _world.Inventory.Food -= foodNeed;
-                _world.Population.CityMorale = Mathf.Min(100f, _world.Population.CityMorale + 0.35f);
+                _world.Population.CityMorale = Mathf.Min(100f, _world.Population.CityMorale + GameBalance.C.PopulationMoraleGainWithFood);
             }
             else
             {
-                _world.Population.CityMorale = Mathf.Max(0f, _world.Population.CityMorale - 2.0f);
+                _world.Population.CityMorale = Mathf.Max(0f, _world.Population.CityMorale - GameBalance.C.PopulationMoraleLossWithoutFood);
                 PressureSummary = "Food shortage";
             }
 
             _world.Population.MedicalPressure = Mathf.Clamp01(_world.Population.Wounded / Mathf.Max(1f, _world.Population.Residents * 0.2f));
-            if (_world.Population.MedicalPressure > 0.45f)
+            if (_world.Population.MedicalPressure > GameBalance.C.PopulationMedicalPressureThreshold)
                 PressureSummary = "Medical pressure";
 
             foreach (var unit in _world.Units.Values)
             {
                 if (unit.Task == UnitTask.Moving || unit.Task == UnitTask.Attacking || unit.Task == UnitTask.Digging || unit.Task == UnitTask.Building)
-                    unit.Fatigue = Mathf.Min(100f, unit.Fatigue + 0.5f);
+                    unit.Fatigue = Mathf.Min(100f, unit.Fatigue + GameBalance.C.UnitFatigueGainActive);
                 else if (unit.Task == UnitTask.Idle)
                 {
-                    unit.Fatigue = Mathf.Max(0f, unit.Fatigue - 1.5f);
+                    unit.Fatigue = Mathf.Max(0f, unit.Fatigue - GameBalance.C.UnitFatigueRecoveryIdle);
                     if (unit.Hp < unit.MaxHp && !unit.Wounded)
-                        unit.Hp = Mathf.Min(unit.MaxHp, unit.Hp + 1);
-                    if (unit.Hp >= unit.MaxHp * 0.75f)
+                        unit.Hp = Mathf.Min(unit.MaxHp, unit.Hp + GameBalance.C.UnitHpRecoveryIdle);
+                    if (unit.Hp >= unit.MaxHp * GameBalance.C.PopulationWoundedRecoveryThreshold)
                         unit.Wounded = false;
                 }
                 else
-                    unit.Fatigue = Mathf.Max(0f, unit.Fatigue - 0.8f);
+                    unit.Fatigue = Mathf.Max(0f, unit.Fatigue - GameBalance.C.UnitFatigueRecoveryOther);
 
-                if (unit.Supplies <= 5f || unit.Fatigue > 80f || unit.Wounded)
-                    unit.Morale = Mathf.Max(0f, unit.Morale - 0.6f);
+                if (unit.Supplies <= GameBalance.C.UnitLowSuppliesThreshold || unit.Fatigue > GameBalance.C.UnitHighFatigueThreshold || unit.Wounded)
+                    unit.Morale = Mathf.Max(0f, unit.Morale - GameBalance.C.UnitMoraleLossBadCondition);
                 else
-                    unit.Morale = Mathf.Min(100f, unit.Morale + 0.2f);
+                    unit.Morale = Mathf.Min(100f, unit.Morale + GameBalance.C.UnitMoraleGainGoodCondition);
             }
 
             HealUnitsAtClinics();
@@ -196,6 +217,11 @@ namespace OpenWorld
             TickTradeContracts();
         }
 
+        // TODO: 性能 - O(regions × (buildings + units + routes)) 每秒执行
+        // 当实体规模增大时考虑优化：
+        // 1. 使用空间索引（类似 CombatGrid）缓存区域内实体
+        // 2. 仅在实体进出区域时增量更新 presence 值
+        // 3. 降低更新频率（当前每秒，可改为每 2-3 秒）
         private void UpdateRegionControl()
         {
             int controlled = 0;
@@ -268,6 +294,7 @@ namespace OpenWorld
                 if (u.FactionId == OpenWorldConstants.EnemyFactionId) enemyUnits++;
             }
 
+            // 使用建筑占比作为 UnityProgress（覆盖 UpdateRegionControl 的区域控制版本）
             float totalBuildings = playerBuildings + enemyBuildings;
             UnityProgress = totalBuildings > 0 ? (float)playerBuildings / totalBuildings : 0.5f;
 
@@ -295,13 +322,13 @@ namespace OpenWorld
                 foreach (var unit in _world.Units.Values)
                 {
                     if (unit.FactionId != clinic.FactionId || (!unit.Wounded && unit.Hp >= unit.MaxHp)) continue;
-                    if ((unit.Cell - clinic.Origin).sqrMagnitude > 64) continue;
+                    if ((unit.Cell - clinic.Origin).sqrMagnitude > GameBalance.C.ClinicRangeSquared) continue;
                     var medicineSource = _production.FindInputStorage(clinic, ResourceKind.Medicine, 1);
                     if (medicineSource == null) break;
                     medicineSource.Storage.Spend(ResourceKind.Medicine, 1);
-                    unit.Hp = Mathf.Min(unit.MaxHp, unit.Hp + 18);
+                    unit.Hp = Mathf.Min(unit.MaxHp, unit.Hp + GameBalance.C.ClinicHealAmount);
                     unit.Wounded = unit.Hp < unit.MaxHp * 0.7f;
-                    unit.Morale = Mathf.Min(100f, unit.Morale + 4f);
+                    unit.Morale = Mathf.Min(100f, unit.Morale + GameBalance.C.ClinicMoraleBonus);
                     break;
                 }
             }
@@ -313,11 +340,11 @@ namespace OpenWorld
             {
                 if (!_world.Vehicles.TryGetValue(order.VehicleId, out var vehicle)) { order.Status = "Vehicle missing"; continue; }
                 if (!_world.Buildings.TryGetValue(order.ServiceBuildingId, out var service) || service.Kind is not (BuildableKind.Garage or BuildableKind.Station)) { order.Status = "Service point missing"; continue; }
-                if ((vehicle.Cell - service.Origin).sqrMagnitude > 16) { order.Status = "Travelling to service"; continue; }
-                if (order.Refuel && vehicle.Fuel < 100f) { var fuel = _production.FindInputStorage(service, ResourceKind.Fuel, 1); if (fuel != null) { fuel.Storage.Spend(ResourceKind.Fuel, 1); vehicle.Fuel = Mathf.Min(100f, vehicle.Fuel + 20f); } }
-                if (order.Repair && vehicle.Condition < 100f) { var parts = _production.FindInputStorage(service, ResourceKind.MachineParts, 1); if (parts != null) { parts.Storage.Spend(ResourceKind.MachineParts, 1); vehicle.Condition = Mathf.Min(100f, vehicle.Condition + 15f); } }
-                bool fuelComplete = !order.Refuel || vehicle.Fuel >= 99f;
-                bool repairComplete = !order.Repair || vehicle.Condition >= 99f;
+                if ((vehicle.Cell - service.Origin).sqrMagnitude > GameBalance.C.VehicleServiceRangeSquared) { order.Status = "Travelling to service"; continue; }
+                if (order.Refuel && vehicle.Fuel < 100f) { var fuel = _production.FindInputStorage(service, ResourceKind.Fuel, 1); if (fuel != null) { fuel.Storage.Spend(ResourceKind.Fuel, 1); vehicle.Fuel = Mathf.Min(100f, vehicle.Fuel + GameBalance.C.VehicleFuelRefillAmount); } }
+                if (order.Repair && vehicle.Condition < 100f) { var parts = _production.FindInputStorage(service, ResourceKind.MachineParts, 1); if (parts != null) { parts.Storage.Spend(ResourceKind.MachineParts, 1); vehicle.Condition = Mathf.Min(100f, vehicle.Condition + GameBalance.C.VehicleRepairAmount); } }
+                bool fuelComplete = !order.Refuel || vehicle.Fuel >= GameBalance.C.VehicleServiceCompleteThreshold;
+                bool repairComplete = !order.Repair || vehicle.Condition >= GameBalance.C.VehicleServiceCompleteThreshold;
                 order.Status = fuelComplete && repairComplete ? "Complete" : "Servicing";
                 if (order.Status == "Complete")
                 {

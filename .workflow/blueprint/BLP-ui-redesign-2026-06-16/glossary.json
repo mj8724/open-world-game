@@ -1,0 +1,32 @@
+[
+  {
+    "term": "HUD (头显)",
+    "definition": "Heads-up Display，游戏内常驻显示在屏幕边缘的状态与资源信息。",
+    "aliases": ["Head-up Display", "常驻界面"],
+    "category": "core"
+  },
+  {
+    "term": "Glassmorphism (拟玻璃化)",
+    "definition": "现代极简 UI 风格，特征为无边框、半透明磨砂背景与悬浮文字。",
+    "aliases": ["玻璃态", "拟玻璃"],
+    "category": "technical"
+  },
+  {
+    "term": "Drawer Panel (抽屉面板)",
+    "definition": "从屏幕边缘平滑滑出的二级菜单面板，不遮挡屏幕中心视口。",
+    "aliases": ["抽屉式菜单", "侧滑面板"],
+    "category": "core"
+  },
+  {
+    "term": "MVVM",
+    "definition": "Model-View-ViewModel 架构模式，通过声明式绑定将底层数据直接映射到 UI 元素。",
+    "aliases": ["响应式绑定", "数据绑定"],
+    "category": "technical"
+  },
+  {
+    "term": "WorldEvents",
+    "definition": "现有的全局静态事件总线，用于广播底层实体状态的变更事件。",
+    "aliases": ["事件总线"],
+    "category": "technical"
+  }
+]

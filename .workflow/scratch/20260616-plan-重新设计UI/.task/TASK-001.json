@@ -1,0 +1,22 @@
+{
+  "id": "TASK-001",
+  "description": "构建 UIViewModel 抽象基类",
+  "type": "feature",
+  "action": "在 Assets/Scripts/UI/Core/ 目录下创建 UIViewModel.cs，实现 IDisposable 并暴露 isActive 属性。同时要求通过 protected CompositeDisposable 统一管理所有的订阅绑定。",
+  "read_first": [
+    "Assets/Scripts/UI/Core/UIViewModel.cs"
+  ],
+  "implementation": [
+    "创建抽象类 UIViewModel : IDisposable",
+    "添加 public virtual bool isActive { get; set; }",
+    "添加 protected CompositeDisposable disposables",
+    "实现 Dispose() 内部调用 disposables.Dispose()"
+  ],
+  "convergence": {
+    "criteria": [
+      "grep -q 'class UIViewModel' Assets/Scripts/UI/Core/UIViewModel.cs",
+      "grep -q 'IDisposable' Assets/Scripts/UI/Core/UIViewModel.cs",
+      "grep -q 'isActive' Assets/Scripts/UI/Core/UIViewModel.cs"
+    ]
+  }
+}

@@ -9,7 +9,8 @@ namespace OpenWorld
         private readonly UnitSystem _units;
         private readonly SurfaceTerrainSystem _terrain;
         private readonly BlueprintSystem _blueprints;
-        
+        private OpenWorldSimulationSystem _simulation; // 用于检查 TestBot 状态
+
         private readonly EnemyEconomy _economy;
         private readonly EnemyScoutSystem _scouting;
         private readonly EnemyMilitarySystem _military;
@@ -22,21 +23,22 @@ namespace OpenWorld
             _units = units;
             _terrain = terrain;
             _blueprints = blueprints;
-            
+
             _economy = new EnemyEconomy(_world);
             _scouting = new EnemyScoutSystem();
             _military = new EnemyMilitarySystem(_economy);
         }
 
+        public void SetSimulation(OpenWorldSimulationSystem simulation)
+        {
+            _simulation = simulation;
+        }
+
         public void Tick()
         {
-            #if UNITY_EDITOR
-            if (OpenWorldSimulationSystem.TestBotIsActive)
+            // 在测试模式下跳过（使用实例方法检查，解除静态耦合）
+            if (_simulation != null && _simulation.IsTestBotActive())
                 return;
-            #else
-            if (UnityEngine.Object.FindFirstObjectByType<OpenWorld.Testing.TestBotManager>() != null)
-                return;
-            #endif
 
             if (_world.Buildings.Count == 0) return;
             

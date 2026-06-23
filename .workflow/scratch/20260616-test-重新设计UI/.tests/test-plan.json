@@ -1,0 +1,17 @@
+{
+  "target": "重新设计UI",
+  "generated_at": "2026-06-16T12:22:00+08:00",
+  "tests": [
+    {
+      "id": "T-001",
+      "name": "验证 Glassmorphism Shader 属性",
+      "category": "e2e",
+      "expected": "在 Unity 编辑器中将 UI_Glassmorphism_Blur.shader 分配给 Material 时，材质面板不报错，且能看到并调节 Blur Size 和 Overlay Color 参数。",
+      "requirement_ref": "REQ-ANL-2"
+    }
+  ],
+  "coverage": {
+    "requirements_mapped": ["REQ-ANL-2"],
+    "requirements_unmapped": ["REQ-ANL-1"]
+  }
+}
